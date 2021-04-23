@@ -56,6 +56,7 @@ import org.apache.flink.core.fs.FileSystem.WriteMode;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functional.StreamFunctionalInterfaceGenerator;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
@@ -112,6 +113,7 @@ import org.apache.flink.util.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * A DataStream represents a stream of elements of the same type. A DataStream can be transformed
@@ -1360,5 +1362,18 @@ public class DataStream<T> {
     @Internal
     public Transformation<T> getTransformation() {
         return transformation;
+    }
+
+    /**
+     * Returns the {@link Function} that represents the computation logic of the given {@link DataStream}.
+     *
+     * @param dataStream A {@link DataStream} whose computation logic will be extracted
+     * @param <IN> Class of the input data
+     * @param <OUT> Class of the output data
+     * @return the {@link Function} that represents the computation logic
+     * @throws Exception
+     */
+    public static <IN, OUT> Function<List<IN>, List<OUT>> toFunction(DataStream<OUT> dataStream) throws Exception {
+        return StreamFunctionalInterfaceGenerator.createFunction(dataStream);
     }
 }
