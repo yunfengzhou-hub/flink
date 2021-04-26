@@ -18,11 +18,13 @@
 
 package org.apache.flink.streaming.api.functional;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.datastream.DataStream;
 
 import java.util.List;
 import java.util.function.Function;
 
+@Internal
 public class StreamFunctionalInterfaceGenerator {
     /**
      * create a {@link Function} that represents the computation logic of the provided {@link DataStream}.
