@@ -51,18 +51,12 @@ class EmbedUserCodeClassLoader implements UserCodeClassLoader {
     /** Builder for the testing classloader. */
     public static final class Builder {
         private ClassLoader classLoader = Builder.class.getClassLoader();
-        private BiConsumer<String, Runnable> registerReleaseHookConsumer = (ign, ore) -> {};
+        private final BiConsumer<String, Runnable> registerReleaseHookConsumer = (ign, ore) -> {};
 
         private Builder() {}
 
         public Builder setClassLoader(ClassLoader classLoader) {
             this.classLoader = classLoader;
-            return this;
-        }
-
-        public Builder setRegisterReleaseHookConsumer(
-                BiConsumer<String, Runnable> registerReleaseHookConsumer) {
-            this.registerReleaseHookConsumer = registerReleaseHookConsumer;
             return this;
         }
 

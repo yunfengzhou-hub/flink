@@ -29,6 +29,8 @@ import org.apache.flink.streaming.api.functions.co.CoFlatMapFunction;
 import org.apache.flink.streaming.api.functions.co.CoMapFunction;
 import org.apache.flink.util.Collector;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -39,9 +41,15 @@ import java.util.function.Function;
 import static org.junit.Assert.assertEquals;
 
 public class CorrectnessTest {
+    StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
+
+    @Before
+    public void createEnvironment() {
+        env = StreamExecutionEnvironment.createLocalEnvironment();
+    }
+
     @Test
     public void testBasicCorrectness() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements("hello")
                 .map(String::toUpperCase);
         assertEquals(Collections.singletonList("HELLO"), DataStream.toFunction(stream).apply(Collections.singletonList("hello")));
@@ -49,7 +57,6 @@ public class CorrectnessTest {
 
     @Test
     public void testChainedOperation() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements(1)
                 .map(x -> x + "x")
                 .map(String::toUpperCase);
@@ -58,7 +65,6 @@ public class CorrectnessTest {
 
     @Test
     public void testConnectedStream() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<Integer> input = env.fromElements(1);
         DataStream<Integer> branch1 = input.map(x -> x+1);
         DataStream<Integer> branch2 = input.map(x -> x-1);
@@ -80,7 +86,6 @@ public class CorrectnessTest {
 
     @Test
     public void testUnionStream() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<Integer> input = env.fromElements(1);
         DataStream<Integer> branch1 = input.map(x -> x+1);
         DataStream<Integer> branch2 = input.map(x -> x-1);
@@ -96,7 +101,6 @@ public class CorrectnessTest {
 
     @Test
     public void testFlatMap() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<Integer> stream = env.fromElements(1)
                 .flatMap(new FlatMapFunction<Integer, Integer>() {
                     @Override
@@ -113,7 +117,6 @@ public class CorrectnessTest {
 
     @Test
     public void testFilter() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<Integer> stream = env.fromElements(1)
                 .filter((FilterFunction<Integer>) integer -> false);
 
@@ -122,7 +125,6 @@ public class CorrectnessTest {
 
     @Test
     public void testCoFlatMap() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<Integer> input = env.fromElements(1);
         DataStream<Integer> branch1 = input.map(x -> x+1);
         DataStream<Integer> branch2 = input.map(x -> x-1);
@@ -144,7 +146,6 @@ public class CorrectnessTest {
 
     @Test
     public void testProject() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<Tuple3<String, Integer, Boolean>> input = env.fromElements(new Tuple3<>("hello", 1, true));
         DataStream<Tuple2<Boolean, String>> stream = input.project(2, 0);
 
@@ -153,7 +154,6 @@ public class CorrectnessTest {
 
     @Test
     public void testStartNewChain() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements("hello")
                 .map(String::toUpperCase)
                 .map(String::toUpperCase)
@@ -165,7 +165,6 @@ public class CorrectnessTest {
 
     @Test
     public void testDisableChaining() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements("hello")
                 .map(String::toUpperCase)
                 .map(String::toUpperCase)
@@ -177,7 +176,6 @@ public class CorrectnessTest {
 
     @Test
     public void testNotClearOperators() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements("hello")
                 .map(String::toUpperCase);
         assertEquals(Collections.singletonList("HELLO"), DataStream.toFunction(stream).apply(Collections.singletonList("hello")));
@@ -187,7 +185,6 @@ public class CorrectnessTest {
 
     @Test
     public void testMultipleInvocation() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements("hello")
                 .map(String::toUpperCase);
         Function<List<String>, List<String>> function = DataStream.toFunction(stream);
@@ -198,7 +195,6 @@ public class CorrectnessTest {
 
     @Test
     public void testOperatorID() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements("hello")
                 .map(String::toUpperCase).uid("operator 6")
                 .map(String::toLowerCase).uid("operator 5")
@@ -212,7 +208,6 @@ public class CorrectnessTest {
 
     @Test
     public void testIrrelevantBranch() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> input = env.fromElements("hello");
         DataStream<String> stream = input.map(String::toUpperCase);
         DataStream<String> stream2 = stream.map(x -> x+" " +x);
@@ -235,11 +230,15 @@ public class CorrectnessTest {
 
     @Test
     public void testPartitioning() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
         DataStream<String> stream = env.fromElements("hello")
                 .shuffle()
                 .map(String::toUpperCase);
 
         assertEquals(Collections.singletonList("HELLO"), DataStream.toFunction(stream).apply(Collections.singletonList("hello")));
+    }
+
+    @After
+    public void clearGraph() {
+        env.getStreamGraph();
     }
 }

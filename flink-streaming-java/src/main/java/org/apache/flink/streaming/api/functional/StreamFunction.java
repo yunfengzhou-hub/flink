@@ -41,16 +41,18 @@ import org.apache.flink.streaming.runtime.tasks.StreamTask;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
 class StreamFunction<T, R> implements Function<List<T>, List<R>> {
-    private final StreamGraph graph;
+    private final DataStream<R> dataStream;
 
     StreamFunction(DataStream<R> dataStream) {
-        graph = getStreamGraph(dataStream);
+        this.dataStream = dataStream;
+        StreamGraph graph = getStreamGraph(dataStream);
         validateGraph(graph);
     }
 
@@ -109,99 +111,67 @@ class StreamFunction<T, R> implements Function<List<T>, List<R>> {
      * @return result after applying the computation logic to input data.
      */
     @Override
-    public List<R> apply(List<T> ts) {
-        // initializing operators
-        List<Runnable> runners = new ArrayList<>();
-        Map<Integer, List<List<StreamRecord>>> sourceOutputs = new HashMap<>();
-        List<StreamRecord> outputEntry = new ArrayList<>();
-
+    public List<R> apply(List<T> ts){
+        StreamGraph graph = getStreamGraph(dataStream);
         List<StreamNode> nodes = new ArrayList<>(graph.getStreamNodes());
+        Map<Integer, List<StreamRecord>> nodeOutputs = new HashMap<>();
+        List<StreamRecord> outputList = new ArrayList<>();
+        topologicalSort(nodes);
 
-        Map<Integer, EmbedGraphVertex> vertexMap = new HashMap<>();
-        Map<Integer, EmbedOutput<StreamRecord>> outputMap = new HashMap<>();
-
-        for(StreamNode node: nodes){
-            StreamOperator operator = node.getOperator();
-
-            if(operator instanceof StreamSource){
-                sourceOutputs.put(node.getId(), new ArrayList<>());
-                continue;
-            }
-
-            EmbedGraphVertex vertex = EmbedGraphVertex.createEmbedGraphVertex(node);
-
-            EmbedOutput<StreamRecord> output = new EmbedOutput<>();
-            output.addCollector(vertex.getOutput());
-            outputMap.put(node.getId(), output);
-            outputEntry = vertex.getOutput();
-
-            runners.add(vertex);
-            vertexMap.put(node.getId(), vertex);
-        }
-
+        StreamTask<?, ?> task;
         try {
-            initializeOperators(nodes, outputMap);
+            task = new OneInputStreamTask<>(new EmbedRuntimeEnvironment());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
-        connectVertices(nodes, sourceOutputs, outputMap, vertexMap);
-
-        // begin to process input data
-        for(T t:ts){
-            for(List<List<StreamRecord>> outputs:sourceOutputs.values()){
-                for(List<StreamRecord> output:outputs){
-                    output.add(new StreamRecord(t));
-                }
-            }
-        }
-
-        // run vertices in topological order
-        for(Runnable runner: runners) {
-            runner.run();
-        }
-
-        List<R> result = new ArrayList<>();
-        for(StreamRecord<R> record:outputEntry){
-            result.add(record.getValue());
-        }
-        return result;
-    }
-
-    private static void initializeOperators(List<StreamNode> nodes, Map<Integer, EmbedOutput<StreamRecord>> outputMap) throws Exception {
-        StreamTask<?, ?> task = new OneInputStreamTask<>(new EmbedRuntimeEnvironment());
         StreamConfig streamConfig = new StreamConfig(new Configuration());
         streamConfig.setOperatorID(new OperatorID());
         streamConfig.setOperatorName("operator name");
 
-        for(StreamNode node: nodes){
-            StreamOperator<?> operator = node.getOperator();
+        for(StreamNode node: nodes) {
+            outputList = new ArrayList<>();
+            nodeOutputs.put(node.getId(), outputList);
+            StreamOperator operator = node.getOperator();
 
-            if(operator instanceof StreamSource){
+            if (operator instanceof StreamSource) {
+                for(T t:ts){
+                    outputList.add(new StreamRecord<>(t));
+                }
                 continue;
             }
 
-            ((AbstractStreamOperator)operator).setup(task, streamConfig, outputMap.get(node.getId()));
-            operator.open();
-        }
-    }
+            EmbedGraphVertex vertex = EmbedGraphVertex.createEmbedGraphVertex(node);
+            vertex.setOutput(outputList);
 
-    private static void connectVertices(
-            List<StreamNode> nodes, Map<Integer,
-            List<List<StreamRecord>>> sourceOutputs,
-            Map<Integer, EmbedOutput<StreamRecord>> outputMap,
-            Map<Integer, EmbedGraphVertex> vertexMap){
-        for(StreamNode node: nodes){
-            for(StreamEdge edge : node.getOutEdges()){
+            EmbedOutput<StreamRecord> output = new EmbedOutput<>();
+            output.addCollector(outputList);
+
+            ((AbstractStreamOperator)operator).setup(task, streamConfig, output);
+            try {
+                operator.open();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            for(StreamEdge edge : node.getInEdges()){
                 int sourceId = edge.getSourceId();
-                int targetId = edge.getTargetId();
 
-                if(sourceOutputs.containsKey(sourceId)){
-                    sourceOutputs.get(sourceId).add(vertexMap.get(targetId).getInput(edge.getTypeNumber()));
-                }else{
-                    outputMap.get(sourceId).addCollector(vertexMap.get(targetId).getInput(edge.getTypeNumber()));
+                for(StreamRecord record:nodeOutputs.get(sourceId)){
+                    vertex.getInput(edge.getTypeNumber()).add(new StreamRecord(record.getValue()));
                 }
             }
+
+            vertex.run();
         }
+
+        List<R> result = new ArrayList<>();
+        for(StreamRecord r:outputList){
+            result.add((R) r.getValue());
+        }
+        return result;
+    }
+
+    private void topologicalSort(List<StreamNode> nodes){
+        nodes.sort(Comparator.comparingInt(StreamNode::getId));
     }
 }

@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.api.functional.environment;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
@@ -41,7 +42,6 @@ import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
-import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
@@ -52,52 +52,28 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Future;
 
+@Internal
 public class EmbedRuntimeEnvironment implements Environment {
 
     private final JobID jobId = new JobID();
     private final JobVertexID jobVertexId = new JobVertexID();
     private final ExecutionAttemptID executionId = new ExecutionAttemptID();
-    private final ExecutionConfig executionConfig = new ExecutionConfig();
     private final TaskInfo taskInfo;
-    private KvStateRegistry kvStateRegistry = new KvStateRegistry();
-    private TaskStateManager taskStateManager;
-    private final GlobalAggregateManager aggregateManager;
     private final AccumulatorRegistry accumulatorRegistry =
             new AccumulatorRegistry(jobId, executionId);
-    private UserCodeClassLoader userClassLoader;
 
     public EmbedRuntimeEnvironment() {
         this("Function Job", 1, 0, 1);
     }
 
-    public EmbedRuntimeEnvironment(ClassLoader userClassLoader) {
-        this("Function Job", 1, 0, 1);
-        this.userClassLoader =
-                EmbedUserCodeClassLoader.newBuilder().setClassLoader(userClassLoader).build();
-    }
-
-    public EmbedRuntimeEnvironment(String taskName, int numSubTasks, int subTaskIndex) {
-        this(taskName, numSubTasks, subTaskIndex, numSubTasks);
-    }
-
     public EmbedRuntimeEnvironment(
             String taskName, int numSubTasks, int subTaskIndex, int maxParallelism) {
         this.taskInfo = new TaskInfo(taskName, maxParallelism, subTaskIndex, numSubTasks, 0);
-        this.taskStateManager = new EmbedTaskStateManager();
-        this.aggregateManager = new EmbedGlobalAggregateManager();
-    }
-
-    public void setKvStateRegistry(KvStateRegistry kvStateRegistry) {
-        this.kvStateRegistry = kvStateRegistry;
-    }
-
-    public KvStateRegistry getKvStateRegistry() {
-        return kvStateRegistry;
     }
 
     @Override
     public ExecutionConfig getExecutionConfig() {
-        return executionConfig;
+        return null;
     }
 
     @Override
@@ -157,11 +133,7 @@ public class EmbedRuntimeEnvironment implements Environment {
 
     @Override
     public UserCodeClassLoader getUserCodeClassLoader() {
-        if (userClassLoader == null) {
-            return EmbedUserCodeClassLoader.newBuilder().build();
-        } else {
-            return userClassLoader;
-        }
+        return EmbedUserCodeClassLoader.newBuilder().build();
     }
 
     @Override
@@ -176,12 +148,12 @@ public class EmbedRuntimeEnvironment implements Environment {
 
     @Override
     public TaskStateManager getTaskStateManager() {
-        return taskStateManager;
+        return null;
     }
 
     @Override
     public GlobalAggregateManager getGlobalAggregateManager() {
-        return aggregateManager;
+        return null;
     }
 
     @Override
@@ -191,7 +163,7 @@ public class EmbedRuntimeEnvironment implements Environment {
 
     @Override
     public TaskKvStateRegistry getTaskKvStateRegistry() {
-        return kvStateRegistry.createTaskRegistry(jobId, jobVertexId);
+        return null;
     }
 
     @Override
@@ -242,10 +214,6 @@ public class EmbedRuntimeEnvironment implements Environment {
     @Override
     public TaskEventDispatcher getTaskEventDispatcher() {
         throw new UnsupportedOperationException();
-    }
-
-    public void setTaskStateManager(TaskStateManager taskStateManager) {
-        this.taskStateManager = taskStateManager;
     }
 
     @Override

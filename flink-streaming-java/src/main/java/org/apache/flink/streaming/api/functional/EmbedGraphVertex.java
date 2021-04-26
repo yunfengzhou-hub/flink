@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 abstract class EmbedGraphVertex implements Runnable {
-    protected final List<StreamRecord> output = new ArrayList<>();
+    protected List<StreamRecord> output = new ArrayList<>();
     protected final int id;
 
     public static EmbedGraphVertex createEmbedGraphVertex(StreamNode node){
@@ -48,6 +48,10 @@ abstract class EmbedGraphVertex implements Runnable {
     }
 
     public abstract List<StreamRecord> getInput(int typeNumber);
+
+    public void setOutput(List<StreamRecord> output){
+        this.output = output;
+    }
 
     public List<StreamRecord> getOutput(){
         return output;

@@ -20,14 +20,11 @@ package org.apache.flink.streaming.api.functional.environment;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
-import org.apache.flink.runtime.util.EnvironmentInformation;
 
 import java.io.File;
 import java.net.InetAddress;
 
-import static org.apache.flink.shaded.guava18.com.google.common.base.Preconditions.checkNotNull;
-
-public class EmbedTaskManagerRuntimeInfo implements TaskManagerRuntimeInfo {
+class EmbedTaskManagerRuntimeInfo implements TaskManagerRuntimeInfo {
     private final Configuration configuration;
     private final String[] tmpDirectories;
     private final String taskManagerExternalAddress;
@@ -36,14 +33,6 @@ public class EmbedTaskManagerRuntimeInfo implements TaskManagerRuntimeInfo {
         this(
                 new Configuration(),
                 System.getProperty("java.io.tmpdir").split(",|" + File.pathSeparator));
-    }
-
-    public EmbedTaskManagerRuntimeInfo(Configuration configuration) {
-        this(configuration, EnvironmentInformation.getTemporaryFileDirectory());
-    }
-
-    public EmbedTaskManagerRuntimeInfo(Configuration configuration, String tmpDirectory) {
-        this(configuration, new String[] {checkNotNull(tmpDirectory)});
     }
 
     public EmbedTaskManagerRuntimeInfo(Configuration configuration, String[] tmpDirectories) {
