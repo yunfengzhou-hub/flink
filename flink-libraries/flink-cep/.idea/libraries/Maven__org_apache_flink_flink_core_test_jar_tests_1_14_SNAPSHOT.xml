@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.apache.flink:flink-core:test-jar:tests:1.14-SNAPSHOT">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-core/1.14-SNAPSHOT/flink-core-1.14-20211122.234932-424-tests.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-core/1.14-SNAPSHOT/flink-core-1.14-20211122.234932-424-test-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-core/1.14-SNAPSHOT/flink-core-1.14-20211122.234932-424-test-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

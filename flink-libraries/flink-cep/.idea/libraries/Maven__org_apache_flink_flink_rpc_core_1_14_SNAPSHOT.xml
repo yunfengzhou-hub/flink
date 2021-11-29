@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.apache.flink:flink-rpc-core:1.14-SNAPSHOT">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-rpc-core/1.14-SNAPSHOT/flink-rpc-core-1.14-20211122.235157-288.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-rpc-core/1.14-SNAPSHOT/flink-rpc-core-1.14-20211122.235157-288-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-rpc-core/1.14-SNAPSHOT/flink-rpc-core-1.14-20211122.235157-288-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

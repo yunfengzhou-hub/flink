@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.apache.flink:flink-rpc-akka-loader:test-jar:tests:1.14-SNAPSHOT">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-rpc-akka-loader/1.14-SNAPSHOT/flink-rpc-akka-loader-1.14-20211122.235213-243-tests.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-rpc-akka-loader/1.14-SNAPSHOT/flink-rpc-akka-loader-1.14-20211122.235213-243-test-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/flink/flink-rpc-akka-loader/1.14-SNAPSHOT/flink-rpc-akka-loader-1.14-20211122.235213-243-test-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
