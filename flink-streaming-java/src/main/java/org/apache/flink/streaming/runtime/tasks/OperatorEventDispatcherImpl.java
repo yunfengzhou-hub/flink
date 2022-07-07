@@ -87,6 +87,25 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         return new OperatorEventGatewayImpl(toCoordinator, operatorId);
     }
 
+    void snapshotState() {
+        OperatorID operatorID = new OperatorID();
+        OperatorEventGatewayImpl operatorEventGateway =
+                new OperatorEventGatewayImpl(toCoordinator, operatorID);
+        operatorEventGateway.snapshotState();
+    }
+
+    void initializeState() {
+
+    }
+
+    void closeGatewayAndBufferEvents() {
+
+    }
+
+    void reopenGatewayAndReleaseEvents() {
+
+    }
+
     // ------------------------------------------------------------------------
 
     private static final class OperatorEventGatewayImpl implements OperatorEventGateway {
@@ -113,6 +132,21 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
             }
 
             toCoordinator.sendOperatorEventToCoordinator(operatorId, serializedEvent);
+        }
+
+        private void snapshotState() {
+        }
+
+        void initializeState() {
+
+        }
+
+        void startBuffer() {
+
+        }
+
+        void releaseBuffer() {
+
         }
     }
 }

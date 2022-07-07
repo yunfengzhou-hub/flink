@@ -37,4 +37,12 @@ public interface OperatorEventDispatcher {
      * operator identified by the given OperatorID.
      */
     OperatorEventGateway getOperatorEventGateway(OperatorID operatorId);
+
+    default OperatorEventGateway getOperatorEventGateway(
+            OperatorID operatorId, OperatorCoordinatorConsistencySemantics semantics) {
+        if (semantics == OperatorCoordinatorConsistencySemantics.DEFAULT) {
+            return getOperatorEventGateway(operatorId);
+        }
+        throw new UnsupportedOperationException(String.valueOf(semantics));
+    }
 }

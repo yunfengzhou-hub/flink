@@ -225,6 +225,10 @@ public interface OperatorCoordinator extends CheckpointListener, AutoCloseable {
      */
     void subtaskReady(int subtask, SubtaskGateway gateway);
 
+    default OperatorCoordinatorConsistencySemantics getConsistencySemantics() {
+        return OperatorCoordinatorConsistencySemantics.DEFAULT;
+    }
+
     // ------------------------------------------------------------------------
     // ------------------------------------------------------------------------
 

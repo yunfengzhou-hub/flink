@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.runtime.source.event.ReportedWatermarkEvent;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.streaming.api.operators.StreamOperator;
@@ -77,6 +78,15 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
     @Override
     public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event)
             throws FlinkException {
+        final OperatorEvent evt;
+        try {
+            evt = event.deserializeValue(null);
+        } catch (IOException | ClassNotFoundException e) {
+            throw new FlinkException("Could not deserialize operator event", e);
+        }
+        if (evt instanceof ReportedWatermarkEvent) {
+            operatorEventDispatcher.closeGatewayAndBufferEvents();
+        }
         operatorEventDispatcher.dispatchEventToHandlers(operator, event);
     }
 
@@ -101,6 +111,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
     @Override
     public void initializeStateAndOpenOperators(
             StreamTaskStateInitializer streamTaskStateInitializer) throws Exception {
+        this.operatorEventDispatcher.initializeState();
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             StreamOperator<?> operator = operatorWrapper.getStreamOperator();
             operator.initializeState(streamTaskStateInitializer);
@@ -139,6 +150,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        this.operatorEventDispatcher.reopenGatewayAndReleaseEvents();
         Exception previousException = null;
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             try {
@@ -185,6 +197,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             ChannelStateWriter.ChannelStateWriteResult channelStateWriteResult,
             CheckpointStreamFactory storage)
             throws Exception {
+        this.operatorEventDispatcher.snapshotState();
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             if (!operatorWrapper.isClosed()) {
                 operatorSnapshotsInProgress.put(
