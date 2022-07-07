@@ -110,10 +110,7 @@ public class EventReceivingTasks implements SubtaskAccess.SubtaskAccessFactory {
     public OperatorCoordinator.SubtaskGateway createGatewayForSubtask(int subtask) {
         final SubtaskAccess sta = getAccessForSubtask(subtask);
         return new SubtaskGatewayImpl(
-                sta,
-                new OperatorEventValve(),
-                Executors.directExecutor(),
-                new IncompleteFuturesTracker());
+                sta, Executors.directExecutor(), new IncompleteFuturesTracker());
     }
 
     public void switchTaskToRunning(int subtask) {

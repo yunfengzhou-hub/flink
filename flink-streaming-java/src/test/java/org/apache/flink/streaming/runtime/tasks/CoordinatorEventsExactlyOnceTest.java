@@ -1,0 +1,269 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.streaming.runtime.tasks;
+
+import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.api.common.accumulators.LongCounter;
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
+import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.operators.coordination.OperatorEventHandler;
+import org.apache.flink.runtime.state.StateInitializationContext;
+import org.apache.flink.runtime.state.StateSnapshotContext;
+import org.apache.flink.runtime.testutils.MiniClusterResource;
+import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
+import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
+import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperatorFactory;
+import org.apache.flink.streaming.api.operators.CoordinatedOperatorFactory;
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
+import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
+import org.apache.flink.streaming.api.operators.StreamOperator;
+import org.apache.flink.streaming.api.operators.StreamOperatorParameters;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.SerializedValue;
+
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
+
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.EndEvent;
+import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.EventSendingCoordinator;
+import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.IntegerEvent;
+import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.StartEvent;
+import static org.junit.Assert.assertEquals;
+
+/**
+ * Integration test case that validates the exactly-once mechanism for operator events sent around
+ * checkpoint. This class is an extension to {@link
+ * org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase}, further
+ * verifying the exactly-once semantics of events when the flink job is constructed using actual
+ * stream operators.
+ */
+public class CoordinatorEventsExactlyOnceTest {
+    @ClassRule
+    public static final MiniClusterResource MINI_CLUSTER =
+            new MiniClusterResource(
+                    new MiniClusterResourceConfiguration.Builder()
+                            .setNumberTaskManagers(2)
+                            .setNumberSlotsPerTaskManager(2)
+                            .build());
+
+    private static final AtomicBoolean shouldCloseSource = new AtomicBoolean(false);
+
+    private StreamExecutionEnvironment env;
+
+    @Before
+    public void setup() {
+        env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
+        env.enableCheckpointing(100);
+        shouldCloseSource.set(false);
+    }
+
+    @Test
+    public void test() throws Exception {
+        executeAndVerifyResult(env);
+    }
+
+    @Test
+    public void testUnalignedCheckpoint() throws Exception {
+        env.getCheckpointConfig().enableUnalignedCheckpoints();
+        executeAndVerifyResult(env);
+    }
+
+    private void executeAndVerifyResult(StreamExecutionEnvironment env) throws Exception {
+        final int numEvents = 100;
+        final int delay = 1;
+
+        DataStream<Long> stream =
+                env.addSource(new IdlingSourceFunction<>(), TypeInformation.of(Long.class))
+                        .setParallelism(2);
+        stream =
+                stream.transform(
+                        "eventReceiving",
+                        TypeInformation.of(Long.class),
+                        new EventReceivingOperatorFactory<>("eventReceiving", numEvents, delay));
+        stream.addSink(new DiscardingSink<>());
+
+        JobExecutionResult executionResult =
+                MINI_CLUSTER
+                        .getMiniCluster()
+                        .executeJobBlocking(env.getStreamGraph().getJobGraph());
+
+        long count = executionResult.getAccumulatorResult(EventReceivingOperator.COUNTER_NAME);
+        assertEquals(numEvents, count);
+    }
+
+    /** A mock source function that does not collect any stream record and finishes on demand. */
+    private static class IdlingSourceFunction<T> extends RichSourceFunction<T>
+            implements ParallelSourceFunction<T> {
+        private boolean isCancelled = false;
+
+        @Override
+        public void run(SourceContext<T> ctx) throws Exception {
+            while (!isCancelled && !shouldCloseSource.get()) {
+                Thread.sleep(100);
+            }
+        }
+
+        @Override
+        public void cancel() {
+            isCancelled = true;
+        }
+    }
+
+    /**
+     * A wrapper operator factory for {@link EventReceivingOperator} and {@link
+     * EventSendingCoordinator}.
+     */
+    private static class EventReceivingOperatorFactory<IN, OUT>
+            extends AbstractStreamOperatorFactory<OUT>
+            implements CoordinatedOperatorFactory<OUT>, OneInputStreamOperatorFactory<IN, OUT> {
+        private final String name;
+        protected final int numEvents;
+        private final int delay;
+
+        public EventReceivingOperatorFactory(String name, int numEvents, int delay) {
+            this.name = name;
+            this.numEvents = numEvents;
+            this.delay = delay;
+        }
+
+        @Override
+        public OperatorCoordinator.Provider getCoordinatorProvider(
+                String operatorName, OperatorID operatorID) {
+            return new OperatorCoordinator.Provider() {
+
+                @Override
+                public OperatorID getOperatorId() {
+                    return operatorID;
+                }
+
+                @Override
+                public OperatorCoordinator create(OperatorCoordinator.Context context) {
+                    return new EventSendingCoordinator(context, name, numEvents, delay);
+                }
+            };
+        }
+
+        @Override
+        public <T extends StreamOperator<OUT>> T createStreamOperator(
+                StreamOperatorParameters<OUT> parameters) {
+            EventReceivingOperator<OUT> operator = new EventReceivingOperator<>();
+            operator.setup(
+                    parameters.getContainingTask(),
+                    parameters.getStreamConfig(),
+                    parameters.getOutput());
+            parameters
+                    .getOperatorEventDispatcher()
+                    .registerEventHandler(parameters.getStreamConfig().getOperatorID(), operator);
+            return (T) operator;
+        }
+
+        @Override
+        public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
+            return EventReceivingOperator.class;
+        }
+    }
+
+    /**
+     * The stream operator that receives the events and accumulates the numbers. The task is
+     * stateful and checkpoints the accumulator.
+     */
+    private static class EventReceivingOperator<T> extends AbstractStreamOperator<T>
+            implements OneInputStreamOperator<T, T>, OperatorEventHandler {
+        protected static final String COUNTER_NAME = "numEvents";
+
+        protected final LongCounter counter = new LongCounter();
+
+        protected ListState<Long> state;
+
+        @Override
+        public void open() throws Exception {
+            super.open();
+            getRuntimeContext().addAccumulator(COUNTER_NAME, counter);
+
+            // signal the coordinator to start
+            getContainingTask()
+                    .getEnvironment()
+                    .getOperatorCoordinatorEventGateway()
+                    .sendOperatorEventToCoordinator(
+                            getOperatorID(), new SerializedValue<>(new StartEvent()));
+        }
+
+        @Override
+        public void processElement(StreamRecord<T> element) throws Exception {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void handleOperatorEvent(OperatorEvent evt) {
+            if (evt instanceof IntegerEvent) {
+                counter.add(1L);
+            } else if (evt instanceof EndEvent) {
+                try {
+                    state.update(Collections.singletonList(counter.getLocalValue()));
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                shouldCloseSource.set(true);
+            } else {
+                throw new UnsupportedOperationException();
+            }
+        }
+
+        @Override
+        public void snapshotState(StateSnapshotContext context) throws Exception {
+            super.snapshotState(context);
+            state.update(Collections.singletonList(counter.getLocalValue()));
+        }
+
+        @Override
+        public void initializeState(StateInitializationContext context) throws Exception {
+            super.initializeState(context);
+
+            state =
+                    context.getOperatorStateStore()
+                            .getListState(
+                                    new ListStateDescriptor<>(
+                                            "counterState", BasicTypeInfo.LONG_TYPE_INFO));
+
+            counter.resetLocal();
+            Iterator<Long> iterator = state.get().iterator();
+            if (iterator.hasNext()) {
+                counter.add(iterator.next());
+            }
+            Preconditions.checkArgument(!iterator.hasNext());
+        }
+    }
+}

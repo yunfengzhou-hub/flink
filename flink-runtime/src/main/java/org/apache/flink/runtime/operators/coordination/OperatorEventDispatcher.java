@@ -29,6 +29,9 @@ public interface OperatorEventDispatcher {
     /**
      * Register a listener that is notified every time an OperatorEvent is sent from the
      * OperatorCoordinator (of the operator with the given OperatorID) to this subtask.
+     *
+     * <p>The stream operator with the given OperatorID must implement {@link OperatorEventHandler}
+     * and register with this method.
      */
     void registerEventHandler(OperatorID operator, OperatorEventHandler handler);
 

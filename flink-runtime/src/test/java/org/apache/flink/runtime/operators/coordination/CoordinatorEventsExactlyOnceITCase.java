@@ -247,13 +247,13 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     //  test operator and coordinator implementations
     // ------------------------------------------------------------------------
 
-    private static final class StartEvent implements OperatorEvent {}
+    public static final class StartEvent implements OperatorEvent {}
 
-    private static final class EndEvent implements OperatorEvent {}
+    public static final class EndEvent implements OperatorEvent {}
 
-    private static final class IntegerEvent implements OperatorEvent {
+    public static final class IntegerEvent implements OperatorEvent {
 
-        final int value;
+        public final int value;
 
         IntegerEvent(int value) {
             this.value = value;
@@ -293,7 +293,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
      * concurrency against the scheduler thread that calls this coordinator implements a simple
      * mailbox that moves the method handling into a separate thread, but keeps the order.
      */
-    private static final class EventSendingCoordinator
+    public static final class EventSendingCoordinator
             implements OperatorCoordinator, CoordinationRequestHandler {
 
         private final Context context;
@@ -320,7 +320,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
          */
         private final TestScript testScript;
 
-        private EventSendingCoordinator(Context context, String name, int numEvents, int delay) {
+        public EventSendingCoordinator(Context context, String name, int numEvents, int delay) {
             checkArgument(delay > 0);
             checkArgument(numEvents >= 3);
 
@@ -597,6 +597,14 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                     collectedInts.add(((IntegerEvent) next).value);
                 } else if (next instanceof CheckpointMetaData) {
                     takeCheckpoint(((CheckpointMetaData) next).getCheckpointId(), collectedInts);
+                    getEnvironment()
+                            .getOperatorCoordinatorEventGateway()
+                            .sendOperatorEventToCoordinator(
+                                    operatorID,
+                                    new SerializedValue<>(
+                                            new AcknowledgeCheckpointEvent(
+                                                    ((CheckpointMetaData) next)
+                                                            .getCheckpointId())));
                 } else {
                     throw new Exception("Unrecognized: " + next);
                 }

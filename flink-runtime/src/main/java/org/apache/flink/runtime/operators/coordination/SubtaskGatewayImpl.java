@@ -22,9 +22,11 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.util.IncompleteFuturesTracker;
 import org.apache.flink.runtime.util.Runnables;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
@@ -42,17 +44,14 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
                     + "Triggering task failover to ensure consistency. Event: '%s', targetTask: %s";
 
     private final SubtaskAccess subtaskAccess;
-    private final EventSender sender;
     private final Executor sendingExecutor;
     private final IncompleteFuturesTracker incompleteFuturesTracker;
 
     SubtaskGatewayImpl(
             SubtaskAccess subtaskAccess,
-            EventSender sender,
             Executor sendingExecutor,
             IncompleteFuturesTracker incompleteFuturesTracker) {
         this.subtaskAccess = subtaskAccess;
-        this.sender = sender;
         this.sendingExecutor = sendingExecutor;
         this.incompleteFuturesTracker = incompleteFuturesTracker;
     }
@@ -95,8 +94,13 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
         sendingExecutor.execute(
                 () -> {
-                    sender.sendEvent(sendAction, sendResult);
-                    incompleteFuturesTracker.trackFutureWhileIncomplete(result);
+                    try {
+                        FutureUtils.forward(sendAction.call(), sendResult);
+                        incompleteFuturesTracker.trackFutureWhileIncomplete(result);
+                    } catch (Throwable t) {
+                        ExceptionUtils.rethrowIfFatalError(t);
+                        result.completeExceptionally(t);
+                    }
                 });
         return result;
     }

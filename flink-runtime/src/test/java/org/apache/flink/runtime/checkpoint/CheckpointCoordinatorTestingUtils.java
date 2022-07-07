@@ -953,13 +953,6 @@ public class CheckpointCoordinatorTestingUtils {
         }
 
         @Override
-        public void afterSourceBarrierInjection(long checkpointId) {
-            if (onCallingAfterSourceBarrierInjection != null) {
-                onCallingAfterSourceBarrierInjection.accept(checkpointId);
-            }
-        }
-
-        @Override
         public void abortCurrentTriggering() {
             if (onCallingAbortCurrentTriggering != null) {
                 onCallingAbortCurrentTriggering.run();
