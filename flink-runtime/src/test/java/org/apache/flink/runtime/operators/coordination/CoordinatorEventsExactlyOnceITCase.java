@@ -81,11 +81,8 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 /**
  * Integration Test case that validates the exactly-once mechanism for coordinator events around
@@ -134,7 +131,6 @@ import static org.junit.Assert.fail;
  * different delays in which they complete their checkpoints. Both coordinators inject failures at
  * different points.
  */
-@SuppressWarnings("serial")
 public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
 
     private static final ConfigOption<String> ACC_NAME =
@@ -195,9 +191,8 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
 
     private static void failList(List<Integer> ints, int length) {
         fail(
-                String.format(
-                        "List did not contain expected sequence of %d elements, but was: (%d elements): %s",
-                        length, ints.size(), ints));
+                "List did not contain expected sequence of %d elements, but was: (%d elements): %s",
+                length, ints.size(), ints);
     }
 
     // ------------------------------------------------------------------------
@@ -247,13 +242,13 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     //  test operator and coordinator implementations
     // ------------------------------------------------------------------------
 
-    private static final class StartEvent implements OperatorEvent {}
+    public static final class StartEvent implements OperatorEvent {}
 
-    private static final class EndEvent implements OperatorEvent {}
+    public static final class EndEvent implements OperatorEvent {}
 
-    private static final class IntegerEvent implements OperatorEvent {
+    public static final class IntegerEvent implements OperatorEvent {
 
-        final int value;
+        public final int value;
 
         IntegerEvent(int value) {
             this.value = value;
@@ -293,7 +288,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
      * concurrency against the scheduler thread that calls this coordinator implements a simple
      * mailbox that moves the method handling into a separate thread, but keeps the order.
      */
-    private static final class EventSendingCoordinator
+    public static final class EventSendingCoordinator
             implements OperatorCoordinator, CoordinationRequestHandler {
 
         private final Context context;
@@ -320,7 +315,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
          */
         private final TestScript testScript;
 
-        private EventSendingCoordinator(Context context, String name, int numEvents, int delay) {
+        public EventSendingCoordinator(Context context, String name, int numEvents, int delay) {
             checkArgument(delay > 0);
             checkArgument(numEvents >= 3);
 
@@ -350,10 +345,10 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
         @Override
         public void close() throws Exception {
             scheduledExecutor.shutdownNow();
-            assertTrue(scheduledExecutor.awaitTermination(10, TimeUnit.MINUTES));
+            assertThat(scheduledExecutor.awaitTermination(10, TimeUnit.MINUTES)).isTrue();
 
             mailboxExecutor.shutdownNow();
-            assertTrue(mailboxExecutor.awaitTermination(10, TimeUnit.MINUTES));
+            assertThat(scheduledExecutor.awaitTermination(10, TimeUnit.MINUTES)).isTrue();
         }
 
         @Override
@@ -587,8 +582,8 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                                     operatorID, new SerializedValue<>(new IntegerRequest(100)))
                             .get();
 
-            assertThat(response, instanceOf(IntegerResponse.class));
-            assertEquals(101, ((IntegerResponse) response).value);
+            assertThat(response).isInstanceOf(IntegerResponse.class);
+            assertThat(((IntegerResponse) response).value).isEqualTo(101);
 
             // poor-man's mailbox
             Object next;
@@ -597,6 +592,14 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                     collectedInts.add(((IntegerEvent) next).value);
                 } else if (next instanceof CheckpointMetaData) {
                     takeCheckpoint(((CheckpointMetaData) next).getCheckpointId(), collectedInts);
+                    getEnvironment()
+                            .getOperatorCoordinatorEventGateway()
+                            .sendOperatorEventToCoordinator(
+                                    operatorID,
+                                    new SerializedValue<>(
+                                            new AcknowledgeCheckpointEvent(
+                                                    ((CheckpointMetaData) next)
+                                                            .getCheckpointId())));
                 } else {
                     throw new Exception("Unrecognized: " + next);
                 }
@@ -663,11 +666,11 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     //  dedicated class to hold the "test script"
     // ------------------------------------------------------------------------
 
-    private static final class TestScript {
+    public static final class TestScript {
 
         private static final Map<String, TestScript> MAP_FOR_OPERATOR = new HashMap<>();
 
-        static TestScript getForOperator(String operatorName) {
+        public static TestScript getForOperator(String operatorName) {
             return MAP_FOR_OPERATOR.computeIfAbsent(operatorName, (key) -> new TestScript());
         }
 
@@ -678,11 +681,11 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
         private final Collection<CountDownLatch> recoveredTaskRunning = new ArrayList<>();
         private boolean failedBefore;
 
-        void recordHasFailed() {
+        public void recordHasFailed() {
             this.failedBefore = true;
         }
 
-        boolean hasAlreadyFailed() {
+        public boolean hasAlreadyFailed() {
             return failedBefore;
         }
 
@@ -718,7 +721,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     }
 
     static int bytesToInt(byte[] bytes) {
-        assertEquals(4, bytes.length);
+        assertThat(bytes).hasSize(4);
         return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getInt(0);
     }
 
