@@ -110,6 +110,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         holder.checkpointCoordinator(1L, new CompletableFuture<>());
         getCoordinator(holder).getSubtaskGateway(1).sendEvent(new TestOperatorEvent(1));
+        holder.handleEventFromOperator(1, new AcknowledgeCheckpointEvent(1L));
 
         assertThat(tasks.getSentEventsForSubtask(1), contains(new TestOperatorEvent(1)));
     }
@@ -147,7 +148,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         triggerAndCompleteCheckpoint(holder, 1111L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(1337));
-        holder.afterSourceBarrierInjection(1111L);
+        holder.handleEventFromOperator(0, new AcknowledgeCheckpointEvent(1111L));
 
         assertThat(tasks.getSentEventsForSubtask(0), contains(new TestOperatorEvent(1337)));
     }
@@ -179,7 +180,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         holder.abortCurrentTriggering();
 
         triggerAndCompleteCheckpoint(holder, 1010L);
-        holder.afterSourceBarrierInjection(1010L);
+        holder.handleEventFromOperator(0, new AcknowledgeCheckpointEvent(1010L));
 
         future1.complete(new byte[0]);
 
@@ -214,13 +215,17 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         triggerAndCompleteCheckpoint(holder, 22L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(1));
-        holder.afterSourceBarrierInjection(22L);
+        holder.handleEventFromOperator(0, new AcknowledgeCheckpointEvent(22L));
+        holder.handleEventFromOperator(1, new AcknowledgeCheckpointEvent(22L));
+        holder.handleEventFromOperator(2, new AcknowledgeCheckpointEvent(22L));
 
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(2));
 
         triggerAndCompleteCheckpoint(holder, 23L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(3));
-        holder.afterSourceBarrierInjection(23L);
+        holder.handleEventFromOperator(0, new AcknowledgeCheckpointEvent(23L));
+        holder.handleEventFromOperator(1, new AcknowledgeCheckpointEvent(23L));
+        holder.handleEventFromOperator(2, new AcknowledgeCheckpointEvent(23L));
 
         assertThat(
                 tasks.getSentEventsForSubtask(0),
@@ -247,7 +252,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         triggerAndCompleteCheckpoint(holder, 23L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(3));
-        holder.afterSourceBarrierInjection(23L);
+        holder.handleEventFromOperator(0, new AcknowledgeCheckpointEvent(23L));
 
         assertThat(
                 tasks.getSentEventsForSubtask(0),
@@ -440,6 +445,28 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         // The checkpoint would be finally confirmed.
         assertTrue(checkpointResult.isCompletedExceptionally());
+    }
+
+    @Test
+    public void testControlGatewayAtSubtaskGranularity() throws Exception {
+        final EventReceivingTasks tasks = EventReceivingTasks.createForRunningTasks();
+        final OperatorCoordinatorHolder holder =
+                createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
+
+        holder.checkpointCoordinator(1L, new CompletableFuture<>());
+        getCoordinator(holder).getLastTriggeredCheckpoint().complete(new byte[0]);
+
+        getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(0));
+        getCoordinator(holder).getSubtaskGateway(1).sendEvent(new TestOperatorEvent(1));
+        holder.handleEventFromOperator(1, new AcknowledgeCheckpointEvent(1L));
+
+        assertTrue(tasks.getSentEventsForSubtask(0).isEmpty());
+        assertThat(tasks.getSentEventsForSubtask(1), contains(new TestOperatorEvent(1)));
+
+        holder.handleEventFromOperator(0, new AcknowledgeCheckpointEvent(1L));
+
+        assertThat(tasks.getSentEventsForSubtask(0), contains(new TestOperatorEvent(0)));
+        assertThat(tasks.getSentEventsForSubtask(1), contains(new TestOperatorEvent(1)));
     }
 
     // ------------------------------------------------------------------------

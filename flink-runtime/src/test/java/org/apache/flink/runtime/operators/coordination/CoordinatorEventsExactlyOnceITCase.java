@@ -597,6 +597,14 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                     collectedInts.add(((IntegerEvent) next).value);
                 } else if (next instanceof CheckpointMetaData) {
                     takeCheckpoint(((CheckpointMetaData) next).getCheckpointId(), collectedInts);
+                    getEnvironment()
+                            .getOperatorCoordinatorEventGateway()
+                            .sendOperatorEventToCoordinator(
+                                    operatorID,
+                                    new SerializedValue<>(
+                                            new AcknowledgeCheckpointEvent(
+                                                    ((CheckpointMetaData) next)
+                                                            .getCheckpointId())));
                 } else {
                     throw new Exception("Unrecognized: " + next);
                 }

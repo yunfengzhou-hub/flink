@@ -713,8 +713,9 @@ public class CheckpointCoordinator {
                                 return null;
                             });
 
-            coordinatorsToCheckpoint.forEach(
-                    (ctx) -> ctx.afterSourceBarrierInjection(checkpoint.getCheckpointID()));
+            //            coordinatorsToCheckpoint.forEach(
+            //                    (ctx) ->
+            // ctx.afterSourceBarrierInjection(checkpoint.getCheckpointID()));
             // It is possible that the tasks has finished
             // checkpointing at this point.
             // So we need to complete this pending checkpoint.

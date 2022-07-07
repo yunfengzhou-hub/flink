@@ -37,6 +37,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -64,14 +68,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>The mechanism for exactly once semantics is as follows:
  *
  * <ul>
- *   <li>Events pass through a special channel, the {@link OperatorEventValve}. If we are not
- *       currently triggering a checkpoint, then events simply pass through.
  *   <li>With the completion of the checkpoint future for the coordinator, this operator event valve
  *       is closed. Events coming after that are held back (buffered), because they belong to the
  *       epoch after the checkpoint.
- *   <li>Once all coordinators in the job have completed the checkpoint, the barriers to the sources
- *       are injected. After that (see {@link #afterSourceBarrierInjection(long)}) the valves are
- *       opened again and the events are sent.
  *   <li>If a task fails in the meantime, the events are dropped from the valve. From the
  *       coordinator's perspective, these events are lost, because they were sent to a failed
  *       subtask after it's latest complete checkpoint.
@@ -120,7 +119,7 @@ public class OperatorCoordinatorHolder
     private final OperatorID operatorId;
     private final LazyInitializedCoordinatorContext context;
     private final SubtaskAccess.SubtaskAccessFactory taskAccesses;
-    private final OperatorEventValve eventValve;
+    private final Map<Integer, BlockableSubtaskGateway> subtaskGatewayMap = new HashMap<>();
     private final IncompleteFuturesTracker unconfirmedEvents;
 
     private final int operatorParallelism;
@@ -145,7 +144,6 @@ public class OperatorCoordinatorHolder
         this.operatorMaxParallelism = operatorMaxParallelism;
 
         this.unconfirmedEvents = new IncompleteFuturesTracker();
-        this.eventValve = new OperatorEventValve();
     }
 
     public void lazyInitialize(
@@ -155,7 +153,6 @@ public class OperatorCoordinatorHolder
         this.globalFailureHandler = globalFailureHandler;
         this.mainThreadExecutor = mainThreadExecutor;
 
-        eventValve.setMainThreadExecutorForValidation(mainThreadExecutor);
         context.lazyInitialize(globalFailureHandler, mainThreadExecutor);
 
         setupAllSubtaskGateways();
@@ -202,6 +199,13 @@ public class OperatorCoordinatorHolder
 
     public void handleEventFromOperator(int subtask, OperatorEvent event) throws Exception {
         mainThreadExecutor.assertRunningInMainThread();
+        if (event instanceof AcknowledgeCheckpointEvent) {
+            subtaskGatewayMap
+                    .get(subtask)
+                    .openValveAndUnmarkCheckpoint(
+                            ((AcknowledgeCheckpointEvent) event).checkpointId);
+            return;
+        }
         coordinator.handleEventFromOperator(subtask, event);
     }
 
@@ -257,7 +261,9 @@ public class OperatorCoordinatorHolder
             mainThreadExecutor.assertRunningInMainThread();
         }
 
-        eventValve.openValveAndUnmarkCheckpoint();
+        for (BlockableSubtaskGateway subtaskGateway : subtaskGatewayMap.values()) {
+            subtaskGateway.openValveAndUnmarkCheckpoint();
+        }
         context.resetFailed();
 
         // when initial savepoints are restored, this call comes before the mainThreadExecutor
@@ -273,33 +279,69 @@ public class OperatorCoordinatorHolder
         coordinator.resetToCheckpoint(checkpointId, checkpointData);
     }
 
+    private void closeGateways(final long checkpointId, final CompletableFuture<byte[]> result) {
+        Set<Integer> closedSubtaskIds = new HashSet<>();
+        boolean isAllShut = true;
+        for (int id : subtaskGatewayMap.keySet()) {
+            if (!subtaskGatewayMap.get(id).tryShutValve(checkpointId)) {
+                isAllShut = false;
+                for (int closedSubtaskId : closedSubtaskIds) {
+                    subtaskGatewayMap.get(closedSubtaskId).openValveAndUnmarkCheckpoint();
+                }
+                break;
+            } else {
+                closedSubtaskIds.add(id);
+            }
+        }
+
+        if (!isAllShut) {
+            // if we cannot shut the valve, this means the checkpoint
+            // has been aborted before, so the future is already
+            // completed exceptionally. but we try to complete it here
+            // again, just in case, as a safety net.
+
+            Throwable t = new FlinkException("Cannot shut event valve");
+            result.completeExceptionally(t);
+        }
+    }
+
     private void checkpointCoordinatorInternal(
             final long checkpointId, final CompletableFuture<byte[]> result) {
         mainThreadExecutor.assertRunningInMainThread();
 
+        try {
+            for (int id : subtaskGatewayMap.keySet()) {
+                subtaskGatewayMap.get(id).markForCheckpoint(checkpointId);
+            }
+        } catch (Throwable t) {
+            ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
+            result.completeExceptionally(t);
+            globalFailureHandler.handleGlobalFailure(t);
+            return;
+        }
+
         final CompletableFuture<byte[]> coordinatorCheckpoint = new CompletableFuture<>();
+
+        coordinatorCheckpoint.whenComplete(
+                (success, failure) -> {
+                    if (failure == null) {
+                        closeGateways(checkpointId, result);
+                    }
+                });
 
         FutureUtils.assertNoException(
                 coordinatorCheckpoint.handleAsync(
                         (success, failure) -> {
                             if (failure != null) {
                                 result.completeExceptionally(failure);
-                            } else if (eventValve.tryShutValve(checkpointId)) {
-                                completeCheckpointOnceEventsAreDone(checkpointId, result, success);
                             } else {
-                                // if we cannot shut the valve, this means the checkpoint
-                                // has been aborted before, so the future is already
-                                // completed exceptionally. but we try to complete it here
-                                // again, just in case, as a safety net.
-                                result.completeExceptionally(
-                                        new FlinkException("Cannot shut event valve"));
+                                completeCheckpointOnceEventsAreDone(checkpointId, result, success);
                             }
                             return null;
                         },
                         mainThreadExecutor));
 
         try {
-            eventValve.markForCheckpoint(checkpointId);
             coordinator.checkpointCoordinator(checkpointId, coordinatorCheckpoint);
         } catch (Throwable t) {
             ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
@@ -350,21 +392,16 @@ public class OperatorCoordinatorHolder
     // ------------------------------------------------------------------------
 
     @Override
-    public void afterSourceBarrierInjection(long checkpointId) {
-        // unfortunately, this method does not run in the scheduler executor, but in the
-        // checkpoint coordinator time thread.
-        // we can remove the delegation once the checkpoint coordinator runs fully in the
-        // scheduler's main thread executor
-        mainThreadExecutor.execute(() -> eventValve.openValveAndUnmarkCheckpoint(checkpointId));
-    }
-
-    @Override
     public void abortCurrentTriggering() {
         // unfortunately, this method does not run in the scheduler executor, but in the
         // checkpoint coordinator time thread.
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
-        mainThreadExecutor.execute(eventValve::openValveAndUnmarkCheckpoint);
+        mainThreadExecutor.execute(
+                () ->
+                        subtaskGatewayMap
+                                .values()
+                                .forEach(BlockableSubtaskGateway::openValveAndUnmarkCheckpoint));
     }
 
     // ------------------------------------------------------------------------
@@ -381,8 +418,12 @@ public class OperatorCoordinatorHolder
         // this gets an access to the latest task execution attempt.
         final SubtaskAccess sta = taskAccesses.getAccessForSubtask(subtask);
 
-        final OperatorCoordinator.SubtaskGateway gateway =
-                new SubtaskGatewayImpl(sta, eventValve, mainThreadExecutor, unconfirmedEvents);
+        final BlockableSubtaskGateway gateway =
+                new BlockableSubtaskGateway(
+                        new SubtaskGatewayImpl(sta, mainThreadExecutor, unconfirmedEvents));
+        gateway.setMainThreadExecutorForValidation(mainThreadExecutor);
+
+        subtaskGatewayMap.put(subtask, gateway);
 
         // We need to do this synchronously here, otherwise we violate the contract that
         // 'subtaskFailed()' will never overtake 'subtaskReady()'.

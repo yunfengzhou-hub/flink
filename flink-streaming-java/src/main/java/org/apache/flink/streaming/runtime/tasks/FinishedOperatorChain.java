@@ -24,6 +24,7 @@ import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.io.network.api.StopMode;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.operators.coordination.AcknowledgeCheckpointEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
@@ -113,5 +114,6 @@ public class FinishedOperatorChain<OUT, OP extends StreamOperator<OUT>>
                         operatorWrapper.getStreamOperator().getOperatorID(), snapshotInProgress);
             }
         }
+        sentAcknowledgeCheckpointEvent(checkpointMetaData.getCheckpointId());
     }
 }
