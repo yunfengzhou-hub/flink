@@ -30,7 +30,9 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -45,6 +47,8 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
 
     private final Map<OperatorID, OperatorEventHandler> handlers;
 
+    private final Map<OperatorID, OperatorEventGateway> gateways;
+
     private final ClassLoader classLoader;
 
     private final TaskOperatorEventGateway toCoordinator;
@@ -54,6 +58,7 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         this.classLoader = checkNotNull(classLoader);
         this.toCoordinator = checkNotNull(toCoordinator);
         this.handlers = new HashMap<>();
+        this.gateways = new HashMap<>();
     }
 
     void dispatchEventToHandlers(
@@ -74,6 +79,23 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         }
     }
 
+
+
+    void closeAllGateways() {
+        for (OperatorEventGateway gateway: gateways.values()) {
+            if (gateway instanceof CloseableOperatorEventGateway) {
+                ((CloseableOperatorEventGateway) gateway).closeGateway();
+            }
+        }
+    }
+
+    void openGateway(OperatorID operatorId) {
+        OperatorEventGateway gateway = gateways.get(operatorId);
+        if (gateway instanceof CloseableOperatorEventGateway) {
+            ((CloseableOperatorEventGateway) gateway).openGateway();
+        }
+    }
+
     @Override
     public void registerEventHandler(OperatorID operator, OperatorEventHandler handler) {
         final OperatorEventHandler prior = handlers.putIfAbsent(operator, handler);
@@ -84,7 +106,10 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
 
     @Override
     public OperatorEventGateway getOperatorEventGateway(OperatorID operatorId) {
-        return new OperatorEventGatewayImpl(toCoordinator, operatorId);
+        gateways.computeIfAbsent(operatorId, id -> new CloseableOperatorEventGateway(
+                new OperatorEventGatewayImpl(toCoordinator, operatorId)
+        ));
+        return gateways.get(operatorId);
     }
 
     // ------------------------------------------------------------------------
@@ -113,6 +138,39 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
             }
 
             toCoordinator.sendOperatorEventToCoordinator(operatorId, serializedEvent);
+        }
+    }
+
+    private static final class CloseableOperatorEventGateway implements OperatorEventGateway {
+        private final OperatorEventGateway gateway;
+
+        private final List<OperatorEvent> buffer = new ArrayList<>();
+
+        private boolean isClosed = false;
+
+        private CloseableOperatorEventGateway(OperatorEventGateway gateway) {
+            this.gateway = gateway;
+        }
+
+        private void closeGateway() {
+            isClosed = true;
+        }
+
+        private void openGateway() {
+            isClosed = false;
+            for (OperatorEvent event: buffer) {
+                gateway.sendEventToCoordinator(event);
+            }
+            buffer.clear();
+        }
+
+        @Override
+        public void sendEventToCoordinator(OperatorEvent event) {
+            if (isClosed) {
+                buffer.add(event);
+            } else {
+                gateway.sendEventToCoordinator(event);
+            }
         }
     }
 }
