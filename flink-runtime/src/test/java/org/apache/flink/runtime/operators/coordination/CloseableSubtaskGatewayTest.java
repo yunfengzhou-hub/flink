@@ -28,13 +28,10 @@ import org.apache.flink.util.concurrent.Executors;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /** Unit tests for the {@link CloseableSubtaskGateway}. */
 public class CloseableSubtaskGatewayTest {
@@ -52,8 +49,8 @@ public class CloseableSubtaskGatewayTest {
         final OperatorEvent event = new TestOperatorEvent();
         final CompletableFuture<Acknowledge> future = gateway.sendEvent(event);
 
-        assertEquals(receiver.events, Collections.singletonList(new EventWithSubtask(event, 11)));
-        assertTrue(future.isDone());
+        assertThat(receiver.events).containsExactly(new EventWithSubtask(event, 11));
+        assertThat(future).isDone();
     }
 
     @Test
@@ -64,7 +61,7 @@ public class CloseableSubtaskGatewayTest {
         gateway.markForCheckpoint(200L);
         final boolean shut = gateway.tryCloseGateway(200L);
 
-        assertTrue(shut);
+        assertThat(shut).isTrue();
     }
 
     @Test
@@ -74,7 +71,7 @@ public class CloseableSubtaskGatewayTest {
 
         final boolean shut = gateway.tryCloseGateway(123L);
 
-        assertFalse(shut);
+        assertThat(shut).isFalse();
     }
 
     @Test
@@ -85,7 +82,7 @@ public class CloseableSubtaskGatewayTest {
         gateway.markForCheckpoint(100L);
         final boolean shut = gateway.tryCloseGateway(123L);
 
-        assertFalse(shut);
+        assertThat(shut).isFalse();
     }
 
     @Test
@@ -103,8 +100,8 @@ public class CloseableSubtaskGatewayTest {
 
         final CompletableFuture<Acknowledge> future = gateway.sendEvent(new TestOperatorEvent());
 
-        assertTrue(receiver.events.isEmpty());
-        assertFalse(future.isDone());
+        assertThat(receiver.events).isEmpty();
+        assertThat(future).isNotDone();
     }
 
     @Test
@@ -134,12 +131,10 @@ public class CloseableSubtaskGatewayTest {
 
         gateways.forEach(CloseableSubtaskGateway::openGatewayAndUnmarkCheckpoint);
 
-        assertTrue(
-                receiver.events.containsAll(
-                        Arrays.asList(
-                                new EventWithSubtask(event1, 3), new EventWithSubtask(event2, 0))));
-        assertTrue(future1.isDone());
-        assertTrue(future2.isDone());
+        assertThat(receiver.events)
+                .containsExactly(new EventWithSubtask(event1, 3), new EventWithSubtask(event2, 0));
+        assertThat(future1).isDone();
+        assertThat(future2).isDone();
     }
 
     @Test
@@ -159,7 +154,7 @@ public class CloseableSubtaskGatewayTest {
         final CompletableFuture<Acknowledge> future = gateway.sendEvent(new TestOperatorEvent());
         gateway.openGatewayAndUnmarkCheckpoint();
 
-        assertTrue(future.isCompletedExceptionally());
+        assertThat(future).isCompletedExceptionally();
     }
 
     private static final class RejectingSubtaskGateway

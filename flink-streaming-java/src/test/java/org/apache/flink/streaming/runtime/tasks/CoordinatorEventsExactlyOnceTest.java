@@ -60,7 +60,7 @@ import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsE
 import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.EventSendingCoordinator;
 import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.IntegerEvent;
 import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.StartEvent;
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration test case that validates the exactly-once mechanism for operator events sent around
@@ -121,7 +121,7 @@ public class CoordinatorEventsExactlyOnceTest {
                         .executeJobBlocking(env.getStreamGraph().getJobGraph());
 
         long count = executionResult.getAccumulatorResult(EventReceivingOperator.COUNTER_NAME);
-        assertEquals(numEvents, count);
+        assertThat(count).isEqualTo(numEvents);
     }
 
     /** A mock source function that does not collect any stream record and finishes on demand. */
