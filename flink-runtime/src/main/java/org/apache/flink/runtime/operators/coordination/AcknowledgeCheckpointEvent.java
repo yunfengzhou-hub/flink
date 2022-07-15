@@ -24,7 +24,7 @@ package org.apache.flink.runtime.operators.coordination;
  */
 public class AcknowledgeCheckpointEvent implements OperatorEvent {
 
-    /** The ID of the checkpoint that this event coordinates */
+    /** The ID of the checkpoint that this event is related to. */
     final long checkpointId;
 
     public AcknowledgeCheckpointEvent(long checkpointId) {
