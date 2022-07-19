@@ -68,7 +68,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>The mechanism for exactly once semantics is as follows:
  *
  * <ul>
- *   <li>Events pass through a special channel, the {@link CloseableSubtaskGateway}. If we are not
+ *   <li>Events pass through a special channel, the {@link SubtaskGatewayImpl}. If we are not
  *       currently triggering a checkpoint, then events simply pass through.
  *   <li>With the completion of the checkpoint future for the coordinator, this subtask gateway is
  *       closed. Events coming after that are held back (buffered), because they belong to the epoch
@@ -119,7 +119,7 @@ public class OperatorCoordinatorHolder
     private final OperatorID operatorId;
     private final LazyInitializedCoordinatorContext context;
     private final SubtaskAccess.SubtaskAccessFactory taskAccesses;
-    private final Map<Integer, CloseableSubtaskGateway> subtaskGatewayMap = new HashMap<>();
+    private final Map<Integer, SubtaskGatewayImpl> subtaskGatewayMap = new HashMap<>();
     private final IncompleteFuturesTracker unconfirmedEvents;
 
     private final int operatorParallelism;
@@ -243,7 +243,7 @@ public class OperatorCoordinatorHolder
         mainThreadExecutor.execute(
                 () -> {
                     coordinator.notifyCheckpointComplete(checkpointId);
-                    for (Map.Entry<Integer, CloseableSubtaskGateway> entry :
+                    for (Map.Entry<Integer, SubtaskGatewayImpl> entry :
                             subtaskGatewayMap.entrySet()) {
                         if (entry.getValue().isClosed()) {
                             LOG.warn(
@@ -280,7 +280,7 @@ public class OperatorCoordinatorHolder
             mainThreadExecutor.assertRunningInMainThread();
         }
 
-        subtaskGatewayMap.values().forEach(CloseableSubtaskGateway::openGatewayAndUnmarkCheckpoint);
+        subtaskGatewayMap.values().forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint);
         context.resetFailed();
 
         // when initial savepoints are restored, this call comes before the mainThreadExecutor
@@ -305,15 +305,6 @@ public class OperatorCoordinatorHolder
 
             final CompletableFuture<byte[]> coordinatorCheckpoint = new CompletableFuture<>();
 
-            coordinatorCheckpoint.whenComplete(
-                    (success, failure) -> {
-                        if (failure != null) {
-                            result.completeExceptionally(failure);
-                        } else {
-                            closeGateways(checkpointId, result);
-                        }
-                    });
-
             FutureUtils.assertNoException(
                     coordinatorCheckpoint.handleAsync(
                             (success, failure) -> {
@@ -322,6 +313,7 @@ public class OperatorCoordinatorHolder
                                 } else {
                                     completeCheckpointOnceEventsAreDone(
                                             checkpointId, result, success);
+                                    closeGateways(checkpointId, result);
                                 }
                                 return null;
                             },
@@ -336,10 +328,10 @@ public class OperatorCoordinatorHolder
     }
 
     private void closeGateways(final long checkpointId, final CompletableFuture<byte[]> result) {
-        Set<CloseableSubtaskGateway> closedGateways = new HashSet<>();
-        for (CloseableSubtaskGateway gateway : subtaskGatewayMap.values()) {
+        Set<SubtaskGatewayImpl> closedGateways = new HashSet<>();
+        for (SubtaskGatewayImpl gateway : subtaskGatewayMap.values()) {
             if (!gateway.tryCloseGateway(checkpointId)) {
-                closedGateways.forEach(CloseableSubtaskGateway::openGatewayAndUnmarkCheckpoint);
+                closedGateways.forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint);
 
                 // if we cannot close the gateway, this means the checkpoint
                 // has been aborted before, so the future is already
@@ -406,7 +398,7 @@ public class OperatorCoordinatorHolder
                 () ->
                         subtaskGatewayMap
                                 .values()
-                                .forEach(CloseableSubtaskGateway::openGatewayAndUnmarkCheckpoint));
+                                .forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint));
     }
 
     // ------------------------------------------------------------------------
@@ -423,9 +415,8 @@ public class OperatorCoordinatorHolder
         // this gets an access to the latest task execution attempt.
         final SubtaskAccess sta = taskAccesses.getAccessForSubtask(subtask);
 
-        final CloseableSubtaskGateway gateway =
-                new CloseableSubtaskGateway(
-                        new SubtaskGatewayImpl(sta, mainThreadExecutor, unconfirmedEvents));
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(sta, mainThreadExecutor, unconfirmedEvents);
         gateway.setMainThreadExecutorForValidation(mainThreadExecutor);
 
         subtaskGatewayMap.put(subtask, gateway);

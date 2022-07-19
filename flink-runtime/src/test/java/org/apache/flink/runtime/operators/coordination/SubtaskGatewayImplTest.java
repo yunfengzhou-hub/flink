@@ -33,18 +33,17 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Unit tests for the {@link CloseableSubtaskGateway}. */
-public class CloseableSubtaskGatewayTest {
+/** Unit tests for the {@link SubtaskGatewayImpl}. */
+public class SubtaskGatewayImplTest {
 
     @Test
     public void eventsPassThroughOpenGateway() {
         final EventReceivingTasks receiver = EventReceivingTasks.createForRunningTasks();
-        final CloseableSubtaskGateway gateway =
-                new CloseableSubtaskGateway(
-                        new SubtaskGatewayImpl(
-                                receiver.getAccessForSubtask(11),
-                                Executors.directExecutor(),
-                                new IncompleteFuturesTracker()));
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(11),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
 
         final OperatorEvent event = new TestOperatorEvent();
         final CompletableFuture<Acknowledge> future = gateway.sendEvent(event);
@@ -54,46 +53,57 @@ public class CloseableSubtaskGatewayTest {
     }
 
     @Test
-    public void shuttingMarkedGateway() {
-        final CloseableSubtaskGateway gateway =
-                new CloseableSubtaskGateway(new RejectingSubtaskGateway());
+    public void closingMarkedGateway() {
+        final EventReceivingTasks receiver = EventReceivingTasks.createForRunningTasks();
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(11),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
 
         gateway.markForCheckpoint(200L);
-        final boolean shut = gateway.tryCloseGateway(200L);
+        final boolean isClosed = gateway.tryCloseGateway(200L);
 
-        assertThat(shut).isTrue();
+        assertThat(isClosed).isTrue();
     }
 
     @Test
-    public void notShuttingUnmarkedGateway() {
-        final CloseableSubtaskGateway gateway =
-                new CloseableSubtaskGateway(new RejectingSubtaskGateway());
+    public void notClosingUnmarkedGateway() {
+        final EventReceivingTasks receiver = EventReceivingTasks.createForRunningTasks();
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(11),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
 
-        final boolean shut = gateway.tryCloseGateway(123L);
+        final boolean isClosed = gateway.tryCloseGateway(123L);
 
-        assertThat(shut).isFalse();
+        assertThat(isClosed).isFalse();
     }
 
     @Test
-    public void notShuttingGatewayForOtherMark() {
-        final CloseableSubtaskGateway gateway =
-                new CloseableSubtaskGateway(new RejectingSubtaskGateway());
+    public void notClosingGatewayForOtherMark() {
+        final EventReceivingTasks receiver = EventReceivingTasks.createForRunningTasks();
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(11),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
 
         gateway.markForCheckpoint(100L);
-        final boolean shut = gateway.tryCloseGateway(123L);
+        final boolean isClosed = gateway.tryCloseGateway(123L);
 
-        assertThat(shut).isFalse();
+        assertThat(isClosed).isFalse();
     }
 
     @Test
     public void eventsBlockedByClosedGateway() {
         final EventReceivingTasks receiver = EventReceivingTasks.createForRunningTasks();
-        final CloseableSubtaskGateway gateway =
-                new CloseableSubtaskGateway(
-                        new SubtaskGatewayImpl(
-                                receiver.getAccessForSubtask(1),
-                                Executors.directExecutor(),
-                                new IncompleteFuturesTracker()));
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(1),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
 
         gateway.markForCheckpoint(1L);
         gateway.tryCloseGateway(1L);
@@ -107,19 +117,17 @@ public class CloseableSubtaskGatewayTest {
     @Test
     public void eventsReleasedAfterOpeningGateway() {
         final EventReceivingTasks receiver = EventReceivingTasks.createForRunningTasks();
-        final CloseableSubtaskGateway gateway0 =
-                new CloseableSubtaskGateway(
-                        new SubtaskGatewayImpl(
-                                receiver.getAccessForSubtask(0),
-                                Executors.directExecutor(),
-                                new IncompleteFuturesTracker()));
-        final CloseableSubtaskGateway gateway3 =
-                new CloseableSubtaskGateway(
-                        new SubtaskGatewayImpl(
-                                receiver.getAccessForSubtask(3),
-                                Executors.directExecutor(),
-                                new IncompleteFuturesTracker()));
-        List<CloseableSubtaskGateway> gateways = Arrays.asList(gateway3, gateway0);
+        final SubtaskGatewayImpl gateway0 =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(0),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
+        final SubtaskGatewayImpl gateway3 =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(3),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
+        List<SubtaskGatewayImpl> gateways = Arrays.asList(gateway3, gateway0);
 
         gateways.forEach(x -> x.markForCheckpoint(17L));
         gateways.forEach(x -> x.tryCloseGateway(17L));
@@ -129,7 +137,7 @@ public class CloseableSubtaskGatewayTest {
         final CompletableFuture<Acknowledge> future1 = gateway3.sendEvent(event1);
         final CompletableFuture<Acknowledge> future2 = gateway0.sendEvent(event2);
 
-        gateways.forEach(CloseableSubtaskGateway::openGatewayAndUnmarkCheckpoint);
+        gateways.forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint);
 
         assertThat(receiver.events)
                 .containsExactly(new EventWithSubtask(event1, 3), new EventWithSubtask(event2, 0));
@@ -141,12 +149,11 @@ public class CloseableSubtaskGatewayTest {
     public void releasedEventsForwardSendFailures() {
         final EventReceivingTasks receiver =
                 EventReceivingTasks.createForRunningTasksFailingRpcs(new FlinkException("test"));
-        final CloseableSubtaskGateway gateway =
-                new CloseableSubtaskGateway(
-                        new SubtaskGatewayImpl(
-                                receiver.getAccessForSubtask(10),
-                                Executors.directExecutor(),
-                                new IncompleteFuturesTracker()));
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(
+                        receiver.getAccessForSubtask(10),
+                        Executors.directExecutor(),
+                        new IncompleteFuturesTracker());
 
         gateway.markForCheckpoint(17L);
         gateway.tryCloseGateway(17L);

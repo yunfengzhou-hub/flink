@@ -760,8 +760,8 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
         scheduler.handleGlobalFailure(reason);
         SchedulerTestingUtils.setAllExecutionsToCancelled(scheduler);
 
-        // make sure the checkpoint is no longer triggering (this means that the operator event
-        // valve has been closed)
+        // make sure the checkpoint is no longer triggering (this means that the subtask
+        // gateway has been closed)
         final CheckpointCoordinator checkpointCoordinator =
                 scheduler.getExecutionGraph().getCheckpointCoordinator();
         while (checkpointCoordinator != null && checkpointCoordinator.isTriggering()) {

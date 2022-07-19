@@ -146,7 +146,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
     }
 
     @Test
-    public void restoreOpensValveEvents() throws Exception {
+    public void restoreOpensGatewayEvents() throws Exception {
         final EventReceivingTasks tasks = EventReceivingTasks.createForRunningTasks();
         final OperatorCoordinatorHolder holder =
                 createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
@@ -351,7 +351,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         Thread.sleep(new Random().nextInt(10));
         executor.triggerAll();
 
-        // trigger the checkpoint - this should also shut the valve as soon as the future is
+        // trigger the checkpoint - this should also close the gateway as soon as the future is
         // completed
         final CompletableFuture<byte[]> checkpointFuture = new CompletableFuture<>();
         holder.checkpointCoordinator(0L, checkpointFuture);

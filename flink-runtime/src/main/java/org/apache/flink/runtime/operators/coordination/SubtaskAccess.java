@@ -44,7 +44,7 @@ interface SubtaskAccess {
      *
      * <p>This lets the caller target the specific subtask without necessarily sending the event now
      * (for example, the event may be sent at a later point due to checkpoint alignment through the
-     * {@link CloseableSubtaskGateway}).
+     * {@link SubtaskGatewayImpl}).
      */
     Callable<CompletableFuture<Acknowledge>> createEventSendAction(
             SerializedValue<OperatorEvent> event);
