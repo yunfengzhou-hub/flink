@@ -223,6 +223,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
     }
 
     boolean isClosed() {
+        checkRunsInMainThread();
         return isClosed;
     }
 

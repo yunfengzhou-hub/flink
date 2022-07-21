@@ -38,7 +38,6 @@ import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -338,14 +337,17 @@ public class OperatorCoordinatorHolder
 
     private boolean closeGateways(
             final long checkpointId, final Set<Integer> subtasksToCheckpoint) {
-        Set<SubtaskGatewayImpl> closedGateways = new HashSet<>();
+        boolean hasCloseableGateway = false;
         for (int subtask : subtasksToCheckpoint) {
             SubtaskGatewayImpl gateway = subtaskGatewayMap.get(subtask);
             if (!gateway.tryCloseGateway(checkpointId)) {
-                closedGateways.forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint);
+                if (hasCloseableGateway) {
+                    throw new IllegalStateException(
+                            "Some subtask gateway can be closed while others cannot. There might be a bug here.");
+                }
                 return false;
             } else {
-                closedGateways.add(gateway);
+                hasCloseableGateway = true;
             }
         }
         return true;
