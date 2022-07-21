@@ -326,7 +326,9 @@ public class OperatorCoordinatorHolder
                         mainThreadExecutor));
 
         try {
-            subtaskGatewayMap.values().forEach(x -> x.markForCheckpoint(checkpointId));
+            for (int subtask : subtasksToCheckpoint) {
+                subtaskGatewayMap.get(subtask).markForCheckpoint(checkpointId);
+            }
             coordinator.checkpointCoordinator(checkpointId, coordinatorCheckpoint);
         } catch (Throwable t) {
             ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
