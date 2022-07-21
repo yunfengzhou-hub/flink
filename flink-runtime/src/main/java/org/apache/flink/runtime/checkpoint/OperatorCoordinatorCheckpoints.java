@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.runtime.OperatorIDPair;
+import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorInfo;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
@@ -27,7 +29,9 @@ import org.apache.flink.util.concurrent.FutureUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -43,11 +47,14 @@ import java.util.concurrent.Executor;
 final class OperatorCoordinatorCheckpoints {
 
     public static CompletableFuture<CoordinatorSnapshot> triggerCoordinatorCheckpoint(
-            final OperatorCoordinatorCheckpointContext coordinatorContext, final long checkpointId)
+            final OperatorCoordinatorCheckpointContext coordinatorContext,
+            final Set<Integer> subtasksToCheckpoint,
+            final long checkpointId)
             throws Exception {
 
         final CompletableFuture<byte[]> checkpointFuture = new CompletableFuture<>();
-        coordinatorContext.checkpointCoordinator(checkpointId, checkpointFuture);
+        coordinatorContext.checkpointCoordinator(
+                checkpointId, subtasksToCheckpoint, checkpointFuture);
 
         return checkpointFuture.thenApply(
                 (state) ->
@@ -59,15 +66,25 @@ final class OperatorCoordinatorCheckpoints {
 
     public static CompletableFuture<AllCoordinatorSnapshots> triggerAllCoordinatorCheckpoints(
             final Collection<OperatorCoordinatorCheckpointContext> coordinators,
-            final long checkpointId)
+            final PendingCheckpoint checkpoint)
             throws Exception {
 
         final Collection<CompletableFuture<CoordinatorSnapshot>> individualSnapshots =
                 new ArrayList<>(coordinators.size());
 
         for (final OperatorCoordinatorCheckpointContext coordinator : coordinators) {
+            Set<Integer> subtasksToCheckpoint = new HashSet<>();
+            for (Execution execution : checkpoint.getCheckpointPlan().getTasksToWaitFor()) {
+                for (OperatorIDPair pair : execution.getVertex().getJobVertex().getOperatorIDs()) {
+                    if (pair.getGeneratedOperatorID().equals(coordinator.operatorId())) {
+                        subtasksToCheckpoint.add(execution.getVertex().getID().getSubtaskIndex());
+                    }
+                }
+            }
+
             final CompletableFuture<CoordinatorSnapshot> checkpointFuture =
-                    triggerCoordinatorCheckpoint(coordinator, checkpointId);
+                    triggerCoordinatorCheckpoint(
+                            coordinator, subtasksToCheckpoint, checkpoint.getCheckpointID());
             individualSnapshots.add(checkpointFuture);
         }
 
@@ -81,7 +98,7 @@ final class OperatorCoordinatorCheckpoints {
             throws Exception {
 
         final CompletableFuture<AllCoordinatorSnapshots> snapshots =
-                triggerAllCoordinatorCheckpoints(coordinators, checkpoint.getCheckpointId());
+                triggerAllCoordinatorCheckpoints(coordinators, checkpoint);
 
         return snapshots.thenAcceptAsync(
                 (allSnapshots) -> {

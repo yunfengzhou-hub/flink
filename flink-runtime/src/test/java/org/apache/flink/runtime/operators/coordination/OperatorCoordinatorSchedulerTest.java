@@ -283,6 +283,13 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
         final CompletableFuture<CompletedCheckpoint> checkpointFuture =
                 triggerCheckpoint(scheduler);
         coordinator.getLastTriggeredCheckpoint().complete(checkpointData);
+        executor.triggerAll();
+        OperatorEvent event =
+                new AcknowledgeCheckpointEvent(coordinator.getLastTriggeredCheckpointId());
+        OperatorCoordinatorHolder holder = getCoordinatorHolder(scheduler);
+        for (int i = 0; i < holder.currentParallelism(); i++) {
+            holder.handleEventFromOperator(i, event);
+        }
         acknowledgeCurrentCheckpoint(scheduler);
 
         final OperatorState state = checkpointFuture.get().getOperatorStates().get(testOperatorId);
@@ -704,6 +711,15 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
     }
 
     private TestingOperatorCoordinator getCoordinator(DefaultScheduler scheduler) {
+        OperatorCoordinatorHolder holder = getCoordinatorHolder(scheduler);
+
+        final OperatorCoordinator coordinator = holder.coordinator();
+        assertThat(coordinator).isInstanceOf(TestingOperatorCoordinator.class);
+
+        return (TestingOperatorCoordinator) coordinator;
+    }
+
+    private OperatorCoordinatorHolder getCoordinatorHolder(DefaultScheduler scheduler) {
         final ExecutionJobVertex vertexWithCoordinator = getJobVertex(scheduler, testVertexId);
         assertThat(vertexWithCoordinator).as("vertex for coordinator not found").isNotNull();
 
@@ -713,10 +729,7 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
                         .findFirst();
         assertThat(coordinatorOptional).as("vertex does not contain coordinator").isPresent();
 
-        final OperatorCoordinator coordinator = coordinatorOptional.get().coordinator();
-        assertThat(coordinator).isInstanceOf(TestingOperatorCoordinator.class);
-
-        return (TestingOperatorCoordinator) coordinator;
+        return coordinatorOptional.get();
     }
 
     // ------------------------------------------------------------------------
@@ -842,6 +855,14 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
                 triggerCheckpoint(scheduler);
 
         testingOperatorCoordinator.getLastTriggeredCheckpoint().complete(coordinatorState);
+        executor.triggerAll();
+        OperatorEvent event =
+                new AcknowledgeCheckpointEvent(
+                        testingOperatorCoordinator.getLastTriggeredCheckpointId());
+        OperatorCoordinatorHolder holder = getCoordinatorHolder(scheduler);
+        for (int i = 0; i < holder.currentParallelism(); i++) {
+            holder.handleEventFromOperator(i, event);
+        }
         acknowledgeCurrentCheckpoint(scheduler);
 
         // wait until checkpoint has completed

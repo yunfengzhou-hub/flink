@@ -38,8 +38,10 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Condition;
@@ -73,7 +75,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
                 createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
 
         final CompletableFuture<byte[]> checkpointFuture = new CompletableFuture<>();
-        holder.checkpointCoordinator(1L, checkpointFuture);
+        holder.checkpointCoordinator(1L, getAllSubtasks(holder), checkpointFuture);
 
         assertThat(checkpointFuture).isNotDone();
     }
@@ -87,7 +89,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         final byte[] testData = new byte[] {11, 22, 33, 44};
 
         final CompletableFuture<byte[]> checkpointFuture = new CompletableFuture<>();
-        holder.checkpointCoordinator(9L, checkpointFuture);
+        holder.checkpointCoordinator(9L, getAllSubtasks(holder), checkpointFuture);
         getCoordinator(holder).getLastTriggeredCheckpoint().complete(testData);
 
         assertThat(checkpointFuture).isDone();
@@ -100,7 +102,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         final OperatorCoordinatorHolder holder =
                 createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
 
-        holder.checkpointCoordinator(1L, new CompletableFuture<>());
+        holder.checkpointCoordinator(1L, getAllSubtasks(holder), new CompletableFuture<>());
         getCoordinator(holder).getSubtaskGateway(1).sendEvent(new TestOperatorEvent(1));
         holder.handleEventFromOperator(1, new AcknowledgeCheckpointEvent(1L));
 
@@ -165,7 +167,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
                 createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
 
         final CompletableFuture<byte[]> holderFuture = new CompletableFuture<>();
-        holder.checkpointCoordinator(1000L, holderFuture);
+        holder.checkpointCoordinator(1000L, getAllSubtasks(holder), holderFuture);
 
         final CompletableFuture<byte[]> future1 =
                 getCoordinator(holder).getLastTriggeredCheckpoint();
@@ -188,10 +190,10 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         final OperatorCoordinatorHolder holder =
                 createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
 
-        holder.checkpointCoordinator(11L, new CompletableFuture<>());
+        holder.checkpointCoordinator(11L, getAllSubtasks(holder), new CompletableFuture<>());
 
         final CompletableFuture<byte[]> future = new CompletableFuture<>();
-        holder.checkpointCoordinator(12L, future);
+        holder.checkpointCoordinator(12L, getAllSubtasks(holder), future);
 
         assertThat(future).isCompletedExceptionally();
         assertThat(globalFailure).isNotNull();
@@ -354,7 +356,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         // trigger the checkpoint - this should also close the gateway as soon as the future is
         // completed
         final CompletableFuture<byte[]> checkpointFuture = new CompletableFuture<>();
-        holder.checkpointCoordinator(0L, checkpointFuture);
+        holder.checkpointCoordinator(0L, getAllSubtasks(holder), checkpointFuture);
         executor.triggerAll();
 
         // give the coordinator some time to emit some events. Same as above, this adds some
@@ -386,7 +388,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         // Trigger one checkpoint.
         CompletableFuture<byte[]> checkpointResult = new CompletableFuture<>();
-        holder.checkpointCoordinator(1, checkpointResult);
+        holder.checkpointCoordinator(1, getAllSubtasks(holder), checkpointResult);
         getCoordinator(holder).getLastTriggeredCheckpoint().complete(new byte[0]);
 
         // Fail the event sending.
@@ -423,7 +425,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         // Trigger one checkpoint, the checkpoint should not be confirmed
         // before the failure get triggered.
         CompletableFuture<byte[]> checkpointResult = new CompletableFuture<>();
-        holder.checkpointCoordinator(1, checkpointResult);
+        holder.checkpointCoordinator(1, getAllSubtasks(holder), checkpointResult);
         executor.triggerAll();
         getCoordinator(holder).getLastTriggeredCheckpoint().complete(new byte[0]);
         executor.triggerAll();
@@ -443,7 +445,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         final OperatorCoordinatorHolder holder =
                 createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
 
-        holder.checkpointCoordinator(1L, new CompletableFuture<>());
+        holder.checkpointCoordinator(1L, getAllSubtasks(holder), new CompletableFuture<>());
         getCoordinator(holder).getLastTriggeredCheckpoint().complete(new byte[0]);
 
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(0));
@@ -467,7 +469,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
             OperatorCoordinatorHolder holder, long checkpointId) throws Exception {
 
         final CompletableFuture<byte[]> future = new CompletableFuture<>();
-        holder.checkpointCoordinator(checkpointId, future);
+        holder.checkpointCoordinator(checkpointId, getAllSubtasks(holder), future);
         getCoordinator(holder).getLastTriggeredCheckpoint().complete(new byte[0]);
         return future;
     }
@@ -482,6 +484,14 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
     static int bytesToInt(byte[] bytes) {
         return ByteBuffer.wrap(bytes).getInt();
+    }
+
+    private static Set<Integer> getAllSubtasks(OperatorCoordinatorHolder holder) {
+        Set<Integer> subtasks = new HashSet<>();
+        for (int i = 0; i < holder.currentParallelism(); i++) {
+            subtasks.add(i);
+        }
+        return subtasks;
     }
 
     private static TestingOperatorCoordinator getCoordinator(OperatorCoordinatorHolder holder) {

@@ -24,6 +24,7 @@ import org.apache.flink.runtime.operators.coordination.OperatorInfo;
 
 import javax.annotation.Nullable;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -32,7 +33,8 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface OperatorCoordinatorCheckpointContext extends OperatorInfo, CheckpointListener {
 
-    void checkpointCoordinator(long checkpointId, CompletableFuture<byte[]> result)
+    void checkpointCoordinator(
+            long checkpointId, Set<Integer> subtasksToCheckpoint, CompletableFuture<byte[]> result)
             throws Exception;
 
     void abortCurrentTriggering();
