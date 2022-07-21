@@ -25,6 +25,7 @@ import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventHandler;
@@ -37,11 +38,13 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
 import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
+import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.CoordinatedOperatorFactory;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
+import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperatorParameters;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -54,6 +57,7 @@ import org.junit.Test;
 
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase.EndEvent;
@@ -80,6 +84,10 @@ public class CoordinatorEventsExactlyOnceTest {
 
     private static final AtomicBoolean shouldCloseSource = new AtomicBoolean(false);
 
+    private static final int numEvents = 100;
+
+    private static final int delay = 1;
+
     private StreamExecutionEnvironment env;
 
     @Before
@@ -92,27 +100,38 @@ public class CoordinatorEventsExactlyOnceTest {
 
     @Test
     public void test() throws Exception {
-        executeAndVerifyResult(env);
+        long count =
+                executeAndGetNumReceivedEvents(
+                        env,
+                        new EventReceivingOperatorFactory<>("eventReceiving", numEvents, delay));
+        assertThat(count).isEqualTo(numEvents);
     }
 
     @Test
     public void testUnalignedCheckpoint() throws Exception {
         env.getCheckpointConfig().enableUnalignedCheckpoints();
-        executeAndVerifyResult(env);
+        long count =
+                executeAndGetNumReceivedEvents(
+                        env,
+                        new EventReceivingOperatorFactory<>("eventReceiving", numEvents, delay));
+        assertThat(count).isEqualTo(numEvents);
     }
 
-    private void executeAndVerifyResult(StreamExecutionEnvironment env) throws Exception {
-        final int numEvents = 100;
-        final int delay = 1;
+    @Test
+    public void testFailingCheckpoint() throws Exception {
+        executeAndGetNumReceivedEvents(
+                env, new FailingCheckpointOperatorFactory<>("failingCheckpoint", numEvents, delay));
+    }
 
+    private long executeAndGetNumReceivedEvents(
+            StreamExecutionEnvironment env, OneInputStreamOperatorFactory<Long, Long> factory)
+            throws Exception {
         DataStream<Long> stream =
                 env.addSource(new IdlingSourceFunction<>(), TypeInformation.of(Long.class))
                         .setParallelism(2);
         stream =
-                stream.transform(
-                        "eventReceiving",
-                        TypeInformation.of(Long.class),
-                        new EventReceivingOperatorFactory<>("eventReceiving", numEvents, delay));
+                stream.transform("eventReceiving", TypeInformation.of(Long.class), factory)
+                        .setParallelism(1);
         stream.addSink(new DiscardingSink<>());
 
         JobExecutionResult executionResult =
@@ -120,8 +139,7 @@ public class CoordinatorEventsExactlyOnceTest {
                         .getMiniCluster()
                         .executeJobBlocking(env.getStreamGraph().getJobGraph());
 
-        long count = executionResult.getAccumulatorResult(EventReceivingOperator.COUNTER_NAME);
-        assertThat(count).isEqualTo(numEvents);
+        return executionResult.getAccumulatorResult(EventReceivingOperator.COUNTER_NAME);
     }
 
     /** A mock source function that does not collect any stream record and finishes on demand. */
@@ -264,6 +282,69 @@ public class CoordinatorEventsExactlyOnceTest {
                 counter.add(iterator.next());
             }
             Preconditions.checkArgument(!iterator.hasNext());
+        }
+    }
+
+    private static class FailingCheckpointOperatorFactory<IN, OUT>
+            extends EventReceivingOperatorFactory<IN, OUT> {
+        public FailingCheckpointOperatorFactory(String name, int numEvents, int delay) {
+            super(name, numEvents, delay);
+        }
+
+        @Override
+        public <T extends StreamOperator<OUT>> T createStreamOperator(
+                StreamOperatorParameters<OUT> parameters) {
+            EventReceivingOperator<OUT> operator = new CheckpointFailingOperator<>(numEvents);
+            operator.setup(
+                    parameters.getContainingTask(),
+                    parameters.getStreamConfig(),
+                    parameters.getOutput());
+            parameters
+                    .getOperatorEventDispatcher()
+                    .registerEventHandler(parameters.getStreamConfig().getOperatorID(), operator);
+            return (T) operator;
+        }
+    }
+
+    /**
+     * A subclass of {@link EventReceivingOperator} whose subtask would fail during a specific
+     * checkpoint.
+     */
+    private static class CheckpointFailingOperator<T> extends EventReceivingOperator<T> {
+
+        private final int failAtCheckpointAfterMessage;
+
+        private CoordinatorEventsExactlyOnceITCase.TestScript testScript;
+
+        private CheckpointFailingOperator(int numEvents) {
+            this.failAtCheckpointAfterMessage =
+                    numEvents * 2 / 3 + new Random().nextInt(numEvents / 6);
+        }
+
+        @Override
+        public void setup(
+                StreamTask<?, ?> containingTask,
+                StreamConfig config,
+                Output<StreamRecord<T>> output) {
+            super.setup(containingTask, config, output);
+            if (containingTask.getIndexInSubtaskGroup() == 0) {
+                this.testScript =
+                        CoordinatorEventsExactlyOnceITCase.TestScript.getForOperator(
+                                getOperatorName() + "-subtask0");
+            } else {
+                this.testScript = null;
+            }
+        }
+
+        @Override
+        public void snapshotState(StateSnapshotContext context) throws Exception {
+            super.snapshotState(context);
+            if (counter.getLocalValue() > failAtCheckpointAfterMessage
+                    && testScript != null
+                    && !testScript.hasAlreadyFailed()) {
+                testScript.recordHasFailed();
+                throw new RuntimeException();
+            }
         }
     }
 }

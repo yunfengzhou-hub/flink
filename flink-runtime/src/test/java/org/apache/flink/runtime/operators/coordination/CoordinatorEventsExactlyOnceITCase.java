@@ -666,11 +666,11 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     //  dedicated class to hold the "test script"
     // ------------------------------------------------------------------------
 
-    private static final class TestScript {
+    public static final class TestScript {
 
         private static final Map<String, TestScript> MAP_FOR_OPERATOR = new HashMap<>();
 
-        static TestScript getForOperator(String operatorName) {
+        public static TestScript getForOperator(String operatorName) {
             return MAP_FOR_OPERATOR.computeIfAbsent(operatorName, (key) -> new TestScript());
         }
 
@@ -681,11 +681,11 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
         private final Collection<CountDownLatch> recoveredTaskRunning = new ArrayList<>();
         private boolean failedBefore;
 
-        void recordHasFailed() {
+        public void recordHasFailed() {
             this.failedBefore = true;
         }
 
-        boolean hasAlreadyFailed() {
+        public boolean hasAlreadyFailed() {
             return failedBefore;
         }
 
