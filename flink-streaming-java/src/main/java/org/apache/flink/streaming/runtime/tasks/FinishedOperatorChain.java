@@ -32,6 +32,7 @@ import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.SerializedValue;
 
 import java.util.Map;
@@ -62,8 +63,9 @@ public class FinishedOperatorChain<OUT, OP extends StreamOperator<OUT>>
     }
 
     @Override
-    public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event) {
-        throw new UnsupportedOperationException();
+    public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event)
+            throws FlinkException {
+        operatorEventDispatcher.dispatchEventToHandlers(operator, event, true);
     }
 
     @Override
@@ -105,7 +107,6 @@ public class FinishedOperatorChain<OUT, OP extends StreamOperator<OUT>>
             throws Exception {
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             StreamOperator<?> operator = operatorWrapper.getStreamOperator();
-
             if (operator == getMainOperator() || operator == getTailOperator()) {
                 OperatorSnapshotFutures snapshotInProgress = new OperatorSnapshotFutures();
                 snapshotChannelStates(operator, channelStateWriteResult, snapshotInProgress);
@@ -113,6 +114,5 @@ public class FinishedOperatorChain<OUT, OP extends StreamOperator<OUT>>
                         operatorWrapper.getStreamOperator().getOperatorID(), snapshotInProgress);
             }
         }
-        sendAcknowledgeCheckpointEvent(checkpointMetaData.getCheckpointId());
     }
 }

@@ -68,6 +68,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -250,13 +251,28 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
 
         public final int value;
 
-        IntegerEvent(int value) {
+        public IntegerEvent(int value) {
             this.value = value;
         }
 
         @Override
         public String toString() {
             return "IntegerEvent " + value;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(value);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof IntegerEvent)) {
+                return false;
+            }
+
+            IntegerEvent event = (IntegerEvent) obj;
+            return event.value == this.value;
         }
     }
 
@@ -640,6 +656,16 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                 throws FlinkException {
             try {
                 final OperatorEvent opEvent = event.deserializeValue(getUserCodeClassLoader());
+                if (opEvent instanceof CloseGatewayEvent) {
+                    getEnvironment()
+                            .getOperatorCoordinatorEventGateway()
+                            .sendOperatorEventToCoordinator(
+                                    operatorID,
+                                    new SerializedValue<>(
+                                            new AcknowledgeCloseGatewayEvent(
+                                                    (CloseGatewayEvent) opEvent)));
+                    return;
+                }
                 actions.add(opEvent);
             } catch (IOException | ClassNotFoundException e) {
                 throw new FlinkException(e);

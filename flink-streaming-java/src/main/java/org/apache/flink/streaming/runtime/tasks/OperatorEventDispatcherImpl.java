@@ -19,20 +19,30 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.state.OperatorStateStore;
+import org.apache.flink.api.java.typeutils.ListTypeInfo;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.TaskOperatorEventGateway;
+import org.apache.flink.runtime.operators.coordination.AcknowledgeCheckpointEvent;
+import org.apache.flink.runtime.operators.coordination.AcknowledgeCloseGatewayEvent;
+import org.apache.flink.runtime.operators.coordination.CloseGatewayEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventDispatcher;
 import org.apache.flink.runtime.operators.coordination.OperatorEventGateway;
 import org.apache.flink.runtime.operators.coordination.OperatorEventHandler;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -50,21 +60,44 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
 
     private final TaskOperatorEventGateway toCoordinator;
 
+    private final Map<OperatorID, OperatorEventGatewayImpl> gatewayMap;
+
     public OperatorEventDispatcherImpl(
             ClassLoader classLoader, TaskOperatorEventGateway toCoordinator) {
         this.classLoader = checkNotNull(classLoader);
         this.toCoordinator = checkNotNull(toCoordinator);
         this.handlers = new HashMap<>();
+        this.gatewayMap = new HashMap<>();
     }
 
     void dispatchEventToHandlers(
             OperatorID operatorID, SerializedValue<OperatorEvent> serializedEvent)
+            throws FlinkException {
+        dispatchEventToHandlers(operatorID, serializedEvent, false);
+    }
+
+    void dispatchEventToHandlers(
+            OperatorID operatorID,
+            SerializedValue<OperatorEvent> serializedEvent,
+            boolean isFinishedOperator)
             throws FlinkException {
         final OperatorEvent evt;
         try {
             evt = serializedEvent.deserializeValue(classLoader);
         } catch (IOException | ClassNotFoundException e) {
             throw new FlinkException("Could not deserialize operator event", e);
+        }
+
+        if (evt instanceof CloseGatewayEvent) {
+            OperatorEventGatewayImpl gateway = getOperatorEventGateway(operatorID);
+            gateway.sendEventToCoordinator(
+                    new AcknowledgeCloseGatewayEvent((CloseGatewayEvent) evt));
+            gateway.closeGateway();
+            return;
+        }
+
+        if (isFinishedOperator) {
+            throw new UnsupportedOperationException();
         }
 
         final OperatorEventHandler handler = handlers.get(operatorID);
@@ -75,6 +108,20 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         }
     }
 
+    void snapshotOperatorEventGateway(
+            OperatorID operator, long checkpointId, OperatorStateStore operatorStateStore)
+            throws Exception {
+        OperatorEventGatewayImpl gateway = getOperatorEventGateway(operator);
+        gateway.snapshotState(operatorStateStore);
+        gateway.sendEventToCoordinator(new AcknowledgeCheckpointEvent(checkpointId), false);
+        gateway.openGateway();
+    }
+
+    void initializeOperatorEventGateway(OperatorID operator, OperatorStateStore operatorStateStore)
+            throws Exception {
+        getOperatorEventGateway(operator).initializeState(operatorStateStore);
+    }
+
     @Override
     public void registerEventHandler(OperatorID operator, OperatorEventHandler handler) {
         final OperatorEventHandler prior = handlers.putIfAbsent(operator, handler);
@@ -83,41 +130,97 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         }
     }
 
-    Set<OperatorID> getRegisteredOperators() {
-        return handlers.keySet();
+    boolean isRegisteredOperator(OperatorID operatorId) {
+        return handlers.containsKey(operatorId) || gatewayMap.containsKey(operatorId);
     }
 
     @Override
-    public OperatorEventGateway getOperatorEventGateway(OperatorID operatorId) {
-        return new OperatorEventGatewayImpl(toCoordinator, operatorId);
+    public OperatorEventGatewayImpl getOperatorEventGateway(OperatorID operatorId) {
+        return gatewayMap.computeIfAbsent(
+                operatorId, key -> new OperatorEventGatewayImpl(toCoordinator, key));
     }
 
     // ------------------------------------------------------------------------
 
     private static final class OperatorEventGatewayImpl implements OperatorEventGateway {
 
+        private static final String blockedEventsStateKey = "blockedOperatorEvents";
+
         private final TaskOperatorEventGateway toCoordinator;
 
         private final OperatorID operatorId;
+
+        private final List<SerializedOperatorEvent> blockedEvents;
+
+        private final ListStateDescriptor<List<SerializedOperatorEvent>> descriptor;
+
+        private boolean isClosed;
 
         private OperatorEventGatewayImpl(
                 TaskOperatorEventGateway toCoordinator, OperatorID operatorId) {
             this.toCoordinator = toCoordinator;
             this.operatorId = operatorId;
+            this.blockedEvents = new ArrayList<>();
+            this.descriptor =
+                    new ListStateDescriptor<>(
+                            blockedEventsStateKey,
+                            new ListTypeInfo<>(SerializedOperatorEvent.class));
+            this.isClosed = false;
         }
 
         @Override
         public void sendEventToCoordinator(OperatorEvent event) {
-            final SerializedValue<OperatorEvent> serializedEvent;
+            sendEventToCoordinator(event, true);
+        }
+
+        private void sendEventToCoordinator(OperatorEvent event, boolean canBlock) {
+            final SerializedOperatorEvent serializedEvent;
             try {
-                serializedEvent = new SerializedValue<>(event);
+                serializedEvent = new SerializedOperatorEvent(event);
             } catch (IOException e) {
                 // this is not a recoverable situation, so we wrap this in an
                 // unchecked exception and let it bubble up
                 throw new FlinkRuntimeException("Cannot serialize operator event", e);
             }
 
-            toCoordinator.sendOperatorEventToCoordinator(operatorId, serializedEvent);
+            if (isClosed && canBlock) {
+                blockedEvents.add(serializedEvent);
+            } else {
+                toCoordinator.sendOperatorEventToCoordinator(operatorId, serializedEvent);
+            }
+        }
+
+        private void closeGateway() {
+            isClosed = true;
+        }
+
+        private void openGateway() {
+            isClosed = false;
+            sendBlockedEvents();
+        }
+
+        private void initializeState(OperatorStateStore operatorStateStore) throws Exception {
+            operatorStateStore.getListState(descriptor).get().forEach(blockedEvents::addAll);
+            sendBlockedEvents();
+        }
+
+        private void snapshotState(OperatorStateStore operatorStateStore) throws Exception {
+            operatorStateStore
+                    .getListState(descriptor)
+                    .update(Collections.singletonList(blockedEvents));
+        }
+
+        private void sendBlockedEvents() {
+            for (SerializedValue<OperatorEvent> blockedEvent : blockedEvents) {
+                toCoordinator.sendOperatorEventToCoordinator(operatorId, blockedEvent);
+            }
+            blockedEvents.clear();
+        }
+
+        private static class SerializedOperatorEvent extends SerializedValue<OperatorEvent> {
+            public SerializedOperatorEvent(OperatorEvent value) throws IOException {
+                super(value);
+            }
         }
     }
 }
