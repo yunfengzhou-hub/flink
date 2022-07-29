@@ -438,7 +438,6 @@ public abstract class AbstractStreamOperator<OUT>
         return stateHandler.getKeyedStateBackend();
     }
 
-    @VisibleForTesting
     public OperatorStateBackend getOperatorStateBackend() {
         return stateHandler.getOperatorStateBackend();
     }

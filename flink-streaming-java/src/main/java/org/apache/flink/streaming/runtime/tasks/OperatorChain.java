@@ -35,7 +35,6 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.metrics.MetricNames;
-import org.apache.flink.runtime.operators.coordination.AcknowledgeCheckpointEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventDispatcher;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
@@ -144,10 +143,12 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
 
     protected boolean isClosed;
 
+    protected StreamTask<OUT, OP> containingTask;
+
     public OperatorChain(
             StreamTask<OUT, OP> containingTask,
             RecordWriterDelegate<SerializationDelegate<StreamRecord<OUT>>> recordWriterDelegate) {
-
+        this.containingTask = containingTask;
         this.operatorEventDispatcher =
                 new OperatorEventDispatcherImpl(
                         containingTask.getEnvironment().getUserCodeClassLoader().asClassLoader(),
@@ -263,11 +264,12 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
             List<StreamOperatorWrapper<?, ?>> allOperatorWrappers,
             RecordWriterOutput<?>[] streamOutputs,
             WatermarkGaugeExposingOutput<StreamRecord<OUT>> mainOperatorOutput,
-            StreamOperatorWrapper<OUT, OP> mainOperatorWrapper) {
+            StreamOperatorWrapper<OUT, OP> mainOperatorWrapper,
+            OperatorEventDispatcherImpl operatorEventDispatcher) {
         this.streamOutputs = streamOutputs;
         this.finishedOnRestoreInput = null;
         this.mainOperatorOutput = checkNotNull(mainOperatorOutput);
-        this.operatorEventDispatcher = null;
+        this.operatorEventDispatcher = checkNotNull(operatorEventDispatcher);
 
         checkState(allOperatorWrappers != null && allOperatorWrappers.size() > 0);
         this.mainOperatorWrapper = checkNotNull(mainOperatorWrapper);
@@ -834,20 +836,5 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                         .getMailboxExecutorFactory()
                         .createExecutor(operatorConfig.getChainIndex()),
                 isHead);
-    }
-
-    protected void sendAcknowledgeCheckpointEvent(long checkpointId) {
-        if (operatorEventDispatcher == null) {
-            return;
-        }
-
-        operatorEventDispatcher
-                .getRegisteredOperators()
-                .forEach(
-                        x ->
-                                operatorEventDispatcher
-                                        .getOperatorEventGateway(x)
-                                        .sendEventToCoordinator(
-                                                new AcknowledgeCheckpointEvent(checkpointId)));
     }
 }

@@ -68,6 +68,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -82,7 +83,6 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
 
 /**
  * Integration Test case that validates the exactly-once mechanism for coordinator events around
@@ -177,22 +177,12 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     }
 
     private static void checkListContainsSequence(List<Integer> ints, int length) {
-        if (ints.size() != length) {
-            failList(ints, length);
+        List<Integer> expected = new ArrayList<>();
+        for (int i = 0; i < length; i++) {
+            expected.add(i);
         }
 
-        int nextExpected = 0;
-        for (int next : ints) {
-            if (next != nextExpected++) {
-                failList(ints, length);
-            }
-        }
-    }
-
-    private static void failList(List<Integer> ints, int length) {
-        fail(
-                "List did not contain expected sequence of %d elements, but was: (%d elements): %s",
-                length, ints.size(), ints);
+        assertThat(ints).containsExactly(expected.toArray(new Integer[0]));
     }
 
     // ------------------------------------------------------------------------
@@ -264,13 +254,28 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
 
         public final int value;
 
-        IntegerEvent(int value) {
+        public IntegerEvent(int value) {
             this.value = value;
         }
 
         @Override
         public String toString() {
             return "IntegerEvent " + value;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(value);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof IntegerEvent)) {
+                return false;
+            }
+
+            IntegerEvent event = (IntegerEvent) obj;
+            return event.value == this.value;
         }
     }
 
@@ -590,7 +595,8 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
             getEnvironment()
                     .getOperatorCoordinatorEventGateway()
                     .sendOperatorEventToCoordinator(
-                            operatorID, new SerializedValue<>(new StartEvent(-1)));
+                            operatorID,
+                            new SerializedValue<>(new StartEvent(collectedInts.size() - 1)));
 
             // verify the request & response communication
             CoordinationResponse response =
@@ -658,6 +664,16 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                 throws FlinkException {
             try {
                 final OperatorEvent opEvent = event.deserializeValue(getUserCodeClassLoader());
+                if (opEvent instanceof CloseGatewayEvent) {
+                    getEnvironment()
+                            .getOperatorCoordinatorEventGateway()
+                            .sendOperatorEventToCoordinator(
+                                    operatorID,
+                                    new SerializedValue<>(
+                                            new AcknowledgeCloseGatewayEvent(
+                                                    (CloseGatewayEvent) opEvent)));
+                    return;
+                }
                 actions.add(opEvent);
             } catch (IOException | ClassNotFoundException e) {
                 throw new FlinkException(e);
@@ -684,7 +700,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     //  dedicated class to hold the "test script"
     // ------------------------------------------------------------------------
 
-    protected static final class TestScript {
+    public static final class TestScript {
 
         private static final Map<String, TestScript> MAP_FOR_OPERATOR = new HashMap<>();
 

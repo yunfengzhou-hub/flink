@@ -133,7 +133,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 
 import static org.apache.flink.configuration.TaskManagerOptions.BUFFER_DEBLOAT_PERIOD;
@@ -1447,13 +1446,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     @Override
     public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event)
             throws FlinkException {
-        try {
-            mainMailboxExecutor.execute(
-                    () -> operatorChain.dispatchOperatorEvent(operator, event),
-                    "dispatch operator event");
-        } catch (RejectedExecutionException e) {
-            // this happens during shutdown, we can swallow this
-        }
+        mainMailboxExecutor.execute(
+                () -> operatorChain.dispatchOperatorEvent(operator, event),
+                "dispatch operator event");
     }
 
     // ------------------------------------------------------------------------

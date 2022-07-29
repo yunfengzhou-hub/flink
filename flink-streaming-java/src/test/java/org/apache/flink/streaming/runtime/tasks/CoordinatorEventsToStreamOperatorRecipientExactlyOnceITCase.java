@@ -60,13 +60,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration test case that validates the exactly-once mechanism for operator events sent around
- * checkpoint.
+ * Integration test case that validates the exactly-once mechanism for operator events sent from
+ * OperatorCoordinator to its subtask around checkpoint.
  *
  * <p>This class is an extension to {@link
  * org.apache.flink.runtime.operators.coordination.CoordinatorEventsExactlyOnceITCase}, further
  * verifying the exactly-once semantics of events when the flink job is constructed using actual
  * stream operators and verifying the correctness of the behavior of stream operators.
+ *
+ * <p>See also {@link OperatorEventsExactlyOnceTest} for integration tests about operator event sent
+ * in the reversed direction.
  */
 public class CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase
         extends CoordinatorEventsExactlyOnceITCase {

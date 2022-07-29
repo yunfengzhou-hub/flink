@@ -1488,12 +1488,15 @@ public class Task
             } catch (Throwable t) {
                 ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
 
-                if (getExecutionState() == ExecutionState.RUNNING
-                        || getExecutionState() == ExecutionState.INITIALIZING) {
+                if ((getExecutionState() == ExecutionState.RUNNING
+                                || getExecutionState() == ExecutionState.INITIALIZING)
+                        && !(t instanceof RejectedExecutionException)) {
                     FlinkException e = new FlinkException("Error while handling operator event", t);
                     failExternally(e);
                     throw e;
                 }
+
+                throw t;
             }
         }
     }

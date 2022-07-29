@@ -930,7 +930,8 @@ public class CheckpointCoordinatorTestingUtils {
         }
 
         @Override
-        public void checkpointCoordinator(long checkpointId, CompletableFuture<byte[]> result)
+        public void checkpointCoordinator(
+                long checkpointId, Set<Integer> subtasksToWaitFor, CompletableFuture<byte[]> result)
                 throws Exception {
             if (onCallingCheckpointCoordinator != null) {
                 onCallingCheckpointCoordinator.accept(checkpointId, result);

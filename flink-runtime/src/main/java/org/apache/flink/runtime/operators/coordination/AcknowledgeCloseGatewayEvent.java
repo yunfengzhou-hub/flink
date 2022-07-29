@@ -18,21 +18,29 @@
 
 package org.apache.flink.runtime.operators.coordination;
 
+import org.apache.flink.annotation.VisibleForTesting;
+
 /**
- * An {@link OperatorEvent} sent from a subtask to its {@link OperatorCoordinator} to signal that
- * the checkpoint of an individual task is completed.
+ * An {@link OperatorEvent} sent from a subtask to its {@link OperatorCoordinator} as a response to
+ * a corresponding {@link CloseGatewayEvent}. This is the last event a subtask would send to this
+ * coordinator before the subtask completes the checkpoint.
  */
-public class AcknowledgeCheckpointEvent implements OperatorEvent {
+public class AcknowledgeCloseGatewayEvent implements OperatorEvent {
 
     /** The ID of the checkpoint that this event is related to. */
     private final long checkpointId;
 
-    public AcknowledgeCheckpointEvent(long checkpointId) {
-        this.checkpointId = checkpointId;
+    public AcknowledgeCloseGatewayEvent(CloseGatewayEvent event) {
+        this(event.getCheckpointID());
     }
 
     long getCheckpointID() {
         return checkpointId;
+    }
+
+    @VisibleForTesting
+    AcknowledgeCloseGatewayEvent(long checkpointId) {
+        this.checkpointId = checkpointId;
     }
 
     @Override
@@ -42,15 +50,15 @@ public class AcknowledgeCheckpointEvent implements OperatorEvent {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof AcknowledgeCheckpointEvent)) {
+        if (!(obj instanceof AcknowledgeCloseGatewayEvent)) {
             return false;
         }
-        AcknowledgeCheckpointEvent event = (AcknowledgeCheckpointEvent) obj;
+        AcknowledgeCloseGatewayEvent event = (AcknowledgeCloseGatewayEvent) obj;
         return event.checkpointId == this.checkpointId;
     }
 
     @Override
     public String toString() {
-        return "AcknowledgeCheckpointEvent (" + checkpointId + ')';
+        return "AcknowledgeCloseGatewayEvent (" + checkpointId + ')';
     }
 }

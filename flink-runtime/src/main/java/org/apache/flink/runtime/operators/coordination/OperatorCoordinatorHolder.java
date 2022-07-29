@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -135,6 +136,9 @@ public class OperatorCoordinatorHolder
     private GlobalFailureHandler globalFailureHandler;
     private ComponentMainThreadExecutor mainThreadExecutor;
 
+    private Map<Integer, CompletableFuture<Void>> closeGatewayFutureMap;
+    private long currentCheckpointId;
+
     private OperatorCoordinatorHolder(
             final OperatorID operatorId,
             final OperatorCoordinator coordinator,
@@ -208,7 +212,12 @@ public class OperatorCoordinatorHolder
     public void handleEventFromOperator(int subtask, int attemptNumber, OperatorEvent event)
             throws Exception {
         mainThreadExecutor.assertRunningInMainThread();
-        if (event instanceof AcknowledgeCheckpointEvent) {
+
+        if (event instanceof AcknowledgeCloseGatewayEvent) {
+            notifySubtaskGatewayClosed(
+                    subtask, ((AcknowledgeCloseGatewayEvent) event).getCheckpointID());
+            return;
+        } else if (event instanceof AcknowledgeCheckpointEvent) {
             subtaskGatewayMap
                     .get(subtask)
                     .openGatewayAndUnmarkCheckpoint(
@@ -235,12 +244,16 @@ public class OperatorCoordinatorHolder
     }
 
     @Override
-    public void checkpointCoordinator(long checkpointId, CompletableFuture<byte[]> result) {
+    public void checkpointCoordinator(
+            long checkpointId, Set<Integer> subtasksToWaitFor, CompletableFuture<byte[]> result) {
         // unfortunately, this method does not run in the scheduler executor, but in the
         // checkpoint coordinator time thread.
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
-        mainThreadExecutor.execute(() -> checkpointCoordinatorInternal(checkpointId, result));
+        mainThreadExecutor.execute(
+                () ->
+                        notifySubtaskAndCheckpointCoordinator(
+                                checkpointId, subtasksToWaitFor, result));
     }
 
     @Override
@@ -296,6 +309,58 @@ public class OperatorCoordinatorHolder
         }
 
         coordinator.resetToCheckpoint(checkpointId, checkpointData);
+    }
+
+    private void notifySubtaskAndCheckpointCoordinator(
+            long checkpointId, Set<Integer> subtasksToWaitFor, CompletableFuture<byte[]> result) {
+        mainThreadExecutor.assertRunningInMainThread();
+
+        currentCheckpointId = checkpointId;
+
+        closeGatewayFutureMap = new HashMap<>();
+        for (int subtask : subtasksToWaitFor) {
+            closeGatewayFutureMap.put(subtask, new CompletableFuture<>());
+            subtaskGatewayMap
+                    .get(subtask)
+                    .sendEventWithAction(
+                            new CloseGatewayEvent(checkpointId),
+                            (success, failure) -> {
+                                if (failure != null) {
+                                    // The subtask does not receive the close gateway event for some
+                                    // reason. For example, The subtask has finished. In this case
+                                    // the coordinator holder would not receive an ACK from the
+                                    // subtask, and needs not wait for that ACK.
+                                    notifySubtaskGatewayClosed(subtask, checkpointId);
+
+                                    if (!(failure instanceof RejectedExecutionException
+                                            || failure instanceof TaskNotRunningException)) {
+                                        subtaskGatewayMap
+                                                .get(subtask)
+                                                .triggerTaskFailover(
+                                                        new CloseGatewayEvent(checkpointId),
+                                                        failure);
+                                    }
+                                }
+                            });
+        }
+        FutureUtils.combineAll(closeGatewayFutureMap.values())
+                .handleAsync(
+                        (success, failure) -> {
+                            if (failure != null) {
+                                result.completeExceptionally(failure);
+                            } else {
+                                checkpointCoordinatorInternal(checkpointId, result);
+                            }
+                            return null;
+                        },
+                        mainThreadExecutor);
+    }
+
+    private void notifySubtaskGatewayClosed(int subtask, long checkpointId) {
+        checkState(checkpointId <= currentCheckpointId);
+        if (checkpointId == currentCheckpointId) {
+            closeGatewayFutureMap.get(subtask).complete(null);
+        }
     }
 
     private void checkpointCoordinatorInternal(
