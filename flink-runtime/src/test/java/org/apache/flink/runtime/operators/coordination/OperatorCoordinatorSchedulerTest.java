@@ -88,6 +88,7 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
@@ -709,7 +710,7 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
         return createSchedulerBuilder(
                 jobGraph,
                 mainThreadExecutor,
-                new SimpleAckingTaskManagerGateway(),
+                new RejectCloseEventGateway(),
                 scheduledExecutorService);
     }
 
@@ -1052,6 +1053,28 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
         public CompletableFuture<Acknowledge> sendOperatorEventToTask(
                 ExecutionAttemptID task, OperatorID operator, SerializedValue<OperatorEvent> evt) {
             return operatorGateway.sendOperatorEventToTask(task, operator, evt);
+        }
+    }
+
+    /**
+     * A subclass of {@link SimpleAckingTaskManagerGateway} that rejects {@link CloseGatewayEvent}s
+     * instead of throwing exceptions.
+     */
+    private static final class RejectCloseEventGateway extends SimpleAckingTaskManagerGateway {
+        @Override
+        public CompletableFuture<Acknowledge> sendOperatorEventToTask(
+                ExecutionAttemptID task, OperatorID operator, SerializedValue<OperatorEvent> evt) {
+            try {
+                if (evt.deserializeValue(Thread.currentThread().getContextClassLoader())
+                        instanceof CloseGatewayEvent) {
+                    CompletableFuture<Acknowledge> future = new CompletableFuture<>();
+                    future.completeExceptionally(new RejectedExecutionException());
+                    return future;
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            return super.sendOperatorEventToTask(task, operator, evt);
         }
     }
 }
