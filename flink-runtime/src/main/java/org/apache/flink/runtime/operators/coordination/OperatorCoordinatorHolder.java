@@ -23,6 +23,7 @@ import org.apache.flink.runtime.checkpoint.OperatorCoordinatorCheckpointContext;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.util.IncompleteFuturesTracker;
 import org.apache.flink.runtime.scheduler.GlobalFailureHandler;
 import org.apache.flink.util.ExceptionUtils;
@@ -42,7 +43,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -127,6 +130,15 @@ public class OperatorCoordinatorHolder
      */
     private final Map<Integer, SubtaskGatewayImpl> subtaskGatewayMap;
 
+    /**
+     * A map that manages a completable future for each subtask. It helps to guarantee that when the
+     * coordinator starts doing a checkpoint, it will not receive events from its subtasks anymore,
+     * until the checkpoint is completed or aborted. This map is only read or modified in
+     * checkpoint-related processes, and note that concurrent execution attempt is currently
+     * guaranteed to be disabled when checkpoint is enabled.
+     */
+    private final Map<Integer, CompletableFuture<Acknowledge>> acknowledgeCloseGatewayFutureMap;
+
     private final IncompleteFuturesTracker unconfirmedEvents;
 
     private final int operatorParallelism;
@@ -134,6 +146,8 @@ public class OperatorCoordinatorHolder
 
     private GlobalFailureHandler globalFailureHandler;
     private ComponentMainThreadExecutor mainThreadExecutor;
+
+    private long latestAttemptedCheckpointId;
 
     private OperatorCoordinatorHolder(
             final OperatorID operatorId,
@@ -151,6 +165,7 @@ public class OperatorCoordinatorHolder
         this.operatorMaxParallelism = operatorMaxParallelism;
 
         this.subtaskGatewayMap = new HashMap<>();
+        this.acknowledgeCloseGatewayFutureMap = new HashMap<>();
         this.unconfirmedEvents = new IncompleteFuturesTracker();
     }
 
@@ -208,13 +223,19 @@ public class OperatorCoordinatorHolder
     public void handleEventFromOperator(int subtask, int attemptNumber, OperatorEvent event)
             throws Exception {
         mainThreadExecutor.assertRunningInMainThread();
-        if (event instanceof AcknowledgeCheckpointEvent) {
+
+        if (event instanceof AcknowledgeCloseGatewayEvent) {
+            completeAcknowledgeCloseGatewayFuture(
+                    subtask, ((AcknowledgeCloseGatewayEvent) event).getCheckpointID());
+            return;
+        } else if (event instanceof AcknowledgeCheckpointEvent) {
             subtaskGatewayMap
                     .get(subtask)
                     .openGatewayAndUnmarkCheckpoint(
                             ((AcknowledgeCheckpointEvent) event).getCheckpointID());
             return;
         }
+
         coordinator.handleEventFromOperator(subtask, attemptNumber, event);
     }
 
@@ -240,7 +261,8 @@ public class OperatorCoordinatorHolder
         // checkpoint coordinator time thread.
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
-        mainThreadExecutor.execute(() -> checkpointCoordinatorInternal(checkpointId, result));
+        mainThreadExecutor.execute(
+                () -> closeGatewayAndCheckpointCoordinator(checkpointId, result));
     }
 
     @Override
@@ -251,6 +273,7 @@ public class OperatorCoordinatorHolder
         // scheduler's main thread executor
         mainThreadExecutor.execute(
                 () -> {
+                    acknowledgeCloseGatewayFutureMap.clear();
                     subtaskGatewayMap
                             .values()
                             .forEach(x -> x.openGatewayAndUnmarkCheckpoint(checkpointId));
@@ -266,6 +289,7 @@ public class OperatorCoordinatorHolder
         // scheduler's main thread executor
         mainThreadExecutor.execute(
                 () -> {
+                    abortAllPendingAcknowledgeCloseGatewayFutures();
                     subtaskGatewayMap
                             .values()
                             .forEach(x -> x.openGatewayAndUnmarkCheckpoint(checkpointId));
@@ -296,6 +320,86 @@ public class OperatorCoordinatorHolder
         }
 
         coordinator.resetToCheckpoint(checkpointId, checkpointData);
+    }
+
+    private void closeGatewayAndCheckpointCoordinator(
+            long checkpointId, CompletableFuture<byte[]> result) {
+        mainThreadExecutor.assertRunningInMainThread();
+
+        latestAttemptedCheckpointId = checkpointId;
+
+        acknowledgeCloseGatewayFutureMap.clear();
+        for (int subtask : subtaskGatewayMap.keySet()) {
+            acknowledgeCloseGatewayFutureMap.put(subtask, new CompletableFuture<>());
+            subtaskGatewayMap
+                    .get(subtask)
+                    .sendEventWithAction(
+                            new CloseGatewayEvent(checkpointId),
+                            (success, failure) -> {
+                                if (failure != null) {
+                                    // The close gateway event failed to reach the subtask for some
+                                    // reason. For example, the subtask has finished. In this case
+                                    // it is guaranteed that the coordinator won't receive more
+                                    // events from this subtask before the current checkpoint
+                                    // finishes, which is equivalent to receiving ACK from this
+                                    // subtask.
+                                    completeAcknowledgeCloseGatewayFuture(subtask, checkpointId);
+
+                                    if (!(failure instanceof RejectedExecutionException
+                                            || failure instanceof TaskNotRunningException)) {
+                                        subtaskGatewayMap
+                                                .get(subtask)
+                                                .triggerTaskFailover(
+                                                        new CloseGatewayEvent(checkpointId),
+                                                        failure);
+                                    }
+                                }
+                            });
+        }
+
+        FutureUtils.combineAll(acknowledgeCloseGatewayFutureMap.values())
+                .handleAsync(
+                        (success, failure) -> {
+                            if (failure != null) {
+                                result.completeExceptionally(failure);
+                            } else {
+                                checkpointCoordinatorInternal(checkpointId, result);
+                            }
+                            return null;
+                        },
+                        mainThreadExecutor);
+    }
+
+    private void abortAllPendingAcknowledgeCloseGatewayFutures() {
+        Exception exception = new FlinkException("Current pending checkpoint has been aborted");
+        for (CompletableFuture<Acknowledge> future : acknowledgeCloseGatewayFutureMap.values()) {
+            if (!future.isDone()) {
+                future.completeExceptionally(exception);
+            }
+        }
+        acknowledgeCloseGatewayFutureMap.clear();
+    }
+
+    private void completeAcknowledgeCloseGatewayFuture(int subtask, long checkpointId) {
+        // The coordinator holder may receive an acknowledgement event after the checkpoint
+        // corresponding to the event has been aborted, or even after a new checkpoint has started.
+        //
+        // If the event is received before a new checkpoint has started, the map below would have
+        // been cleared in the aborting process. Thus, the code below will not get and complete any
+        // future.
+        //
+        // If the event is received after a new checkpoint has started, the event should be ignored
+        // to avoid affecting futures related to the new checkpoint.
+        checkArgument(checkpointId <= latestAttemptedCheckpointId);
+
+        if (checkpointId < latestAttemptedCheckpointId) {
+            return;
+        }
+
+        CompletableFuture<Acknowledge> future = acknowledgeCloseGatewayFutureMap.remove(subtask);
+        if (future != null) {
+            future.complete(Acknowledge.get());
+        }
     }
 
     private void checkpointCoordinatorInternal(
@@ -398,10 +502,12 @@ public class OperatorCoordinatorHolder
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
         mainThreadExecutor.execute(
-                () ->
-                        subtaskGatewayMap
-                                .values()
-                                .forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint));
+                () -> {
+                    abortAllPendingAcknowledgeCloseGatewayFutures();
+                    subtaskGatewayMap
+                            .values()
+                            .forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint);
+                });
     }
 
     // ------------------------------------------------------------------------

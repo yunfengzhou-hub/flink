@@ -98,6 +98,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * sending operator events. Besides, it is additionally guaranteed that there must have been a
  * checkpoint completed before the failure is injected, and that there must be events sent from the
  * coordinator to its subtask during checkpoint.
+ *
+ * <p>See also {@link StreamOperatorEventsExactlyOnceITCase} for integration tests about operator
+ * event sent in the reversed direction.
  */
 public class CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase
         extends CoordinatorEventsExactlyOnceITCase {
@@ -202,7 +205,7 @@ public class CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase
      * its subtask. It helps to guarantee that there are events being sent when the coordinator has
      * completed the first checkpoint while the subtask has not yet.
      */
-    private static class BlockCheckpointBarrierOperator<T> extends AbstractStreamOperator<T>
+    static class BlockCheckpointBarrierOperator<T> extends AbstractStreamOperator<T>
             implements OneInputStreamOperator<T, T> {
 
         @Override

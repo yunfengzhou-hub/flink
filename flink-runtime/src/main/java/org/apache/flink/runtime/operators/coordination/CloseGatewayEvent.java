@@ -19,15 +19,15 @@
 package org.apache.flink.runtime.operators.coordination;
 
 /**
- * An {@link OperatorEvent} sent from a subtask to its {@link OperatorCoordinator} to signal that
- * the checkpoint of an individual task is completed.
+ * An {@link OperatorEvent} sent from an {@link OperatorCoordinator} to its subtask to signal that
+ * the communication gateway needs to be temporarily closed for a specific checkpoint.
  */
-public class AcknowledgeCheckpointEvent implements OperatorEvent {
+public class CloseGatewayEvent implements OperatorEvent {
 
     /** The ID of the checkpoint that this event is related to. */
     private final long checkpointId;
 
-    public AcknowledgeCheckpointEvent(long checkpointId) {
+    public CloseGatewayEvent(long checkpointId) {
         this.checkpointId = checkpointId;
     }
 
@@ -42,15 +42,15 @@ public class AcknowledgeCheckpointEvent implements OperatorEvent {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof AcknowledgeCheckpointEvent)) {
+        if (!(obj instanceof CloseGatewayEvent)) {
             return false;
         }
-        AcknowledgeCheckpointEvent event = (AcknowledgeCheckpointEvent) obj;
+        CloseGatewayEvent event = (CloseGatewayEvent) obj;
         return event.checkpointId == this.checkpointId;
     }
 
     @Override
     public String toString() {
-        return "AcknowledgeCheckpointEvent (" + checkpointId + ')';
+        return "CloseGatewayEvent (" + checkpointId + ')';
     }
 }

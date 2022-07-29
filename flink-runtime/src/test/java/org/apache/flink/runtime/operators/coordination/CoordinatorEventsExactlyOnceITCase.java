@@ -169,11 +169,12 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
     }
 
     protected static void checkListContainsSequence(List<Integer> ints, int length) {
-        Integer[] expected = new Integer[length];
+        List<Integer> expected = new ArrayList<>();
         for (int i = 0; i < length; i++) {
-            expected[i] = i;
+            expected.add(i);
         }
-        assertThat(ints).containsExactly(expected);
+
+        assertThat(ints).containsExactly(expected.toArray(new Integer[0]));
     }
 
     // ------------------------------------------------------------------------
@@ -245,13 +246,8 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
 
         public final int value;
 
-        private IntegerEvent(int value) {
+        public IntegerEvent(int value) {
             this.value = value;
-        }
-
-        @Override
-        public String toString() {
-            return "IntegerEvent " + value;
         }
     }
 
@@ -578,7 +574,8 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
             getEnvironment()
                     .getOperatorCoordinatorEventGateway()
                     .sendOperatorEventToCoordinator(
-                            operatorID, new SerializedValue<>(new StartEvent(-1)));
+                            operatorID,
+                            new SerializedValue<>(new StartEvent(collectedInts.size() - 1)));
 
             // verify the request & response communication
             CoordinationResponse response =
@@ -646,6 +643,16 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                 throws FlinkException {
             try {
                 final OperatorEvent opEvent = event.deserializeValue(getUserCodeClassLoader());
+                if (opEvent instanceof CloseGatewayEvent) {
+                    getEnvironment()
+                            .getOperatorCoordinatorEventGateway()
+                            .sendOperatorEventToCoordinator(
+                                    operatorID,
+                                    new SerializedValue<>(
+                                            new AcknowledgeCloseGatewayEvent(
+                                                    (CloseGatewayEvent) opEvent)));
+                    return;
+                }
                 actions.add(opEvent);
             } catch (IOException | ClassNotFoundException e) {
                 throw new FlinkException(e);

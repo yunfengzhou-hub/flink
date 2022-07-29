@@ -28,6 +28,9 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
+import org.apache.flink.runtime.state.OperatorStateBackend;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperatorV2;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
@@ -35,6 +38,7 @@ import org.apache.flink.streaming.runtime.io.RecordWriterOutput;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
 import org.slf4j.Logger;
@@ -65,8 +69,14 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             List<StreamOperatorWrapper<?, ?>> allOperatorWrappers,
             RecordWriterOutput<?>[] streamOutputs,
             WatermarkGaugeExposingOutput<StreamRecord<OUT>> mainOperatorOutput,
-            StreamOperatorWrapper<OUT, OP> mainOperatorWrapper) {
-        super(allOperatorWrappers, streamOutputs, mainOperatorOutput, mainOperatorWrapper);
+            StreamOperatorWrapper<OUT, OP> mainOperatorWrapper,
+            OperatorEventDispatcherImpl operatorEventDispatcher) {
+        super(
+                allOperatorWrappers,
+                streamOutputs,
+                mainOperatorOutput,
+                mainOperatorWrapper,
+                operatorEventDispatcher);
     }
 
     @Override
@@ -104,6 +114,10 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             StreamOperator<?> operator = operatorWrapper.getStreamOperator();
             operator.initializeState(streamTaskStateInitializer);
+            if (operatorEventDispatcher.isRegisteredOperator(operator.getOperatorID())) {
+                operatorEventDispatcher.initializeOperatorEventGatewayState(
+                        operator.getOperatorID(), getWrappedOperatorStateBackend(operator));
+            }
             operator.open();
         }
     }
@@ -187,18 +201,40 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             throws Exception {
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             if (!operatorWrapper.isClosed()) {
+                StreamOperator<?> operator = operatorWrapper.getStreamOperator();
+                OperatorID operatorId = operator.getOperatorID();
+                if (operatorEventDispatcher.isRegisteredOperator(operatorId)) {
+                    operatorEventDispatcher.snapshotOperatorEventGatewayState(
+                            operatorId,
+                            checkpointMetaData.getCheckpointId(),
+                            getWrappedOperatorStateBackend(operator));
+                }
                 operatorSnapshotsInProgress.put(
-                        operatorWrapper.getStreamOperator().getOperatorID(),
+                        operatorId,
                         buildOperatorSnapshotFutures(
                                 checkpointMetaData,
                                 checkpointOptions,
-                                operatorWrapper.getStreamOperator(),
+                                operator,
                                 isRunning,
                                 channelStateWriteResult,
                                 storage));
             }
         }
-        sendAcknowledgeCheckpointEvent(checkpointMetaData.getCheckpointId());
+    }
+
+    private OperatorStateBackend getWrappedOperatorStateBackend(StreamOperator<?> operator) {
+        OperatorStateBackend backend = null;
+        if (operator instanceof AbstractStreamOperator) {
+            backend = ((AbstractStreamOperator<?>) operator).getOperatorStateBackend();
+        } else if (operator instanceof AbstractStreamOperatorV2) {
+            backend = ((AbstractStreamOperatorV2<?>) operator).getOperatorStateBackend();
+        }
+        Preconditions.checkState(
+                backend != null,
+                "Wrapped operator should extend AbstractStreamOperator or AbstractStreamOperatorV2"
+                        + "to provide OperatorStateBackend for OperatorEventGateway.");
+
+        return backend;
     }
 
     private OperatorSnapshotFutures buildOperatorSnapshotFutures(
