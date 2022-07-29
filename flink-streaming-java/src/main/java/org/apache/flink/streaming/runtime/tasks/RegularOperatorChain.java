@@ -65,8 +65,14 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             List<StreamOperatorWrapper<?, ?>> allOperatorWrappers,
             RecordWriterOutput<?>[] streamOutputs,
             WatermarkGaugeExposingOutput<StreamRecord<OUT>> mainOperatorOutput,
-            StreamOperatorWrapper<OUT, OP> mainOperatorWrapper) {
-        super(allOperatorWrappers, streamOutputs, mainOperatorOutput, mainOperatorWrapper);
+            StreamOperatorWrapper<OUT, OP> mainOperatorWrapper,
+            OperatorEventDispatcherImpl operatorEventDispatcher) {
+        super(
+                allOperatorWrappers,
+                streamOutputs,
+                mainOperatorOutput,
+                mainOperatorWrapper,
+                operatorEventDispatcher);
     }
 
     @Override
@@ -104,6 +110,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             StreamOperator<?> operator = operatorWrapper.getStreamOperator();
             operator.initializeState(streamTaskStateInitializer);
+            operatorEventDispatcher.initializeOperatorEventGatewayIfExists(operator);
             operator.open();
         }
     }
@@ -198,7 +205,6 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
                                 storage));
             }
         }
-        sendAcknowledgeCheckpointEvent(checkpointMetaData.getCheckpointId());
     }
 
     private OperatorSnapshotFutures buildOperatorSnapshotFutures(
@@ -217,7 +223,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
         return snapshotInProgress;
     }
 
-    private static OperatorSnapshotFutures checkpointStreamOperator(
+    private OperatorSnapshotFutures checkpointStreamOperator(
             StreamOperator<?> op,
             CheckpointMetaData checkpointMetaData,
             CheckpointOptions checkpointOptions,
@@ -225,11 +231,19 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             Supplier<Boolean> isRunning)
             throws Exception {
         try {
-            return op.snapshotState(
-                    checkpointMetaData.getCheckpointId(),
-                    checkpointMetaData.getTimestamp(),
-                    checkpointOptions,
-                    storageLocation);
+            operatorEventDispatcher.snapshotOperatorEventGatewayIfExists(op);
+
+            OperatorSnapshotFutures futures =
+                    op.snapshotState(
+                            checkpointMetaData.getCheckpointId(),
+                            checkpointMetaData.getTimestamp(),
+                            checkpointOptions,
+                            storageLocation);
+
+            operatorEventDispatcher.notifyOperatorSnapshotCompletedIfExists(
+                    op, checkpointMetaData.getCheckpointId());
+
+            return futures;
         } catch (Exception ex) {
             if (isRunning.get()) {
                 LOG.info(ex.getMessage(), ex);

@@ -29,6 +29,9 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.concurrent.FutureUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +53,7 @@ import java.util.concurrent.CompletableFuture;
  * ComponentMainThreadExecutor, IncompleteFuturesTracker)} in order to avoid race condition.
  */
 class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
+    private static final Logger LOG = LoggerFactory.getLogger(SubtaskGatewayImpl.class);
 
     private static final String EVENT_LOSS_ERROR_MESSAGE =
             "An OperatorEvent from an OperatorCoordinator to a task was lost. "
@@ -106,7 +110,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         final CompletableFuture<Acknowledge> result =
                 sendResult.whenCompleteAsync(
                         (success, failure) -> {
-                            if (failure != null && subtaskAccess.isStillRunning()) {
+                            if (failure != null && !(failure instanceof TaskNotRunningException)) {
                                 String msg =
                                         String.format(
                                                 EVENT_LOSS_ERROR_MESSAGE,
@@ -180,7 +184,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
     void markForCheckpoint(long checkpointId) {
         checkRunsInMainThread();
 
-        if (currentCheckpointId != NO_CHECKPOINT && currentCheckpointId != checkpointId) {
+        if (currentCheckpointId != NO_CHECKPOINT) {
             throw new IllegalStateException(
                     String.format(
                             "Cannot mark for checkpoint %d, already marked for checkpoint %d",
@@ -220,12 +224,11 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
         // Gateways should always be marked and closed for a specific checkpoint before it can be
         // reopened for that checkpoint. If a gateway is to be opened for an unforeseen checkpoint,
-        // exceptions should be thrown.
+        // which might happen when the coordinator has been reset to a previous checkpoint, warn
+        // messages should be recorded.
         if (lastCheckpointId < checkpointId) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Gateway closed for different checkpoint: closed for = %d, expected = %d",
-                            currentCheckpointId, checkpointId));
+            LOG.warn("Trying to open gateway for unknown checkpoint: " + checkpointId);
+            return;
         }
 
         // The message to open gateway with a specific checkpoint id might arrive after the
