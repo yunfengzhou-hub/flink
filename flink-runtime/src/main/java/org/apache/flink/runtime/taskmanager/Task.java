@@ -1485,18 +1485,17 @@ public class Task
         if (invokable instanceof CoordinatedTask) {
             try {
                 ((CoordinatedTask) invokable).dispatchOperatorEvent(operator, evt);
+            } catch (TaskNotRunningException e) {
+                throw e;
             } catch (Throwable t) {
                 ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
 
-                if ((getExecutionState() == ExecutionState.RUNNING
-                                || getExecutionState() == ExecutionState.INITIALIZING)
-                        && !(t instanceof RejectedExecutionException)) {
+                if (getExecutionState() == ExecutionState.RUNNING
+                        || getExecutionState() == ExecutionState.INITIALIZING) {
                     FlinkException e = new FlinkException("Error while handling operator event", t);
                     failExternally(e);
                     throw e;
                 }
-
-                throw t;
             }
         }
     }

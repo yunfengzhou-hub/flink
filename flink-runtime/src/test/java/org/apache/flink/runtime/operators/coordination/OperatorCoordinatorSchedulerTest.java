@@ -88,7 +88,6 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
@@ -1060,7 +1059,8 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
 
     /**
      * A subclass of {@link SimpleAckingTaskManagerGateway} that rejects {@link CloseGatewayEvent}s
-     * instead of throwing exceptions.
+     * with {@link TaskNotRunningException}s instead of throwing {@link
+     * UnsupportedOperationException}s.
      */
     private static final class RejectCloseEventGateway extends SimpleAckingTaskManagerGateway {
         @Override
@@ -1070,7 +1070,8 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
                 if (evt.deserializeValue(Thread.currentThread().getContextClassLoader())
                         instanceof CloseGatewayEvent) {
                     CompletableFuture<Acknowledge> future = new CompletableFuture<>();
-                    future.completeExceptionally(new RejectedExecutionException());
+                    future.completeExceptionally(
+                            new TaskNotRunningException("Task is not running."));
                     return future;
                 }
             } catch (IOException | ClassNotFoundException e) {

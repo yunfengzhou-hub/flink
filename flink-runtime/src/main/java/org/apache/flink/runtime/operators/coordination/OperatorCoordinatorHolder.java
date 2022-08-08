@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
 
 import static org.apache.flink.runtime.operators.coordination.OperatorCoordinator.NO_CHECKPOINT;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -377,20 +376,20 @@ public class OperatorCoordinatorHolder
                             closeGatewayEvent,
                             (success, failure) -> {
                                 if (failure != null) {
-                                    // The close gateway event failed to reach the subtask for some
-                                    // reason. For example, the subtask has finished. In this case
-                                    // it is guaranteed that the coordinator won't receive more
+                                    // If the close gateway event failed to reach the subtask for
+                                    // some reason, the coordinator would trigger a fail-over on
+                                    // the subtask if the subtask is still running. This behavior
+                                    // also guarantees that the coordinator won't receive more
                                     // events from this subtask before the current checkpoint
                                     // finishes, which is equivalent to receiving ACK from this
                                     // subtask.
-                                    completeAcknowledgeCloseGatewayFuture(subtask, checkpointId);
-
-                                    if (!(failure instanceof RejectedExecutionException
-                                            || failure instanceof TaskNotRunningException)) {
+                                    if (!(failure instanceof TaskNotRunningException)) {
                                         subtaskGatewayMap
                                                 .get(subtask)
                                                 .tryTriggerTaskFailover(closeGatewayEvent, failure);
                                     }
+
+                                    completeAcknowledgeCloseGatewayFuture(subtask, checkpointId);
                                 }
                             });
         }

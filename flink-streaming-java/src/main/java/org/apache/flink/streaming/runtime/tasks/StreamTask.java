@@ -64,6 +64,7 @@ import org.apache.flink.runtime.jobgraph.tasks.CoordinatedTask;
 import org.apache.flink.runtime.jobgraph.tasks.TaskInvokable;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageAccess;
@@ -133,6 +134,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 
 import static org.apache.flink.configuration.TaskManagerOptions.BUFFER_DEBLOAT_PERIOD;
@@ -1446,9 +1448,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     @Override
     public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event)
             throws FlinkException {
-        mainMailboxExecutor.execute(
-                () -> operatorChain.dispatchOperatorEvent(operator, event),
-                "dispatch operator event");
+        try {
+            mainMailboxExecutor.execute(
+                    () -> operatorChain.dispatchOperatorEvent(operator, event),
+                    "dispatch operator event");
+        } catch (RejectedExecutionException e) {
+            // this happens during shutdown, thus should be wrapped with TaskNotRunningException.
+            throw new TaskNotRunningException("Task is not running.", e);
+        }
     }
 
     // ------------------------------------------------------------------------
