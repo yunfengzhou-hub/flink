@@ -573,8 +573,8 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
                                     operatorID,
                                     new SerializedValue<>(
                                             new AcknowledgeCheckpointEvent(
-                                                    ((CheckpointMetaData) next)
-                                                            .getCheckpointId())));
+                                                    ((CheckpointMetaData) next).getCheckpointId(),
+                                                    getIndexInSubtaskGroup())));
                 } else {
                     throw new Exception("Unrecognized: " + next);
                 }

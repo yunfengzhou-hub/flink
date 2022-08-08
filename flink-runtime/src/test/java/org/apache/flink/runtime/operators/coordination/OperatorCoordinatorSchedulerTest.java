@@ -291,11 +291,12 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
                 triggerCheckpoint(scheduler);
         coordinator.getLastTriggeredCheckpoint().complete(checkpointData);
         executor.triggerAll();
-        OperatorEvent event =
-                new AcknowledgeCheckpointEvent(coordinator.getLastTriggeredCheckpointId());
         OperatorCoordinatorHolder holder = getCoordinatorHolder(scheduler);
         for (int i = 0; i < holder.currentParallelism(); i++) {
-            holder.handleEventFromOperator(i, 0, event);
+            holder.handleEventFromOperator(
+                    i,
+                    0,
+                    new AcknowledgeCheckpointEvent(coordinator.getLastTriggeredCheckpointId(), i));
         }
         acknowledgeCurrentCheckpoint(scheduler);
 
@@ -903,12 +904,13 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
 
         testingOperatorCoordinator.getLastTriggeredCheckpoint().complete(coordinatorState);
         executor.triggerAll();
-        OperatorEvent event =
-                new AcknowledgeCheckpointEvent(
-                        testingOperatorCoordinator.getLastTriggeredCheckpointId());
         OperatorCoordinatorHolder holder = getCoordinatorHolder(scheduler);
         for (int i = 0; i < holder.currentParallelism(); i++) {
-            holder.handleEventFromOperator(i, 0, event);
+            holder.handleEventFromOperator(
+                    i,
+                    0,
+                    new AcknowledgeCheckpointEvent(
+                            testingOperatorCoordinator.getLastTriggeredCheckpointId(), i));
         }
         acknowledgeCurrentCheckpoint(scheduler);
 

@@ -85,12 +85,12 @@ public class OperatorEventDispatcherImplTest {
         OperatorID operatorID = new OperatorID();
 
         OperatorEventGateway gateway = dispatcher.getOperatorEventGateway(operatorID);
-        dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(0L)));
+        dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(0L, 0)));
         gateway.sendEventToCoordinator(new TestOperatorEvent(0));
 
         assertThat(eventListener.sentEventsMap).containsOnlyKeys(operatorID);
         assertThat(eventListener.sentEventsMap.get(operatorID))
-                .containsExactly(new AcknowledgeCloseGatewayEvent(0L));
+                .containsExactly(new AcknowledgeCloseGatewayEvent(0L, 0));
     }
 
     @Test
@@ -101,16 +101,16 @@ public class OperatorEventDispatcherImplTest {
         OperatorID operatorID = new OperatorID();
 
         OperatorEventGateway gateway = dispatcher.getOperatorEventGateway(operatorID);
-        dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(0L)));
+        dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(0L, 0)));
         gateway.sendEventToCoordinator(new TestOperatorEvent(0));
         dispatcher.snapshotOperatorEventGatewayState(operatorID, new MockOperatorStateStore());
-        dispatcher.notifyOperatorSnapshotStateCompleted(operatorID, 0L);
+        dispatcher.notifyOperatorSnapshotStateCompleted(operatorID, 0L, 0);
 
         assertThat(eventListener.sentEventsMap).containsOnlyKeys(operatorID);
         assertThat(eventListener.sentEventsMap.get(operatorID))
                 .containsExactly(
-                        new AcknowledgeCloseGatewayEvent(0L),
-                        new AcknowledgeCheckpointEvent(0),
+                        new AcknowledgeCloseGatewayEvent(0L, 0),
+                        new AcknowledgeCheckpointEvent(0L, 0),
                         new TestOperatorEvent(0));
     }
 
@@ -123,10 +123,10 @@ public class OperatorEventDispatcherImplTest {
         OperatorID operatorID = new OperatorID();
 
         OperatorEventGateway gateway = dispatcher.getOperatorEventGateway(operatorID);
-        dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(0L)));
+        dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(0L, 0)));
         gateway.sendEventToCoordinator(new TestOperatorEvent(0));
         dispatcher.snapshotOperatorEventGatewayState(operatorID, operatorStateStore);
-        dispatcher.notifyOperatorSnapshotStateCompleted(operatorID, 0L);
+        dispatcher.notifyOperatorSnapshotStateCompleted(operatorID, 0L, 0);
 
         eventListener.sentEventsMap.clear();
 

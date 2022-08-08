@@ -116,9 +116,11 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         getOperatorEventGateway(operator).snapshotState(operatorStateStore);
     }
 
-    void notifyOperatorSnapshotStateCompleted(OperatorID operator, long checkpointId) {
+    void notifyOperatorSnapshotStateCompleted(
+            OperatorID operator, long checkpointId, int subtaskIndex) {
         OperatorEventGatewayImpl gateway = getOperatorEventGateway(operator);
-        gateway.sendEventToCoordinator(new AcknowledgeCheckpointEvent(checkpointId), false);
+        gateway.sendEventToCoordinator(
+                new AcknowledgeCheckpointEvent(checkpointId, subtaskIndex), false);
         gateway.openGateway();
     }
 

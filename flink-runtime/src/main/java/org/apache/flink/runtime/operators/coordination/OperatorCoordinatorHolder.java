@@ -28,6 +28,7 @@ import org.apache.flink.runtime.operators.coordination.util.IncompleteFuturesTra
 import org.apache.flink.runtime.scheduler.GlobalFailureHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.TemporaryClassLoaderContext;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -225,10 +226,14 @@ public class OperatorCoordinatorHolder
         mainThreadExecutor.assertRunningInMainThread();
 
         if (event instanceof AcknowledgeCloseGatewayEvent) {
+            Preconditions.checkArgument(
+                    subtask == ((AcknowledgeCloseGatewayEvent) event).getSubtaskIndex());
             completeAcknowledgeCloseGatewayFuture(
                     subtask, ((AcknowledgeCloseGatewayEvent) event).getCheckpointID());
             return;
         } else if (event instanceof AcknowledgeCheckpointEvent) {
+            Preconditions.checkArgument(
+                    subtask == ((AcknowledgeCheckpointEvent) event).getSubtaskIndex());
             subtaskGatewayMap
                     .get(subtask)
                     .openGatewayAndUnmarkCheckpoint(
@@ -331,10 +336,11 @@ public class OperatorCoordinatorHolder
         acknowledgeCloseGatewayFutureMap.clear();
         for (int subtask : subtaskGatewayMap.keySet()) {
             acknowledgeCloseGatewayFutureMap.put(subtask, new CompletableFuture<>());
+            final OperatorEvent closeGatewayEvent = new CloseGatewayEvent(checkpointId, subtask);
             subtaskGatewayMap
                     .get(subtask)
                     .sendEventWithCallBackOnCompletion(
-                            new CloseGatewayEvent(checkpointId),
+                            closeGatewayEvent,
                             (success, failure) -> {
                                 if (failure != null) {
                                     // The close gateway event failed to reach the subtask for some
@@ -349,9 +355,7 @@ public class OperatorCoordinatorHolder
                                             || failure instanceof TaskNotRunningException)) {
                                         subtaskGatewayMap
                                                 .get(subtask)
-                                                .tryTriggerTaskFailover(
-                                                        new CloseGatewayEvent(checkpointId),
-                                                        failure);
+                                                .tryTriggerTaskFailover(closeGatewayEvent, failure);
                                     }
                                 }
                             });

@@ -125,10 +125,10 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         holder.checkpointCoordinator(1L, new CompletableFuture<>());
         getCoordinator(holder).getSubtaskGateway(1).sendEvent(new TestOperatorEvent(1));
-        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(1L));
+        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(1L, 1));
 
         assertThat(tasks.getSentEventsForSubtask(1))
-                .containsExactly(new CloseGatewayEvent(1L), new TestOperatorEvent(1));
+                .containsExactly(new CloseGatewayEvent(1L, 1), new TestOperatorEvent(1));
     }
 
     @Test
@@ -154,7 +154,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         holder.abortCurrentTriggering();
 
         assertThat(tasks.getSentEventsForSubtask(0))
-                .containsExactly(new CloseGatewayEvent(123L), new TestOperatorEvent(1337));
+                .containsExactly(new CloseGatewayEvent(123L, 0), new TestOperatorEvent(1337));
     }
 
     @Test
@@ -165,10 +165,10 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         triggerAndCompleteCheckpoint(holder, 1111L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(1337));
-        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(1111L));
+        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(1111L, 0));
 
         assertThat(tasks.getSentEventsForSubtask(0))
-                .containsExactly(new CloseGatewayEvent(1111L), new TestOperatorEvent(1337));
+                .containsExactly(new CloseGatewayEvent(1111L, 0), new TestOperatorEvent(1337));
     }
 
     @Test
@@ -182,7 +182,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         getCoordinator(holder).getSubtaskGateway(1).sendEvent(new TestOperatorEvent(999));
 
         assertThat(tasks.getSentEventsForSubtask(1))
-                .containsExactly(new CloseGatewayEvent(1000L), new TestOperatorEvent(999));
+                .containsExactly(new CloseGatewayEvent(1000L, 1), new TestOperatorEvent(999));
     }
 
     @Test
@@ -200,7 +200,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         holder.abortCurrentTriggering();
 
         triggerAndCompleteCheckpoint(holder, 1010L);
-        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(1010L));
+        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(1010L, 0));
 
         future1.complete(new byte[0]);
 
@@ -208,12 +208,12 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         assertThat(tasks.events)
                 .containsExactly(
-                        new EventWithSubtask(new CloseGatewayEvent(1000L), 0),
-                        new EventWithSubtask(new CloseGatewayEvent(1000L), 1),
-                        new EventWithSubtask(new CloseGatewayEvent(1000L), 2),
-                        new EventWithSubtask(new CloseGatewayEvent(1010L), 0),
-                        new EventWithSubtask(new CloseGatewayEvent(1010L), 1),
-                        new EventWithSubtask(new CloseGatewayEvent(1010L), 2),
+                        new EventWithSubtask(new CloseGatewayEvent(1000L, 0), 0),
+                        new EventWithSubtask(new CloseGatewayEvent(1000L, 1), 1),
+                        new EventWithSubtask(new CloseGatewayEvent(1000L, 2), 2),
+                        new EventWithSubtask(new CloseGatewayEvent(1010L, 0), 0),
+                        new EventWithSubtask(new CloseGatewayEvent(1010L, 1), 1),
+                        new EventWithSubtask(new CloseGatewayEvent(1010L, 2), 2),
                         new EventWithSubtask(new TestOperatorEvent(123), 0));
     }
 
@@ -245,25 +245,25 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         triggerAndCompleteCheckpoint(holder, 22L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(1));
-        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(22L));
-        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(22L));
-        holder.handleEventFromOperator(2, 0, new AcknowledgeCheckpointEvent(22L));
+        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(22L, 0));
+        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(22L, 1));
+        holder.handleEventFromOperator(2, 0, new AcknowledgeCheckpointEvent(22L, 2));
 
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(2));
 
         triggerAndCompleteCheckpoint(holder, 23L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(3));
-        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(23L));
-        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(23L));
-        holder.handleEventFromOperator(2, 0, new AcknowledgeCheckpointEvent(23L));
+        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(23L, 0));
+        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(23L, 1));
+        holder.handleEventFromOperator(2, 0, new AcknowledgeCheckpointEvent(23L, 2));
 
         assertThat(tasks.getSentEventsForSubtask(0))
                 .containsExactly(
                         new TestOperatorEvent(0),
-                        new CloseGatewayEvent(22L),
+                        new CloseGatewayEvent(22L, 0),
                         new TestOperatorEvent(1),
                         new TestOperatorEvent(2),
-                        new CloseGatewayEvent(23L),
+                        new CloseGatewayEvent(23L, 0),
                         new TestOperatorEvent(3));
     }
 
@@ -283,15 +283,15 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         triggerAndCompleteCheckpoint(holder, 23L);
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(3));
-        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(23L));
+        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(23L, 0));
 
         assertThat(tasks.getSentEventsForSubtask(0))
                 .containsExactly(
                         new TestOperatorEvent(0),
-                        new CloseGatewayEvent(22L),
+                        new CloseGatewayEvent(22L, 0),
                         new TestOperatorEvent(1),
                         new TestOperatorEvent(2),
-                        new CloseGatewayEvent(23L),
+                        new CloseGatewayEvent(23L, 0),
                         new TestOperatorEvent(3));
     }
 
@@ -515,18 +515,18 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
 
         getCoordinator(holder).getSubtaskGateway(0).sendEvent(new TestOperatorEvent(0));
         getCoordinator(holder).getSubtaskGateway(1).sendEvent(new TestOperatorEvent(1));
-        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(1L));
+        holder.handleEventFromOperator(1, 0, new AcknowledgeCheckpointEvent(1L, 1));
 
-        assertThat(tasks.getSentEventsForSubtask(0)).containsExactly(new CloseGatewayEvent(1L));
+        assertThat(tasks.getSentEventsForSubtask(0)).containsExactly(new CloseGatewayEvent(1L, 0));
         assertThat(tasks.getSentEventsForSubtask(1))
-                .containsExactly(new CloseGatewayEvent(1L), new TestOperatorEvent(1));
+                .containsExactly(new CloseGatewayEvent(1L, 1), new TestOperatorEvent(1));
 
-        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(1L));
+        holder.handleEventFromOperator(0, 0, new AcknowledgeCheckpointEvent(1L, 0));
 
         assertThat(tasks.getSentEventsForSubtask(0))
-                .containsExactly(new CloseGatewayEvent(1L), new TestOperatorEvent(0));
+                .containsExactly(new CloseGatewayEvent(1L, 0), new TestOperatorEvent(0));
         assertThat(tasks.getSentEventsForSubtask(1))
-                .containsExactly(new CloseGatewayEvent(1L), new TestOperatorEvent(1));
+                .containsExactly(new CloseGatewayEvent(1L, 1), new TestOperatorEvent(1));
     }
 
     // ------------------------------------------------------------------------
@@ -558,7 +558,7 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
     private static void sendAcknowledgeCloseGatewayEvents(
             OperatorCoordinatorHolder holder, long checkpointId) throws Exception {
         for (int i = 0; i < holder.currentParallelism(); i++) {
-            holder.handleEventFromOperator(i, 0, new AcknowledgeCloseGatewayEvent(checkpointId));
+            holder.handleEventFromOperator(i, 0, new AcknowledgeCloseGatewayEvent(checkpointId, i));
         }
     }
 

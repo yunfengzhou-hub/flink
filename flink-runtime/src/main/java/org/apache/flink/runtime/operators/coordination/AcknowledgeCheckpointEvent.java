@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.operators.coordination;
 
+import java.util.Objects;
+
 /**
  * An {@link OperatorEvent} sent from a subtask to its {@link OperatorCoordinator} to signal that
  * the checkpoint of an individual task is completed.
@@ -27,17 +29,25 @@ public class AcknowledgeCheckpointEvent implements OperatorEvent {
     /** The ID of the checkpoint that this event is related to. */
     private final long checkpointId;
 
-    public AcknowledgeCheckpointEvent(long checkpointId) {
+    /** The index of the subtask that this event is related to. */
+    private final int subtaskIndex;
+
+    public AcknowledgeCheckpointEvent(long checkpointId, int subtaskIndex) {
         this.checkpointId = checkpointId;
+        this.subtaskIndex = subtaskIndex;
     }
 
     long getCheckpointID() {
         return checkpointId;
     }
 
+    int getSubtaskIndex() {
+        return subtaskIndex;
+    }
+
     @Override
     public int hashCode() {
-        return Long.hashCode(checkpointId);
+        return Objects.hash(checkpointId, subtaskIndex);
     }
 
     @Override
@@ -46,11 +56,15 @@ public class AcknowledgeCheckpointEvent implements OperatorEvent {
             return false;
         }
         AcknowledgeCheckpointEvent event = (AcknowledgeCheckpointEvent) obj;
-        return event.checkpointId == this.checkpointId;
+        return event.checkpointId == this.checkpointId && event.subtaskIndex == this.subtaskIndex;
     }
 
     @Override
     public String toString() {
-        return "AcknowledgeCheckpointEvent (" + checkpointId + ')';
+        return "AcknowledgeCheckpointEvent (checkpointId: "
+                + checkpointId
+                + ", subtaskIndex: "
+                + subtaskIndex
+                + ')';
     }
 }

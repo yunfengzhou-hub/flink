@@ -270,7 +270,9 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
 
             if (operatorEventDispatcher.isRegisteredOperator(op.getOperatorID())) {
                 operatorEventDispatcher.notifyOperatorSnapshotStateCompleted(
-                        op.getOperatorID(), checkpointMetaData.getCheckpointId());
+                        op.getOperatorID(),
+                        checkpointMetaData.getCheckpointId(),
+                        getSubtaskIndex(op));
             }
 
             return futures;
@@ -280,5 +282,30 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             }
             throw ex;
         }
+    }
+
+    private int getSubtaskIndex(StreamOperator<?> operator) {
+        int index = -1;
+        if (operator instanceof AbstractStreamOperator) {
+            index =
+                    ((AbstractStreamOperator<?>) operator)
+                            .getRuntimeContext()
+                            .getIndexOfThisSubtask();
+        } else if (operator instanceof AbstractStreamOperatorV2) {
+            index =
+                    ((AbstractStreamOperatorV2<?>) operator)
+                            .getRuntimeContext()
+                            .getIndexOfThisSubtask();
+        }
+
+        if (index < 0) {
+            throw new IllegalStateException(
+                    "Operator "
+                            + operator
+                            + " should extend AbstractStreamOperator or AbstractStreamOperatorV2"
+                            + " to provide a RuntimeContext.");
+        }
+
+        return index;
     }
 }

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.operators.coordination;
 
+import java.util.Objects;
+
 /**
  * An {@link OperatorEvent} sent from an {@link OperatorCoordinator} to its subtask to signal that
  * the communication gateway needs to be temporarily closed for a specific checkpoint.
@@ -27,17 +29,25 @@ public class CloseGatewayEvent implements OperatorEvent {
     /** The ID of the checkpoint that this event is related to. */
     private final long checkpointId;
 
-    public CloseGatewayEvent(long checkpointId) {
+    /** The index of the subtask that this event is related to. */
+    private final int subtaskIndex;
+
+    public CloseGatewayEvent(long checkpointId, int subtaskIndex) {
         this.checkpointId = checkpointId;
+        this.subtaskIndex = subtaskIndex;
     }
 
     long getCheckpointID() {
         return checkpointId;
     }
 
+    int getSubtaskIndex() {
+        return subtaskIndex;
+    }
+
     @Override
     public int hashCode() {
-        return Long.hashCode(checkpointId);
+        return Objects.hash(checkpointId, subtaskIndex);
     }
 
     @Override
@@ -46,11 +56,15 @@ public class CloseGatewayEvent implements OperatorEvent {
             return false;
         }
         CloseGatewayEvent event = (CloseGatewayEvent) obj;
-        return event.checkpointId == this.checkpointId;
+        return event.checkpointId == this.checkpointId && event.subtaskIndex == this.subtaskIndex;
     }
 
     @Override
     public String toString() {
-        return "CloseGatewayEvent (" + checkpointId + ')';
+        return "CloseGatewayEvent (checkpointId: "
+                + checkpointId
+                + ", subtaskIndex: "
+                + subtaskIndex
+                + ')';
     }
 }
