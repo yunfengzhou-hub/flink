@@ -331,6 +331,15 @@ public class OperatorCoordinatorHolder
             long checkpointId, CompletableFuture<byte[]> result) {
         mainThreadExecutor.assertRunningInMainThread();
 
+        try {
+            subtaskGatewayMap.forEach(
+                    (subtask, gateway) -> gateway.markForCheckpoint(checkpointId));
+        } catch (Throwable t) {
+            ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
+            result.completeExceptionally(t);
+            globalFailureHandler.handleGlobalFailure(t);
+        }
+
         latestAttemptedCheckpointId = checkpointId;
 
         acknowledgeCloseGatewayFutureMap.clear();
@@ -432,8 +441,6 @@ public class OperatorCoordinatorHolder
                         mainThreadExecutor));
 
         try {
-            subtaskGatewayMap.forEach(
-                    (subtask, gateway) -> gateway.markForCheckpoint(checkpointId));
             coordinator.checkpointCoordinator(checkpointId, coordinatorCheckpoint);
         } catch (Throwable t) {
             ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
