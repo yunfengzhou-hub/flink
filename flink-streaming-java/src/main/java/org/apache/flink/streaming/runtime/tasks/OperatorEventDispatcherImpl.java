@@ -71,14 +71,6 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
     void dispatchEventToHandlers(
             OperatorID operatorID, SerializedValue<OperatorEvent> serializedEvent)
             throws FlinkException {
-        dispatchEventToHandlers(operatorID, serializedEvent, false);
-    }
-
-    void dispatchEventToHandlers(
-            OperatorID operatorID,
-            SerializedValue<OperatorEvent> serializedEvent,
-            boolean isFinishedOperator)
-            throws FlinkException {
         final OperatorEvent evt;
         try {
             evt = serializedEvent.deserializeValue(classLoader);
@@ -92,10 +84,6 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
                     new AcknowledgeCloseGatewayEvent((CloseGatewayEvent) evt));
             gateway.closeGateway();
             return;
-        }
-
-        if (isFinishedOperator) {
-            throw new UnsupportedOperationException();
         }
 
         final OperatorEventHandler handler = handlers.get(operatorID);
