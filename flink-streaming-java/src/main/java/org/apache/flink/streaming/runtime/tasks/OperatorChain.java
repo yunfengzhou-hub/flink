@@ -35,6 +35,7 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.metrics.MetricNames;
+import org.apache.flink.runtime.operators.coordination.AcknowledgeCheckpointEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventDispatcher;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
@@ -833,5 +834,20 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                         .getMailboxExecutorFactory()
                         .createExecutor(operatorConfig.getChainIndex()),
                 isHead);
+    }
+
+    protected void sendAcknowledgeCheckpointEvent(long checkpointId) {
+        if (operatorEventDispatcher == null) {
+            return;
+        }
+
+        operatorEventDispatcher
+                .getRegisteredOperators()
+                .forEach(
+                        x ->
+                                operatorEventDispatcher
+                                        .getOperatorEventGateway(x)
+                                        .sendEventToCoordinator(
+                                                new AcknowledgeCheckpointEvent(checkpointId)));
     }
 }
