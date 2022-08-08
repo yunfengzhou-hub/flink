@@ -251,12 +251,29 @@ public class OperatorCoordinatorHolder
 
     public void executionAttemptFailed(int subtask, int attemptNumber, @Nullable Throwable reason) {
         mainThreadExecutor.assertRunningInMainThread();
+
+        if (!context.isConcurrentExecutionAttemptsSupported()
+                && acknowledgeCloseGatewayFutureMap.containsKey(subtask)) {
+            Exception exception =
+                    new FlinkException(String.format("Subtask %d has failed.", subtask), reason);
+            acknowledgeCloseGatewayFutureMap.get(subtask).completeExceptionally(exception);
+            acknowledgeCloseGatewayFutureMap.remove(subtask);
+        }
+
         coordinator.executionAttemptFailed(subtask, attemptNumber, reason);
     }
 
     @Override
     public void subtaskReset(int subtask, long checkpointId) {
         mainThreadExecutor.assertRunningInMainThread();
+
+        if (!context.isConcurrentExecutionAttemptsSupported()
+                && acknowledgeCloseGatewayFutureMap.containsKey(subtask)) {
+            Exception exception =
+                    new FlinkException(String.format("Subtask %d has been reset.", subtask));
+            acknowledgeCloseGatewayFutureMap.get(subtask).completeExceptionally(exception);
+            acknowledgeCloseGatewayFutureMap.remove(subtask);
+        }
 
         // this needs to happen first, so that the coordinator may access the gateway
         // in the 'subtaskReset()' function (even though they cannot send events, yet).
@@ -317,6 +334,7 @@ public class OperatorCoordinatorHolder
             mainThreadExecutor.assertRunningInMainThread();
         }
 
+        Preconditions.checkState(acknowledgeCloseGatewayFutureMap.isEmpty());
         subtaskGatewayMap.values().forEach(SubtaskGatewayImpl::openGatewayAndUnmarkCheckpoint);
         context.resetFailed();
 
@@ -578,15 +596,15 @@ public class OperatorCoordinatorHolder
         }
 
         // We need to do this synchronously here, otherwise we violate the contract that
-        // 'subtaskFailed()' will never overtake 'subtaskReady()'.
+        // 'executionAttemptFailed()' will never overtake 'executionAttemptReady()'.
         // ---
         // It is also possible that by the time this method here is called, the task execution is in
         // a no-longer running state. That happens when the scheduler deals with overlapping global
         // failures and the restore method is in fact not yet restoring to the new execution
         // attempts, but still targeting the previous execution attempts (and is later subsumed
         // by another restore to the new execution attempt). This is tricky behavior that we need
-        // to work around. So if the task is no longer running, we don't call the 'subtaskReady()'
-        // method.
+        // to work around. So if the task is no longer running, we don't call the
+        // 'executionAttemptReady()' method.
         FutureUtils.assertNoException(
                 sta.hasSwitchedToRunning()
                         .thenAccept(
