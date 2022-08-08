@@ -113,7 +113,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
         for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators(true)) {
             StreamOperator<?> operator = operatorWrapper.getStreamOperator();
             operator.initializeState(streamTaskStateInitializer);
-            if (operatorEventDispatcher.isRegisteredOperator(operator.getOperatorID())) {
+            if (operatorEventDispatcher.containsOperatorEventGateway(operator.getOperatorID())) {
                 operatorEventDispatcher.initializeOperatorEventGatewayState(
                         operator.getOperatorID(), getOperatorStateBackend(operator));
             }
@@ -256,7 +256,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
             Supplier<Boolean> isRunning)
             throws Exception {
         try {
-            if (operatorEventDispatcher.isRegisteredOperator(op.getOperatorID())) {
+            if (operatorEventDispatcher.containsOperatorEventGateway(op.getOperatorID())) {
                 operatorEventDispatcher.snapshotOperatorEventGatewayState(
                         op.getOperatorID(), getOperatorStateBackend(op));
             }
@@ -268,7 +268,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
                             checkpointOptions,
                             storageLocation);
 
-            if (operatorEventDispatcher.isRegisteredOperator(op.getOperatorID())) {
+            if (operatorEventDispatcher.containsOperatorEventGateway(op.getOperatorID())) {
                 operatorEventDispatcher.notifyOperatorSnapshotStateCompleted(
                         op.getOperatorID(),
                         checkpointMetaData.getCheckpointId(),

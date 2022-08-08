@@ -132,8 +132,8 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         }
     }
 
-    boolean isRegisteredOperator(OperatorID operatorId) {
-        return handlers.containsKey(operatorId) || gatewayMap.containsKey(operatorId);
+    boolean containsOperatorEventGateway(OperatorID operatorId) {
+        return gatewayMap.containsKey(operatorId);
     }
 
     @Override
