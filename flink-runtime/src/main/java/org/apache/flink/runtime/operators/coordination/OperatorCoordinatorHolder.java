@@ -266,8 +266,7 @@ public class OperatorCoordinatorHolder
         // checkpoint coordinator time thread.
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
-        mainThreadExecutor.execute(
-                () -> closeGatewayAndCheckpointCoordinator(checkpointId, result));
+        mainThreadExecutor.execute(() -> checkpointCoordinatorInternal(checkpointId, result));
     }
 
     @Override
@@ -327,7 +326,7 @@ public class OperatorCoordinatorHolder
         coordinator.resetToCheckpoint(checkpointId, checkpointData);
     }
 
-    private void closeGatewayAndCheckpointCoordinator(
+    private void checkpointCoordinatorInternal(
             long checkpointId, CompletableFuture<byte[]> result) {
         mainThreadExecutor.assertRunningInMainThread();
 
@@ -370,13 +369,41 @@ public class OperatorCoordinatorHolder
                             });
         }
 
+        final CompletableFuture<byte[]> coordinatorCheckpoint = new CompletableFuture<>();
+
+        FutureUtils.assertNoException(
+                coordinatorCheckpoint.handleAsync(
+                        (success, failure) -> {
+                            if (failure != null) {
+                                result.completeExceptionally(failure);
+                            } else if (closeGateways(checkpointId)) {
+                                completeCheckpointOnceEventsAreDone(checkpointId, result, success);
+                            } else {
+                                // if we cannot close the gateway, this means the checkpoint has
+                                // been aborted before, so the future is already completed
+                                // exceptionally. but we try to complete it here again, just in
+                                // case, as a safety net.
+                                result.completeExceptionally(
+                                        new FlinkException("Cannot close gateway"));
+                            }
+                            return null;
+                        },
+                        mainThreadExecutor));
+
         FutureUtils.combineAll(acknowledgeCloseGatewayFutureMap.values())
                 .handleAsync(
                         (success, failure) -> {
                             if (failure != null) {
                                 result.completeExceptionally(failure);
                             } else {
-                                checkpointCoordinatorInternal(checkpointId, result);
+                                try {
+                                    coordinator.checkpointCoordinator(
+                                            checkpointId, coordinatorCheckpoint);
+                                } catch (Throwable t) {
+                                    ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
+                                    result.completeExceptionally(t);
+                                    globalFailureHandler.handleGlobalFailure(t);
+                                }
                             }
                             return null;
                         },
@@ -412,40 +439,6 @@ public class OperatorCoordinatorHolder
         CompletableFuture<Acknowledge> future = acknowledgeCloseGatewayFutureMap.remove(subtask);
         if (future != null) {
             future.complete(Acknowledge.get());
-        }
-    }
-
-    private void checkpointCoordinatorInternal(
-            final long checkpointId, final CompletableFuture<byte[]> result) {
-        mainThreadExecutor.assertRunningInMainThread();
-
-        final CompletableFuture<byte[]> coordinatorCheckpoint = new CompletableFuture<>();
-
-        FutureUtils.assertNoException(
-                coordinatorCheckpoint.handleAsync(
-                        (success, failure) -> {
-                            if (failure != null) {
-                                result.completeExceptionally(failure);
-                            } else if (closeGateways(checkpointId)) {
-                                completeCheckpointOnceEventsAreDone(checkpointId, result, success);
-                            } else {
-                                // if we cannot close the gateway, this means the checkpoint
-                                // has been aborted before, so the future is already
-                                // completed exceptionally. but we try to complete it here
-                                // again, just in case, as a safety net.
-                                result.completeExceptionally(
-                                        new FlinkException("Cannot close gateway"));
-                            }
-                            return null;
-                        },
-                        mainThreadExecutor));
-
-        try {
-            coordinator.checkpointCoordinator(checkpointId, coordinatorCheckpoint);
-        } catch (Throwable t) {
-            ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
-            result.completeExceptionally(t);
-            globalFailureHandler.handleGlobalFailure(t);
         }
     }
 
