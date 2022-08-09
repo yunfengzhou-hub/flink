@@ -143,9 +143,10 @@ class BlockingResultPartitionReleaseTest {
         private final List<ResultPartitionID> releasedPartitions = new ArrayList<>();
 
         @Override
-        public void stopTrackingAndReleasePartitions(
+        public CompletableFuture<Void> stopTrackingAndReleasePartitions(
                 Collection<ResultPartitionID> resultPartitionIds, boolean releaseOnShuffleMaster) {
             releasedPartitions.addAll(checkNotNull(resultPartitionIds));
+            return CompletableFuture.completedFuture(null);
         }
     }
 }

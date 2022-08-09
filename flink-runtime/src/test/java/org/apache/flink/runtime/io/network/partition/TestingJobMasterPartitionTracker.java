@@ -26,6 +26,7 @@ import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -107,9 +108,10 @@ public class TestingJobMasterPartitionTracker implements JobMasterPartitionTrack
     }
 
     @Override
-    public void stopTrackingAndReleasePartitions(
+    public CompletableFuture<Void> stopTrackingAndReleasePartitions(
             Collection<ResultPartitionID> resultPartitionIds, boolean releaseOnShuffleMaster) {
         stopTrackingAndReleasePartitionsConsumer.accept(resultPartitionIds);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -120,9 +122,10 @@ public class TestingJobMasterPartitionTracker implements JobMasterPartitionTrack
     }
 
     @Override
-    public void stopTrackingAndReleaseOrPromotePartitions(
+    public CompletableFuture<Void> stopTrackingAndReleaseOrPromotePartitions(
             Collection<ResultPartitionID> resultPartitionIds) {
         stopTrackingAndReleaseOrPromotePartitionsConsumer.accept(resultPartitionIds);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

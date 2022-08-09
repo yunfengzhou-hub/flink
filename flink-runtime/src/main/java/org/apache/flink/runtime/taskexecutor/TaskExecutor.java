@@ -906,27 +906,35 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     }
 
     @Override
-    public void releaseOrPromotePartitions(
+    public CompletableFuture<Acknowledge> releaseOrPromotePartitions(
             JobID jobId,
             Set<ResultPartitionID> partitionToRelease,
             Set<ResultPartitionID> partitionsToPromote) {
+        CompletableFuture<Acknowledge> future = new CompletableFuture<>();
         try {
             partitionTracker.stopTrackingAndReleaseJobPartitions(partitionToRelease);
             partitionTracker.promoteJobPartitions(partitionsToPromote);
             if (establishedResourceManagerConnection != null) {
-                establishedResourceManagerConnection
-                        .getResourceManagerGateway()
-                        .reportClusterPartitions(
-                                getResourceID(), partitionTracker.createClusterPartitionReport());
+                future =
+                        establishedResourceManagerConnection
+                                .getResourceManagerGateway()
+                                .reportClusterPartitions(
+                                        getResourceID(),
+                                        partitionTracker.createClusterPartitionReport())
+                                .thenApply(ignore -> Acknowledge.get());
+            } else {
+                future.completeExceptionally(
+                        new RuntimeException(
+                                "Task executor is not connecting to ResourceManager. "
+                                        + "Fail to report cluster partition to ResourceManager"));
             }
             closeJobManagerConnectionIfNoAllocatedResources(jobId);
         } catch (Throwable t) {
-            // TODO: Do we still need this catch branch?
             onFatalError(t);
+            future.completeExceptionally(t);
         }
 
-        // TODO: Maybe it's better to return an Acknowledge here to notify the JM about the
-        // success/failure with an Exception
+        return future;
     }
 
     @Override

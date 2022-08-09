@@ -221,11 +221,12 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
     }
 
     @Override
-    public void releaseOrPromotePartitions(
+    public CompletableFuture<Acknowledge> releaseOrPromotePartitions(
             JobID jobId,
             Set<ResultPartitionID> partitionToRelease,
             Set<ResultPartitionID> partitionsToPromote) {
         releaseOrPromotePartitionsConsumer.accept(jobId, partitionToRelease, partitionsToPromote);
+        return CompletableFuture.completedFuture(Acknowledge.get());
     }
 
     @Override

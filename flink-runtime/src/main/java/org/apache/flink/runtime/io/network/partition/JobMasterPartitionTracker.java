@@ -25,6 +25,7 @@ import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Utility for tracking partitions and issuing release calls to task executors and shuffle masters.
@@ -42,25 +43,38 @@ public interface JobMasterPartitionTracker
             ResourceID producingTaskExecutorId,
             ResultPartitionDeploymentDescriptor resultPartitionDeploymentDescriptor);
 
-    /** Releases the given partitions and stop the tracking of partitions that were released. */
-    default void stopTrackingAndReleasePartitions(
+    /**
+     * Releases the given partitions and stop the tracking of partitions that were released.
+     *
+     * @param resultPartitionIds ID of the partition to be released.
+     * @return Future that will be completed if the partitions are released.
+     */
+    default CompletableFuture<Void> stopTrackingAndReleasePartitions(
             Collection<ResultPartitionID> resultPartitionIds) {
-        stopTrackingAndReleasePartitions(resultPartitionIds, true);
+        return stopTrackingAndReleasePartitions(resultPartitionIds, true);
     }
 
     /**
      * Releases the given partitions and stop the tracking of partitions that were released. The
      * boolean flag indicates whether we need to notify the ShuffleMaster to release all external
      * resources or not.
+     *
+     * @param resultPartitionIds ID of the partition to be released.
+     * @param releaseOnShuffleMaster Flag indicating if the partition should also release on
+     *     ShuffleMaster.
+     * @return Future that will be completed if the partitions are released.
      */
-    void stopTrackingAndReleasePartitions(
+    CompletableFuture<Void> stopTrackingAndReleasePartitions(
             Collection<ResultPartitionID> resultPartitionIds, boolean releaseOnShuffleMaster);
 
     /**
      * Releases the job partitions and promotes the cluster partitions, and stops the tracking of
      * partitions that were released/promoted.
+     *
+     * @param resultPartitionIds ID of the partition to be released or promoted.
+     * @return Future that will be completed if the partitions are released or promoted.
      */
-    void stopTrackingAndReleaseOrPromotePartitions(
+    CompletableFuture<Void> stopTrackingAndReleaseOrPromotePartitions(
             Collection<ResultPartitionID> resultPartitionIds);
 
     /** Get all the partitions under tracking. */

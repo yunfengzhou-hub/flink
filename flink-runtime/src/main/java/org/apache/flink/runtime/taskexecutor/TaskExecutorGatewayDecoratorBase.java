@@ -106,11 +106,12 @@ public class TaskExecutorGatewayDecoratorBase implements TaskExecutorGateway {
     }
 
     @Override
-    public void releaseOrPromotePartitions(
+    public CompletableFuture<Acknowledge> releaseOrPromotePartitions(
             JobID jobId,
             Set<ResultPartitionID> partitionToRelease,
             Set<ResultPartitionID> partitionsToPromote) {
-        originalGateway.releaseOrPromotePartitions(jobId, partitionToRelease, partitionsToPromote);
+        return originalGateway.releaseOrPromotePartitions(
+                jobId, partitionToRelease, partitionsToPromote);
     }
 
     @Override

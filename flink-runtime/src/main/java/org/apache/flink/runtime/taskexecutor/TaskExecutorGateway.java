@@ -106,8 +106,9 @@ public interface TaskExecutorGateway
      * @param jobId id of the job that the partitions belong to
      * @param partitionToRelease partition ids to release
      * @param partitionsToPromote partitions ids to promote
+     * @return Future acknowledge that the partitions are successfully released or promoted.
      */
-    void releaseOrPromotePartitions(
+    CompletableFuture<Acknowledge> releaseOrPromotePartitions(
             JobID jobId,
             Set<ResultPartitionID> partitionToRelease,
             Set<ResultPartitionID> partitionsToPromote);
