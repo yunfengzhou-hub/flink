@@ -1607,6 +1607,8 @@ under the License.
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>3.0.0-M5</version>
 				<configuration>
+					<parallel>classes</parallel>
+					<threadCount>16</threadCount>
 					<!-- enables TCP/IP communication between surefire and forked JVM-->
 					<forkNode implementation="org.apache.maven.plugin.surefire.extensions.SurefireForkNodeFactory"/>
 					<reuseForks>${flink.reuseForks}</reuseForks>
