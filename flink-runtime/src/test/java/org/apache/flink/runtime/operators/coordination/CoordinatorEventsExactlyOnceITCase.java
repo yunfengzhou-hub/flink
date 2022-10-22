@@ -55,6 +55,8 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.Iterators;
 
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -79,6 +81,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.flink.runtime.operators.coordination.LogUtils.printLog;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -124,6 +127,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * different points.
  */
 public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(CoordinatorEventsExactlyOnceITCase.class);
 
     private static final ConfigOption<String> ACC_NAME =
             ConfigOptions.key("acc").stringType().noDefaultValue();
@@ -436,13 +442,20 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
         public void resetToCheckpoint(
                 final long checkpointId, @Nullable final byte[] checkpointData) throws Exception {
             runInMailbox(
-                    () -> nextNumber = checkpointData == null ? 0 : bytesToInt(checkpointData));
+                    () -> {
+                        printLog(LOG, checkpointId);
+                        nextNumber = checkpointData == null ? 0 : bytesToInt(checkpointData);
+                    });
         }
 
         @Override
         public void checkpointCoordinator(long checkpointId, CompletableFuture<byte[]> result)
                 throws Exception {
-            runInMailbox(() -> requestedCheckpoint = result);
+            runInMailbox(
+                    () -> {
+                        printLog(LOG, checkpointId);
+                        requestedCheckpoint = result;
+                    });
         }
 
         @Override
@@ -508,11 +521,13 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
         protected void handleCheckpoint() {
             // we move the checkpoint one further so it completed after the next delay
             if (nextToComplete != null) {
+                printLog(LOG, "nextToComplete != null");
                 final int numToCheckpoint = Math.min(nextNumber, maxNumber);
                 nextToComplete.complete(intToBytes(numToCheckpoint));
                 nextToComplete = null;
             }
             if (requestedCheckpoint != null) {
+                printLog(LOG, "requestedCheckpoint != null");
                 nextToComplete = requestedCheckpoint;
                 requestedCheckpoint = null;
             }
@@ -524,8 +539,10 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
             }
 
             if (nextNumber == maxNumber) {
+                printLog(LOG, new EndEvent());
                 subtaskGateway.sendEvent(new EndEvent());
             } else {
+                printLog(LOG, new IntegerEvent(nextNumber));
                 subtaskGateway.sendEvent(new IntegerEvent(nextNumber));
             }
 
@@ -534,6 +551,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
 
         private void checkWhetherToTriggerFailure() {
             if (nextNumber > maxNumberBeforeFailure && !testScript.hasAlreadyFailed()) {
+                printLog(LOG, nextNumber);
                 testScript.recordHasFailed();
                 context.failJob(new Exception("test failure"));
             }
@@ -542,6 +560,7 @@ public class CoordinatorEventsExactlyOnceITCase extends TestLogger {
         @Override
         public CompletableFuture<CoordinationResponse> handleCoordinationRequest(
                 CoordinationRequest request) {
+            printLog(LOG, request);
             if (request instanceof IntegerRequest) {
                 int value = ((IntegerRequest) request).value;
                 return CompletableFuture.completedFuture(new IntegerResponse(value + 1));

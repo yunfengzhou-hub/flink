@@ -83,6 +83,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.runtime.operators.coordination.LogUtils.printLog;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -845,6 +846,7 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
         if (operatorEventDispatcher == null) {
             return;
         }
+        printLog(LOG, checkpointId);
 
         operatorEventDispatcher
                 .getRegisteredOperators()

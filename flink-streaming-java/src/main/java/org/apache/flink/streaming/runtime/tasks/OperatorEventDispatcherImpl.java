@@ -29,11 +29,15 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.runtime.operators.coordination.LogUtils.printLog;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -43,6 +47,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public final class OperatorEventDispatcherImpl implements OperatorEventDispatcher {
+
+    private static final Logger LOG = LoggerFactory.getLogger(OperatorEventDispatcherImpl.class);
 
     private final Map<OperatorID, OperatorEventHandler> handlers;
 
@@ -66,6 +72,7 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         } catch (IOException | ClassNotFoundException e) {
             throw new FlinkException("Could not deserialize operator event", e);
         }
+        printLog(LOG, operatorID, evt);
 
         final OperatorEventHandler handler = handlers.get(operatorID);
         if (handler != null) {
@@ -108,6 +115,7 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
 
         @Override
         public void sendEventToCoordinator(OperatorEvent event) {
+            printLog(LOG, event);
             final SerializedValue<OperatorEvent> serializedEvent;
             try {
                 serializedEvent = new SerializedValue<>(event);

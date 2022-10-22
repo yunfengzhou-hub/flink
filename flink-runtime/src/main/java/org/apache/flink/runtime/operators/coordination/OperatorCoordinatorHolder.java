@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+import static org.apache.flink.runtime.operators.coordination.LogUtils.printLog;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -207,6 +208,7 @@ public class OperatorCoordinatorHolder
     public void handleEventFromOperator(int subtask, int attemptNumber, OperatorEvent event)
             throws Exception {
         mainThreadExecutor.assertRunningInMainThread();
+        printLog(LOG, subtask, attemptNumber, event);
         if (event instanceof AcknowledgeCheckpointEvent) {
             subtaskGatewayMap
                     .get(subtask)
@@ -219,12 +221,14 @@ public class OperatorCoordinatorHolder
 
     public void executionAttemptFailed(int subtask, int attemptNumber, @Nullable Throwable reason) {
         mainThreadExecutor.assertRunningInMainThread();
+        printLog(LOG, subtask, attemptNumber, reason);
         coordinator.executionAttemptFailed(subtask, attemptNumber, reason);
     }
 
     @Override
     public void subtaskReset(int subtask, long checkpointId) {
         mainThreadExecutor.assertRunningInMainThread();
+        printLog(LOG, subtask, checkpointId);
 
         // this needs to happen first, so that the coordinator may access the gateway
         // in the 'subtaskReset()' function (even though they cannot send events, yet).
@@ -239,7 +243,11 @@ public class OperatorCoordinatorHolder
         // checkpoint coordinator time thread.
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
-        mainThreadExecutor.execute(() -> checkpointCoordinatorInternal(checkpointId, result));
+        mainThreadExecutor.execute(
+                () -> {
+                    printLog(LOG, checkpointId);
+                    checkpointCoordinatorInternal(checkpointId, result);
+                });
     }
 
     @Override
@@ -250,6 +258,7 @@ public class OperatorCoordinatorHolder
         // scheduler's main thread executor
         mainThreadExecutor.execute(
                 () -> {
+                    printLog(LOG, checkpointId);
                     subtaskGatewayMap
                             .values()
                             .forEach(x -> x.openGatewayAndUnmarkCheckpoint(checkpointId));
@@ -265,6 +274,7 @@ public class OperatorCoordinatorHolder
         // scheduler's main thread executor
         mainThreadExecutor.execute(
                 () -> {
+                    printLog(LOG, checkpointId);
                     subtaskGatewayMap
                             .values()
                             .forEach(x -> x.openGatewayAndUnmarkCheckpoint(checkpointId));
@@ -280,6 +290,7 @@ public class OperatorCoordinatorHolder
         if (mainThreadExecutor != null) {
             mainThreadExecutor.assertRunningInMainThread();
         }
+        printLog(LOG, checkpointId);
 
         subtaskGatewayMap.values().forEach(SubtaskGatewayImpl::openGatewayAndUnmarkAllCheckpoint);
         context.resetFailed();
@@ -300,6 +311,7 @@ public class OperatorCoordinatorHolder
     private void checkpointCoordinatorInternal(
             final long checkpointId, final CompletableFuture<byte[]> result) {
         mainThreadExecutor.assertRunningInMainThread();
+        printLog(LOG, checkpointId);
 
         final CompletableFuture<byte[]> coordinatorCheckpoint = new CompletableFuture<>();
 
@@ -334,6 +346,7 @@ public class OperatorCoordinatorHolder
     }
 
     private boolean closeGateways(final long checkpointId) {
+        printLog(LOG, checkpointId);
         int closedGateways = 0;
         for (SubtaskGatewayImpl gateway : subtaskGatewayMap.values()) {
             if (gateway.tryCloseGateway(checkpointId)) {
@@ -353,6 +366,7 @@ public class OperatorCoordinatorHolder
             final long checkpointId,
             final CompletableFuture<byte[]> checkpointFuture,
             final byte[] checkpointResult) {
+        printLog(LOG, checkpointId);
 
         final Collection<CompletableFuture<?>> pendingEvents =
                 unconfirmedEvents.getCurrentIncompleteAndReset();
@@ -397,12 +411,12 @@ public class OperatorCoordinatorHolder
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
         mainThreadExecutor.execute(
-                () ->
-                        subtaskGatewayMap
-                                .values()
-                                .forEach(
-                                        SubtaskGatewayImpl
-                                                ::openGatewayAndUnmarkLastCheckpointIfAny));
+                () -> {
+                    printLog(LOG);
+                    subtaskGatewayMap
+                            .values()
+                            .forEach(SubtaskGatewayImpl::openGatewayAndUnmarkLastCheckpointIfAny);
+                });
     }
 
     // ------------------------------------------------------------------------

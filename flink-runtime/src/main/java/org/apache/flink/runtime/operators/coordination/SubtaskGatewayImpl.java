@@ -29,6 +29,9 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.concurrent.FutureUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,6 +39,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+
+import static org.apache.flink.runtime.operators.coordination.LogUtils.printLog;
 
 /**
  * Implementation of the {@link OperatorCoordinator.SubtaskGateway} interface that access to
@@ -55,6 +60,8 @@ import java.util.concurrent.CompletableFuture;
  * ComponentMainThreadExecutor, IncompleteFuturesTracker)} in order to avoid race condition.
  */
 class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SubtaskGatewayImpl.class);
 
     private static final String EVENT_LOSS_ERROR_MESSAGE =
             "An OperatorEvent from an OperatorCoordinator to a task was lost. "
@@ -90,6 +97,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
     @Override
     public CompletableFuture<Acknowledge> sendEvent(OperatorEvent evt) {
+        printLog(LOG, evt, isReady());
         if (!isReady()) {
             throw new FlinkRuntimeException("SubtaskGateway is not ready, task not yet running.");
         }
@@ -110,6 +118,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         final CompletableFuture<Acknowledge> result =
                 sendResult.whenCompleteAsync(
                         (success, failure) -> {
+                            printLog(LOG, evt, success, failure);
                             if (failure != null && subtaskAccess.isStillRunning()) {
                                 String msg =
                                         String.format(
@@ -137,6 +146,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
             Callable<CompletableFuture<Acknowledge>> sendAction,
             CompletableFuture<Acknowledge> result) {
         checkRunsInMainThread();
+        printLog(LOG, sendAction, blockedEventsMap.isEmpty());
 
         if (!blockedEventsMap.isEmpty()) {
             blockedEventsMap.lastEntry().getValue().add(new BlockedEvent(sendAction, result));
@@ -183,6 +193,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
      */
     void markForCheckpoint(long checkpointId) {
         checkRunsInMainThread();
+        printLog(LOG, checkpointId);
 
         if (checkpointId > latestAttemptedCheckpointId) {
             currentMarkedCheckpointIds.add(checkpointId);
@@ -203,6 +214,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
      */
     boolean tryCloseGateway(long checkpointId) {
         checkRunsInMainThread();
+        printLog(LOG, checkpointId);
 
         if (currentMarkedCheckpointIds.contains(checkpointId)) {
             blockedEventsMap.putIfAbsent(checkpointId, new LinkedList<>());
@@ -214,6 +226,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
     void openGatewayAndUnmarkCheckpoint(long checkpointId) {
         checkRunsInMainThread();
+        printLog(LOG, checkpointId);
 
         // Gateways should always be marked and closed for a specific checkpoint before it can be
         // reopened for that checkpoint. If a gateway is to be opened for an unforeseen checkpoint,
@@ -253,6 +266,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
     /** Opens the gateway, releasing all buffered events. */
     void openGatewayAndUnmarkAllCheckpoint() {
         checkRunsInMainThread();
+        printLog(LOG);
 
         for (List<BlockedEvent> blockedEvents : blockedEventsMap.values()) {
             for (BlockedEvent blockedEvent : blockedEvents) {
@@ -265,6 +279,12 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
     }
 
     void openGatewayAndUnmarkLastCheckpointIfAny() {
+        if (currentMarkedCheckpointIds.isEmpty()) {
+            printLog(LOG);
+        } else {
+            printLog(LOG, currentMarkedCheckpointIds.last());
+        }
+
         if (!currentMarkedCheckpointIds.isEmpty()) {
             openGatewayAndUnmarkCheckpoint(currentMarkedCheckpointIds.last());
         }

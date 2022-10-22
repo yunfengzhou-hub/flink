@@ -50,6 +50,8 @@ import org.apache.flink.util.SerializedValue;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -57,6 +59,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Random;
 
+import static org.apache.flink.runtime.operators.coordination.LogUtils.printLog;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -101,6 +104,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase
         extends CoordinatorEventsExactlyOnceITCase {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(
+                    CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase.class);
 
     private static final int NUM_EVENTS = 100;
 
@@ -408,11 +415,13 @@ public class CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase
             // upstream operators. If this method is triggered, it means there might be a bug
             // somewhere in the production or test code, and thus an exception should be explicitly
             // thrown to reveal this situation.
+            printLog(LOG, element);
             throw new UnsupportedOperationException();
         }
 
         @Override
         public void handleOperatorEvent(OperatorEvent evt) {
+            printLog(LOG, evt);
             if (evt instanceof IntegerEvent) {
                 accumulator.add(((IntegerEvent) evt).value);
             } else if (evt instanceof EndEvent) {
@@ -430,9 +439,15 @@ public class CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase
         @Override
         public void snapshotState(StateSnapshotContext context) throws Exception {
             super.snapshotState(context);
+            printLog(LOG, context.getCheckpointId());
             while (!shouldUnblockAllCheckpoint && !shouldUnblockNextCheckpoint) {
                 Thread.sleep(100);
             }
+            printLog(
+                    LOG,
+                    context.getCheckpointId(),
+                    shouldUnblockAllCheckpoint,
+                    shouldUnblockNextCheckpoint);
 
             if (shouldUnblockNextCheckpoint) {
                 shouldUnblockNextCheckpoint = false;
