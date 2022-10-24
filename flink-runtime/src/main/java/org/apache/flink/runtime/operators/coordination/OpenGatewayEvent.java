@@ -21,7 +21,7 @@ package org.apache.flink.runtime.operators.coordination;
 import java.util.Objects;
 
 /**
- * An {@link OperatorEvent} sent between coordinators and subtasks to notify the other size that the
+ * An {@link OperatorEvent} sent between coordinators and subtasks to notify the other side that the
  * communication gateway could be opened for a specific checkpoint.
  */
 public class OpenGatewayEvent implements OperatorEvent {

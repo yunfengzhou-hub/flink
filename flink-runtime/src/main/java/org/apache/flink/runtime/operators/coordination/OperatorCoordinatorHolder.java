@@ -275,7 +275,11 @@ public class OperatorCoordinatorHolder
         mainThreadExecutor.assertRunningInMainThread();
 
         if (!context.isConcurrentExecutionAttemptsSupported()) {
-            checkNoSuchAcknowledgeCloseGatewayFutures(x -> x.f1 == subtask);
+            abortAcknowledgeCloseGatewayFutures(
+                    x -> x.f1 == subtask,
+                    String.format(
+                            "Subtask %d has been reset to checkpoint %d.", subtask, checkpointId),
+                    null);
         }
 
         // this needs to happen first, so that the coordinator may access the gateway

@@ -124,7 +124,7 @@ public final class OperatorEventDispatcherImpl implements OperatorEventDispatche
         }
     }
 
-    void notifyOperatorSnapshotCreatedIfExists(StreamOperator<?> operator, long checkpointId) {
+    void notifyOperatorSnapshotStartedIfExists(StreamOperator<?> operator, long checkpointId) {
         if (gatewayMap.containsKey(operator.getOperatorID())) {
             OperatorEventGatewayImpl gateway = getOperatorEventGateway(operator.getOperatorID());
             gateway.sendEventToCoordinator(

@@ -120,7 +120,7 @@ public class OperatorEventDispatcherImplTest {
         dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(0L, 0)));
         gateway.sendEventToCoordinator(new TestOperatorEvent(0));
         dispatcher.snapshotOperatorEventGatewayIfExists(operator);
-        dispatcher.notifyOperatorSnapshotCreatedIfExists(operator, 0L);
+        dispatcher.notifyOperatorSnapshotStartedIfExists(operator, 0L);
 
         assertThat(taskOperatorEventGateway.sentEventsMap).containsOnlyKeys(operatorID);
         assertThat(taskOperatorEventGateway.sentEventsMap.get(operatorID))
@@ -145,7 +145,7 @@ public class OperatorEventDispatcherImplTest {
         dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(1L, 0)));
         gateway.sendEventToCoordinator(new TestOperatorEvent(1));
         dispatcher.snapshotOperatorEventGatewayIfExists(operator);
-        dispatcher.notifyOperatorSnapshotCreatedIfExists(operator, 0L);
+        dispatcher.notifyOperatorSnapshotStartedIfExists(operator, 0L);
 
         assertThat(taskOperatorEventGateway.sentEventsMap).containsOnlyKeys(operatorID);
         assertThat(taskOperatorEventGateway.sentEventsMap.get(operatorID))
@@ -156,7 +156,7 @@ public class OperatorEventDispatcherImplTest {
                         new TestOperatorEvent(0));
 
         dispatcher.snapshotOperatorEventGatewayIfExists(operator);
-        dispatcher.notifyOperatorSnapshotCreatedIfExists(operator, 1L);
+        dispatcher.notifyOperatorSnapshotStartedIfExists(operator, 1L);
 
         assertThat(taskOperatorEventGateway.sentEventsMap).containsOnlyKeys(operatorID);
         assertThat(taskOperatorEventGateway.sentEventsMap.get(operatorID))
@@ -184,7 +184,7 @@ public class OperatorEventDispatcherImplTest {
         dispatcher.dispatchEventToHandlers(operatorID, serialize(new CloseGatewayEvent(1L, 0)));
         gateway.sendEventToCoordinator(new TestOperatorEvent(1));
         dispatcher.snapshotOperatorEventGatewayIfExists(operator);
-        dispatcher.notifyOperatorSnapshotCreatedIfExists(operator, 0L);
+        dispatcher.notifyOperatorSnapshotStartedIfExists(operator, 0L);
 
         taskOperatorEventGateway.sentEventsMap.clear();
 

@@ -242,7 +242,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
                             checkpointOptions,
                             storageLocation);
 
-            operatorEventDispatcher.notifyOperatorSnapshotCreatedIfExists(
+            operatorEventDispatcher.notifyOperatorSnapshotStartedIfExists(
                     op, checkpointMetaData.getCheckpointId());
 
             return futures;
