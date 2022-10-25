@@ -126,7 +126,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
         mainThreadExecutor.execute(
                 () -> {
-                    sendEventInternal(sendAction, sendResult);
+                    sendEventInternal(sendAction, serializedEvent, sendResult);
                     incompleteFuturesTracker.trackFutureWhileIncomplete(result);
                 });
 
@@ -135,11 +135,12 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
     private void sendEventInternal(
             Callable<CompletableFuture<Acknowledge>> sendAction,
+            SerializedValue<OperatorEvent> event,
             CompletableFuture<Acknowledge> result) {
         checkRunsInMainThread();
 
         if (!blockedEventsMap.isEmpty()) {
-            blockedEventsMap.lastEntry().getValue().add(new BlockedEvent(sendAction, result));
+            blockedEventsMap.lastEntry().getValue().add(new BlockedEvent(event, result));
         } else {
             callSendAction(sendAction, result);
         }
@@ -236,7 +237,9 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         if (blockedEventsMap.containsKey(checkpointId)) {
             if (blockedEventsMap.firstKey() == checkpointId) {
                 for (BlockedEvent blockedEvent : blockedEventsMap.firstEntry().getValue()) {
-                    callSendAction(blockedEvent.sendAction, blockedEvent.future);
+                    Callable<CompletableFuture<Acknowledge>> sendAction =
+                            subtaskAccess.createEventSendAction(blockedEvent.event);
+                    callSendAction(sendAction, blockedEvent.future);
                 }
             } else {
                 blockedEventsMap
@@ -256,7 +259,9 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
         for (List<BlockedEvent> blockedEvents : blockedEventsMap.values()) {
             for (BlockedEvent blockedEvent : blockedEvents) {
-                callSendAction(blockedEvent.sendAction, blockedEvent.future);
+                Callable<CompletableFuture<Acknowledge>> sendAction =
+                        subtaskAccess.createEventSendAction(blockedEvent.event);
+                callSendAction(sendAction, blockedEvent.future);
             }
         }
 
@@ -276,13 +281,11 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
     private static final class BlockedEvent {
 
-        private final Callable<CompletableFuture<Acknowledge>> sendAction;
+        private final SerializedValue<OperatorEvent> event;
         private final CompletableFuture<Acknowledge> future;
 
-        BlockedEvent(
-                Callable<CompletableFuture<Acknowledge>> sendAction,
-                CompletableFuture<Acknowledge> future) {
-            this.sendAction = sendAction;
+        BlockedEvent(SerializedValue<OperatorEvent> event, CompletableFuture<Acknowledge> future) {
+            this.event = event;
             this.future = future;
         }
     }
