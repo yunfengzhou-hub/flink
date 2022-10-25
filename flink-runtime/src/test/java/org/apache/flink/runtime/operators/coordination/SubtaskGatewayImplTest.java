@@ -24,6 +24,7 @@ import org.apache.flink.runtime.operators.coordination.EventReceivingTasks.Event
 import org.apache.flink.runtime.operators.coordination.util.IncompleteFuturesTracker;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.junit.Test;
 
@@ -164,6 +165,44 @@ public class SubtaskGatewayImplTest {
         gateway.openGatewayAndUnmarkAllCheckpoint();
 
         assertThat(future).isCompletedExceptionally();
+    }
+
+    @Test
+    public void snapshotAndReloadBlockedEvents() {
+        final EventReceivingTasks receiver = EventReceivingTasks.createForRunningTasks();
+        final SubtaskGatewayImpl gateway =
+                new SubtaskGatewayImpl(
+                        getUniqueElement(receiver.getAccessesForSubtask(11)),
+                        ComponentMainThreadExecutorServiceAdapter.forMainThread(),
+                        new IncompleteFuturesTracker());
+
+        gateway.markForCheckpoint(200L);
+        gateway.tryCloseGateway(200L);
+
+        gateway.sendEvent(new TestOperatorEvent(0));
+        gateway.sendEvent(new TestOperatorEvent(1));
+        gateway.sendEvent(new TestOperatorEvent(2));
+
+        byte[] bytes = gateway.snapshotBlockedEvents();
+
+        assertThat(receiver.events).isEmpty();
+
+        final SubtaskGatewayImpl gateway2 =
+                new SubtaskGatewayImpl(
+                        getUniqueElement(receiver.getAccessesForSubtask(11)),
+                        ComponentMainThreadExecutorServiceAdapter.forMainThread(),
+                        new IncompleteFuturesTracker());
+
+        FutureUtils.ConjunctFuture<Collection<Acknowledge>> future =
+                gateway2.restoreAndSendBlockedEvents(bytes);
+
+        assertThat(future).isCompleted();
+
+        assertThat(receiver.events)
+                .containsExactly(
+                        new EventWithSubtask(new TestOperatorEvent(0), 11),
+                        new EventWithSubtask(new TestOperatorEvent(1), 11),
+                        new EventWithSubtask(new TestOperatorEvent(2), 11));
     }
 
     private static <T> T getUniqueElement(Collection<T> collection) {

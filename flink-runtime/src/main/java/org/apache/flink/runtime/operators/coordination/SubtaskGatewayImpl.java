@@ -30,6 +30,9 @@ import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.concurrent.FutureUtils;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeMap;
@@ -259,6 +262,51 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         if (!currentMarkedCheckpointIds.isEmpty()) {
             openGatewayAndUnmarkCheckpoint(currentMarkedCheckpointIds.last());
         }
+    }
+
+    byte[] snapshotBlockedEvents() {
+        checkRunsInMainThread();
+
+        int bufferSize = 0;
+        int numEvents = 0;
+        for (List<BlockedEvent> blockedEvents : blockedEventsMap.values()) {
+            numEvents += blockedEvents.size();
+            for (BlockedEvent blockedEvent : blockedEvents) {
+                bufferSize += blockedEvent.event.getByteArray().length;
+            }
+        }
+        bufferSize += 4 * (numEvents + 1);
+
+        ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+        buffer.putInt(numEvents);
+        for (List<BlockedEvent> blockedEvents : blockedEventsMap.values()) {
+            for (BlockedEvent blockedEvent : blockedEvents) {
+                buffer.putInt(blockedEvent.event.getByteArray().length);
+                buffer.put(blockedEvent.event.getByteArray());
+            }
+        }
+
+        return buffer.array();
+    }
+
+    FutureUtils.ConjunctFuture<Collection<Acknowledge>> restoreAndSendBlockedEvents(byte[] bytes) {
+        checkRunsInMainThread();
+
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        int numEvents = buffer.getInt();
+        List<CompletableFuture<Acknowledge>> sendEventFutures = new ArrayList<>(numEvents);
+        int eventSize;
+
+        for (int i = 0; i < numEvents; i++) {
+            eventSize = buffer.getInt();
+            byte[] serializedEvent = new byte[eventSize];
+            buffer.get(serializedEvent);
+            CompletableFuture<Acknowledge> future = new CompletableFuture<>();
+            sendEventInternal(SerializedValue.fromBytes(serializedEvent), future);
+            sendEventFutures.add(future);
+        }
+
+        return FutureUtils.combineAll(sendEventFutures);
     }
 
     private void checkRunsInMainThread() {
