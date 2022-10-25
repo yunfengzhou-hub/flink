@@ -34,7 +34,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -103,9 +102,6 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
             throw new FlinkRuntimeException("Cannot serialize operator event", e);
         }
 
-        final Callable<CompletableFuture<Acknowledge>> sendAction =
-                subtaskAccess.createEventSendAction(serializedEvent);
-
         final CompletableFuture<Acknowledge> sendResult = new CompletableFuture<>();
         final CompletableFuture<Acknowledge> result =
                 sendResult.whenCompleteAsync(
@@ -126,7 +122,14 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
         mainThreadExecutor.execute(
                 () -> {
-                    sendEventInternal(sendAction, serializedEvent, sendResult);
+                    if (!blockedEventsMap.isEmpty()) {
+                        blockedEventsMap
+                                .lastEntry()
+                                .getValue()
+                                .add(new BlockedEvent(serializedEvent, sendResult));
+                    } else {
+                        sendEventInternal(serializedEvent, sendResult);
+                    }
                     incompleteFuturesTracker.trackFutureWhileIncomplete(result);
                 });
 
@@ -134,23 +137,10 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
     }
 
     private void sendEventInternal(
-            Callable<CompletableFuture<Acknowledge>> sendAction,
-            SerializedValue<OperatorEvent> event,
-            CompletableFuture<Acknowledge> result) {
-        checkRunsInMainThread();
-
-        if (!blockedEventsMap.isEmpty()) {
-            blockedEventsMap.lastEntry().getValue().add(new BlockedEvent(event, result));
-        } else {
-            callSendAction(sendAction, result);
-        }
-    }
-
-    private void callSendAction(
-            Callable<CompletableFuture<Acknowledge>> sendAction,
-            CompletableFuture<Acknowledge> result) {
+            SerializedValue<OperatorEvent> event, CompletableFuture<Acknowledge> result) {
         try {
-            final CompletableFuture<Acknowledge> sendResult = sendAction.call();
+            final CompletableFuture<Acknowledge> sendResult =
+                    subtaskAccess.createEventSendAction(event).call();
             FutureUtils.forward(sendResult, result);
         } catch (Throwable t) {
             ExceptionUtils.rethrowIfFatalError(t);
@@ -237,9 +227,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         if (blockedEventsMap.containsKey(checkpointId)) {
             if (blockedEventsMap.firstKey() == checkpointId) {
                 for (BlockedEvent blockedEvent : blockedEventsMap.firstEntry().getValue()) {
-                    Callable<CompletableFuture<Acknowledge>> sendAction =
-                            subtaskAccess.createEventSendAction(blockedEvent.event);
-                    callSendAction(sendAction, blockedEvent.future);
+                    sendEventInternal(blockedEvent.event, blockedEvent.future);
                 }
             } else {
                 blockedEventsMap
@@ -259,9 +247,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
         for (List<BlockedEvent> blockedEvents : blockedEventsMap.values()) {
             for (BlockedEvent blockedEvent : blockedEvents) {
-                Callable<CompletableFuture<Acknowledge>> sendAction =
-                        subtaskAccess.createEventSendAction(blockedEvent.event);
-                callSendAction(sendAction, blockedEvent.future);
+                sendEventInternal(blockedEvent.event, blockedEvent.future);
             }
         }
 

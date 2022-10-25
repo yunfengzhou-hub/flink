@@ -219,8 +219,6 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         final OperatorCoordinatorHolder holder2 =
                 createCoordinatorHolder(tasks, TestingOperatorCoordinator::new);
         holder2.resetToCheckpoint(1112L, future.get());
-
-        System.out.println(tasks.getSentEventsForSubtask(0));
     }
 
     @Test
