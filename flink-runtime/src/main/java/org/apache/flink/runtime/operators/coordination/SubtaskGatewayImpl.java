@@ -30,9 +30,8 @@ import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.concurrent.FutureUtils;
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -42,12 +41,10 @@ import java.util.concurrent.CompletableFuture;
  * subtasks for status and event sending via {@link SubtaskAccess}.
  *
  * <p>Instances of this class can be closed, blocking events from going through, buffering them, and
- * releasing them later. If the instance is closed for a specific checkpoint, events arrived after
- * that would be blocked temporarily, and released after the checkpoint finishes. If an event is
- * blocked & buffered when there are multiple ongoing checkpoints, the event would be released after
- * all these checkpoints finish. It is used for "alignment" of operator event streams with
- * checkpoint barrier injection, similar to how the input channels are aligned during a common
- * checkpoint.
+ * releasing them later. If the instance has been closed for some checkpoints, events arrived would
+ * be blocked temporarily, and released when the instance is not closed for any checkpoint. It is
+ * used for "alignment" of operator event streams with checkpoint barrier injection, similar to how
+ * the input channels are aligned during a common checkpoint.
  *
  * <p>The methods on the critical communication path, including closing/reopening the gateway and
  * sending the operator events, are required to be used in a single-threaded context specified by
@@ -68,10 +65,12 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
 
     private final IncompleteFuturesTracker incompleteFuturesTracker;
 
-    private final TreeMap<Long, List<BlockedEvent>> blockedEventsMap;
+    private final List<BlockedEvent> blockedEvents;
 
     /** The ids of the checkpoints that have been marked but not unmarked yet. */
-    private final TreeSet<Long> currentMarkedCheckpointIds;
+    final TreeSet<Long> currentMarkedCheckpointIds;
+
+    private final TreeSet<Long> currentClosedCheckpointIds;
 
     /** The id of the latest checkpoint that has ever been marked. */
     private long latestAttemptedCheckpointId;
@@ -83,8 +82,9 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         this.subtaskAccess = subtaskAccess;
         this.mainThreadExecutor = mainThreadExecutor;
         this.incompleteFuturesTracker = incompleteFuturesTracker;
-        this.blockedEventsMap = new TreeMap<>();
+        this.blockedEvents = new ArrayList<>();
         this.currentMarkedCheckpointIds = new TreeSet<>();
+        this.currentClosedCheckpointIds = new TreeSet<>();
         this.latestAttemptedCheckpointId = NO_CHECKPOINT;
     }
 
@@ -138,8 +138,8 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
             CompletableFuture<Acknowledge> result) {
         checkRunsInMainThread();
 
-        if (!blockedEventsMap.isEmpty()) {
-            blockedEventsMap.lastEntry().getValue().add(new BlockedEvent(sendAction, result));
+        if (!currentClosedCheckpointIds.isEmpty()) {
+            blockedEvents.add(new BlockedEvent(sendAction, result));
         } else {
             callSendAction(sendAction, result);
         }
@@ -205,7 +205,7 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         checkRunsInMainThread();
 
         if (currentMarkedCheckpointIds.contains(checkpointId)) {
-            blockedEventsMap.putIfAbsent(checkpointId, new LinkedList<>());
+            currentClosedCheckpointIds.add(checkpointId);
             return true;
         }
 
@@ -233,35 +233,28 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
             return;
         }
 
-        if (blockedEventsMap.containsKey(checkpointId)) {
-            if (blockedEventsMap.firstKey() == checkpointId) {
-                for (BlockedEvent blockedEvent : blockedEventsMap.firstEntry().getValue()) {
-                    callSendAction(blockedEvent.sendAction, blockedEvent.future);
-                }
-            } else {
-                blockedEventsMap
-                        .floorEntry(checkpointId - 1)
-                        .getValue()
-                        .addAll(blockedEventsMap.get(checkpointId));
-            }
-            blockedEventsMap.remove(checkpointId);
-        }
-
         currentMarkedCheckpointIds.remove(checkpointId);
+        currentClosedCheckpointIds.remove(checkpointId);
+
+        if (currentClosedCheckpointIds.isEmpty()) {
+            for (BlockedEvent blockedEvent : blockedEvents) {
+                callSendAction(blockedEvent.sendAction, blockedEvent.future);
+            }
+            blockedEvents.clear();
+        }
     }
 
     /** Opens the gateway, releasing all buffered events. */
     void openGatewayAndUnmarkAllCheckpoint() {
         checkRunsInMainThread();
 
-        for (List<BlockedEvent> blockedEvents : blockedEventsMap.values()) {
-            for (BlockedEvent blockedEvent : blockedEvents) {
-                callSendAction(blockedEvent.sendAction, blockedEvent.future);
-            }
+        for (BlockedEvent blockedEvent : blockedEvents) {
+            callSendAction(blockedEvent.sendAction, blockedEvent.future);
         }
+        blockedEvents.clear();
 
-        blockedEventsMap.clear();
         currentMarkedCheckpointIds.clear();
+        currentClosedCheckpointIds.clear();
     }
 
     void openGatewayAndUnmarkLastCheckpointIfAny() {

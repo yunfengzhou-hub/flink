@@ -20,9 +20,11 @@ package org.apache.flink.runtime.operators.coordination;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.checkpoint.OperatorCoordinatorCheckpointContext;
+import org.apache.flink.runtime.checkpoint.PendingCheckpoint;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.operators.coordination.util.IncompleteFuturesTracker;
 import org.apache.flink.runtime.scheduler.GlobalFailureHandler;
 import org.apache.flink.util.ExceptionUtils;
@@ -40,6 +42,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -71,6 +74,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  *       its subtasks, which denotes that the subtask has received the checkpoint barrier and
  *       completed checkpoint, the coordinator reopens the corresponding subtask gateway and sends
  *       out buffered events.
+ *   <li>When there are multiple concurrent ongoing checkpoints, the buffered events would be
+ *       regarded as generated after the triggering of all these checkpoints.
  *   <li>If a task fails in the meantime, the events are dropped from the gateways. From the
  *       coordinator's perspective, these events are lost, because they were sent to a failed
  *       subtask after it's latest complete checkpoint.
@@ -82,16 +87,11 @@ import static org.apache.flink.util.Preconditions.checkState;
  *   <li>If the event is generated before the coordinator completes checkpoint, it would be sent out
  *       immediately.
  *   <li>If the event is generated after the coordinator completes checkpoint, it would be
- *       temporarily buffered and not be sent out to the subtask until the coordinator received a
+ *       temporarily buffered and not be sent out to the subtask until the coordinator received an
  *       {@link AcknowledgeCheckpointEvent} from that subtask.
  *   <li>If the event is generated after the coordinator received {@link
  *       AcknowledgeCheckpointEvent}, it would be sent out immediately.
  * </ul>
- *
- * <p>This implementation can handle concurrent checkpoints. In the behavior described above, If an
- * event is generated after the coordinator has completed multiple checkpoints, and before it
- * receives {@link AcknowledgeCheckpointEvent} about any of them, the event would be buffered until
- * the coordinator has received {@link AcknowledgeCheckpointEvent} about all of these checkpoints.
  *
  * <p><b>IMPORTANT:</b> A critical assumption is that all events from the scheduler to the Tasks are
  * transported strictly in order. Events being sent from the coordinator after the checkpoint
@@ -104,6 +104,10 @@ import static org.apache.flink.util.Preconditions.checkState;
  * outside" are either already in the main-thread-executor (when coming from Scheduler) or put into
  * the main-thread-executor (when coming from the CheckpointCoordinator). We rely on the executor to
  * preserve strict order of the calls.
+ *
+ * <p>The current implementation supports concurrent operation of checkpoints that cannot be
+ * subsumed. When a new checkpoint is triggered, and it can be subsumed, it would be temporarily
+ * blocked until the ongoing checkpoints have finished.
  *
  * <p>Actions from the coordinator to the "outside world" (like completing a checkpoint and sending
  * an event) are also enqueued back into the scheduler main-thread executor, strictly in order.
@@ -128,6 +132,10 @@ public class OperatorCoordinatorHolder
 
     private final IncompleteFuturesTracker unconfirmedEvents;
 
+    private final TreeMap<Long, CompletableFuture<Acknowledge>> ongoingCheckpoints;
+
+    private final TreeMap<Long, CompletableFuture<byte[]>> pendingCheckpoints;
+
     private final int operatorParallelism;
     private final int operatorMaxParallelism;
 
@@ -151,6 +159,8 @@ public class OperatorCoordinatorHolder
 
         this.subtaskGatewayMap = new HashMap<>();
         this.unconfirmedEvents = new IncompleteFuturesTracker();
+        this.ongoingCheckpoints = new TreeMap<>();
+        this.pendingCheckpoints = new TreeMap<>();
     }
 
     public void lazyInitialize(
@@ -208,10 +218,14 @@ public class OperatorCoordinatorHolder
             throws Exception {
         mainThreadExecutor.assertRunningInMainThread();
         if (event instanceof AcknowledgeCheckpointEvent) {
-            subtaskGatewayMap
-                    .get(subtask)
-                    .openGatewayAndUnmarkCheckpoint(
-                            ((AcknowledgeCheckpointEvent) event).getCheckpointID());
+            long checkpointID = ((AcknowledgeCheckpointEvent) event).getCheckpointID();
+            subtaskGatewayMap.get(subtask).openGatewayAndUnmarkCheckpoint(checkpointID);
+            boolean isCompletedCheckpoint =
+                    subtaskGatewayMap.values().stream()
+                            .noneMatch(x -> x.currentMarkedCheckpointIds.contains(checkpointID));
+            if (isCompletedCheckpoint) {
+                completeOngoingCheckpointAndStartAPendingCheckpointIfAny(checkpointID);
+            }
             return;
         }
         coordinator.handleEventFromOperator(subtask, attemptNumber, event);
@@ -234,12 +248,23 @@ public class OperatorCoordinatorHolder
     }
 
     @Override
-    public void checkpointCoordinator(long checkpointId, CompletableFuture<byte[]> result) {
+    public void checkpointCoordinator(
+            PendingCheckpoint checkpoint, CompletableFuture<byte[]> result) {
         // unfortunately, this method does not run in the scheduler executor, but in the
         // checkpoint coordinator time thread.
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
-        mainThreadExecutor.execute(() -> checkpointCoordinatorInternal(checkpointId, result));
+        mainThreadExecutor.execute(
+                () -> {
+                    long checkpointId = checkpoint.getCheckpointID();
+
+                    if (!ongoingCheckpoints.isEmpty() && checkpoint.canBeSubsumed()) {
+                        pendingCheckpoints.put(checkpointId, result);
+                        return;
+                    }
+
+                    checkpointCoordinatorInternal(checkpointId, result);
+                });
     }
 
     @Override
@@ -250,6 +275,8 @@ public class OperatorCoordinatorHolder
         // scheduler's main thread executor
         mainThreadExecutor.execute(
                 () -> {
+                    completeOngoingCheckpointAndStartAPendingCheckpointIfAny(checkpointId);
+
                     subtaskGatewayMap
                             .values()
                             .forEach(x -> x.openGatewayAndUnmarkCheckpoint(checkpointId));
@@ -265,6 +292,7 @@ public class OperatorCoordinatorHolder
         // scheduler's main thread executor
         mainThreadExecutor.execute(
                 () -> {
+                    completeOngoingCheckpointAndStartAPendingCheckpointIfAny(checkpointId);
                     subtaskGatewayMap
                             .values()
                             .forEach(x -> x.openGatewayAndUnmarkCheckpoint(checkpointId));
@@ -300,6 +328,9 @@ public class OperatorCoordinatorHolder
     private void checkpointCoordinatorInternal(
             final long checkpointId, final CompletableFuture<byte[]> result) {
         mainThreadExecutor.assertRunningInMainThread();
+
+        CompletableFuture<Acknowledge> ongoingCheckpoint = new CompletableFuture<>();
+        ongoingCheckpoints.put(checkpointId, ongoingCheckpoint);
 
         final CompletableFuture<byte[]> coordinatorCheckpoint = new CompletableFuture<>();
 
@@ -397,12 +428,43 @@ public class OperatorCoordinatorHolder
         // we can remove the delegation once the checkpoint coordinator runs fully in the
         // scheduler's main thread executor
         mainThreadExecutor.execute(
-                () ->
+                () -> {
+                    long currentTriggeringCheckpointId = -1;
+                    for (long checkpointId : ongoingCheckpoints.keySet()) {
+                        currentTriggeringCheckpointId =
+                                Math.max(currentTriggeringCheckpointId, checkpointId);
+                    }
+                    for (long checkpointId : pendingCheckpoints.keySet()) {
+                        currentTriggeringCheckpointId =
+                                Math.max(currentTriggeringCheckpointId, checkpointId);
+                    }
+
+                    if (ongoingCheckpoints.containsKey(currentTriggeringCheckpointId)) {
+                        completeOngoingCheckpointAndStartAPendingCheckpointIfAny(
+                                currentTriggeringCheckpointId);
                         subtaskGatewayMap
                                 .values()
                                 .forEach(
                                         SubtaskGatewayImpl
-                                                ::openGatewayAndUnmarkLastCheckpointIfAny));
+                                                ::openGatewayAndUnmarkLastCheckpointIfAny);
+                    } else {
+                        pendingCheckpoints.remove(currentTriggeringCheckpointId);
+                    }
+                });
+    }
+
+    private void completeOngoingCheckpointAndStartAPendingCheckpointIfAny(
+            long ongoingCheckpointID) {
+        CompletableFuture<Acknowledge> checkpointFuture =
+                ongoingCheckpoints.remove(ongoingCheckpointID);
+        if (checkpointFuture != null) {
+            checkpointFuture.complete(Acknowledge.get());
+        }
+
+        if (ongoingCheckpoints.isEmpty() && !pendingCheckpoints.isEmpty()) {
+            Map.Entry<Long, CompletableFuture<byte[]>> entry = pendingCheckpoints.pollFirstEntry();
+            checkpointCoordinatorInternal(entry.getKey(), entry.getValue());
+        }
     }
 
     // ------------------------------------------------------------------------

@@ -43,11 +43,12 @@ import java.util.concurrent.Executor;
 final class OperatorCoordinatorCheckpoints {
 
     public static CompletableFuture<CoordinatorSnapshot> triggerCoordinatorCheckpoint(
-            final OperatorCoordinatorCheckpointContext coordinatorContext, final long checkpointId)
+            final OperatorCoordinatorCheckpointContext coordinatorContext,
+            final PendingCheckpoint checkpoint)
             throws Exception {
 
         final CompletableFuture<byte[]> checkpointFuture = new CompletableFuture<>();
-        coordinatorContext.checkpointCoordinator(checkpointId, checkpointFuture);
+        coordinatorContext.checkpointCoordinator(checkpoint, checkpointFuture);
 
         return checkpointFuture.thenApply(
                 (state) ->
@@ -59,7 +60,7 @@ final class OperatorCoordinatorCheckpoints {
 
     public static CompletableFuture<AllCoordinatorSnapshots> triggerAllCoordinatorCheckpoints(
             final Collection<OperatorCoordinatorCheckpointContext> coordinators,
-            final long checkpointId)
+            final PendingCheckpoint checkpoint)
             throws Exception {
 
         final Collection<CompletableFuture<CoordinatorSnapshot>> individualSnapshots =
@@ -67,7 +68,7 @@ final class OperatorCoordinatorCheckpoints {
 
         for (final OperatorCoordinatorCheckpointContext coordinator : coordinators) {
             final CompletableFuture<CoordinatorSnapshot> checkpointFuture =
-                    triggerCoordinatorCheckpoint(coordinator, checkpointId);
+                    triggerCoordinatorCheckpoint(coordinator, checkpoint);
             individualSnapshots.add(checkpointFuture);
         }
 
@@ -81,7 +82,7 @@ final class OperatorCoordinatorCheckpoints {
             throws Exception {
 
         final CompletableFuture<AllCoordinatorSnapshots> snapshots =
-                triggerAllCoordinatorCheckpoints(coordinators, checkpoint.getCheckpointID());
+                triggerAllCoordinatorCheckpoints(coordinators, checkpoint);
 
         return snapshots.thenAcceptAsync(
                 (allSnapshots) -> {

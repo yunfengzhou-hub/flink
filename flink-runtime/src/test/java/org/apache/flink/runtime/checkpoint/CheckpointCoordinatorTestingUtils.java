@@ -930,10 +930,10 @@ public class CheckpointCoordinatorTestingUtils {
         }
 
         @Override
-        public void checkpointCoordinator(long checkpointId, CompletableFuture<byte[]> result)
-                throws Exception {
+        public void checkpointCoordinator(
+                PendingCheckpoint checkpoint, CompletableFuture<byte[]> result) throws Exception {
             if (onCallingCheckpointCoordinator != null) {
-                onCallingCheckpointCoordinator.accept(checkpointId, result);
+                onCallingCheckpointCoordinator.accept(checkpoint.getCheckpointID(), result);
             }
         }
 

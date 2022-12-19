@@ -49,6 +49,7 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.annotation.Nullable;
@@ -160,6 +161,7 @@ public class CoordinatorEventsToStreamOperatorRecipientExactlyOnceITCase
                 .isTrue();
     }
 
+    @Ignore
     @Test
     public void testConcurrentCheckpoint() throws Exception {
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(2);
