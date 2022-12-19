@@ -83,6 +83,7 @@ import javax.annotation.Nullable;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
@@ -300,7 +301,11 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
 
         final OperatorState state = checkpointFuture.get().getOperatorStates().get(testOperatorId);
         assertThat(getStateHandleContents(state.getCoordinatorState()))
-                .containsExactly(checkpointData);
+                .containsExactly(
+                        ByteBuffer.allocate(4 + checkpointData.length)
+                                .putInt(0)
+                                .put(checkpointData)
+                                .array());
     }
 
     @Test
@@ -335,9 +340,14 @@ public class OperatorCoordinatorSchedulerTest extends TestLogger {
     public void testSavepointRestoresCoordinator() throws Exception {
         final byte[] testCoordinatorState = new byte[123];
         new Random().nextBytes(testCoordinatorState);
+        final byte[] testCoordinatorStateWithBlockedEvents =
+                ByteBuffer.allocate(testCoordinatorState.length + 4)
+                        .putInt(0)
+                        .put(testCoordinatorState)
+                        .array();
 
         final DefaultScheduler scheduler =
-                createSchedulerWithRestoredSavepoint(testCoordinatorState);
+                createSchedulerWithRestoredSavepoint(testCoordinatorStateWithBlockedEvents);
         final TestingOperatorCoordinator coordinator = getCoordinator(scheduler);
 
         final byte[] restoredState = coordinator.getLastRestoredCheckpointState();

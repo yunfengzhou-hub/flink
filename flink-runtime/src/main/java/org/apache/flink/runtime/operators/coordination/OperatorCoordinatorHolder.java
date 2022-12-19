@@ -36,10 +36,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -294,6 +296,8 @@ public class OperatorCoordinatorHolder
             setupAllSubtaskGateways();
         }
 
+        checkpointData = extractCoordinatorCheckpointAndSendBlockedEvents(checkpointData);
+
         coordinator.resetToCheckpoint(checkpointId, checkpointData);
     }
 
@@ -309,6 +313,7 @@ public class OperatorCoordinatorHolder
                             if (failure != null) {
                                 result.completeExceptionally(failure);
                             } else if (closeGateways(checkpointId)) {
+                                success = appendSubtaskGatewayCheckpoints(success);
                                 completeCheckpointOnceEventsAreDone(checkpointId, result, success);
                             } else {
                                 // if we cannot close the gateway, this means the checkpoint
@@ -347,6 +352,54 @@ public class OperatorCoordinatorHolder
         }
 
         return closedGateways != 0;
+    }
+
+    private byte[] extractCoordinatorCheckpointAndSendBlockedEvents(
+            @Nullable byte[] gatewayAndCoordinatorCheckpoint) {
+        if (gatewayAndCoordinatorCheckpoint == null) {
+            return null;
+        }
+
+        ByteBuffer buffer = ByteBuffer.wrap(gatewayAndCoordinatorCheckpoint);
+        int subtaskNum = buffer.getInt();
+        for (int i = 0; i < subtaskNum; i++) {
+            int subtaskId = buffer.getInt();
+            int checkpointSize = buffer.getInt();
+            byte[] gatewayCheckpoint = new byte[checkpointSize];
+            buffer.get(gatewayCheckpoint);
+            SubtaskGatewayImpl gateway = subtaskGatewayMap.get(subtaskId);
+            if (gateway != null) {
+                gateway.restoreAndSendBlockedEvents(gatewayCheckpoint);
+            }
+        }
+        int checkpointSize = buffer.remaining();
+        byte[] coordinatorCheckpoint = new byte[checkpointSize];
+        buffer.get(coordinatorCheckpoint);
+        return coordinatorCheckpoint;
+    }
+
+    private byte[] appendSubtaskGatewayCheckpoints(byte[] coordinatorCheckpoint) {
+        Map<Integer, byte[]> subtaskGatewayCheckpointMap = new TreeMap<>();
+
+        int bufferSize = 4 + coordinatorCheckpoint.length;
+        for (Map.Entry<Integer, SubtaskGatewayImpl> entry : subtaskGatewayMap.entrySet()) {
+            byte[] subtaskGatewayCheckpoint = entry.getValue().snapshotBlockedEvents();
+            if (subtaskGatewayCheckpoint.length == 0) {
+                continue;
+            }
+            subtaskGatewayCheckpointMap.put(entry.getKey(), subtaskGatewayCheckpoint);
+            bufferSize += 8 + subtaskGatewayCheckpoint.length;
+        }
+
+        ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+        buffer.putInt(subtaskGatewayCheckpointMap.size());
+        for (Map.Entry<Integer, byte[]> entry : subtaskGatewayCheckpointMap.entrySet()) {
+            buffer.putInt(entry.getKey());
+            buffer.putInt(entry.getValue().length);
+            buffer.put(entry.getValue());
+        }
+        buffer.put(coordinatorCheckpoint);
+        return buffer.array();
     }
 
     private void completeCheckpointOnceEventsAreDone(

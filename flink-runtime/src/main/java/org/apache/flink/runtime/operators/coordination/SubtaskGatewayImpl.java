@@ -267,6 +267,10 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
     byte[] snapshotBlockedEvents() {
         checkRunsInMainThread();
 
+        if (isEmptyBlockedEventsMap()) {
+            return new byte[0];
+        }
+
         int bufferSize = 0;
         int numEvents = 0;
         for (List<BlockedEvent> blockedEvents : blockedEventsMap.values()) {
@@ -289,8 +293,22 @@ class SubtaskGatewayImpl implements OperatorCoordinator.SubtaskGateway {
         return buffer.array();
     }
 
+    private boolean isEmptyBlockedEventsMap() {
+        for (List<BlockedEvent> list : blockedEventsMap.values()) {
+            if (!list.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     FutureUtils.ConjunctFuture<Collection<Acknowledge>> restoreAndSendBlockedEvents(byte[] bytes) {
         checkRunsInMainThread();
+
+        if (bytes.length == 0) {
+            List<CompletableFuture<Acknowledge>> list = new ArrayList<>();
+            return FutureUtils.combineAll(list);
+        }
 
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         int numEvents = buffer.getInt();
