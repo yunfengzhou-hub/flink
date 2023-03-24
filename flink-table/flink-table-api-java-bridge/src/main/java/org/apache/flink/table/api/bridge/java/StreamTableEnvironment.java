@@ -454,6 +454,11 @@ public interface StreamTableEnvironment extends TableEnvironment {
      * <p>If the input table contains a single rowtime column, it will be propagated into a stream
      * record's timestamp. Watermarks will be propagated as well.
      *
+     * <p>Specifically, if this method is invoked on a table created through {@link
+     * #fromDataStream(DataStream)} from a datastream of type {@link Row}, the returned datastream
+     * would be equal to the input value of {@link #fromDataStream(DataStream)}, skipping the table
+     * conversions in between.
+     *
      * @param table The {@link Table} to convert. It must be insert-only.
      * @return The converted {@link DataStream}.
      * @see #toDataStream(Table, AbstractDataType)

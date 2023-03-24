@@ -107,4 +107,18 @@ public final class ExternalQueryOperation<E> implements QueryOperation {
     public <T> T accept(QueryOperationVisitor<T> visitor) {
         return visitor.visit(this);
     }
+
+    public boolean equalsRegardlessOfIdentifier(Object obj) {
+        if (!(obj instanceof ExternalQueryOperation)) {
+            return false;
+        }
+
+        ExternalQueryOperation<?> operation = (ExternalQueryOperation<?>) obj;
+
+        return contextResolvedTable.equalsRegardlessOfIdentifier(operation.contextResolvedTable)
+                && dataStream.equals(operation.dataStream)
+                && physicalDataType.equals(operation.physicalDataType)
+                && isTopLevelRecord == operation.isTopLevelRecord
+                && changelogMode.equals(operation.changelogMode);
+    }
 }

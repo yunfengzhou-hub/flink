@@ -211,6 +211,19 @@ public final class ContextResolvedTable {
                 && Objects.equals(resolvedTable, that.resolvedTable);
     }
 
+    public boolean equalsRegardlessOfIdentifier(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ContextResolvedTable table = (ContextResolvedTable) o;
+        return anonymous == table.anonymous
+                && Objects.equals(catalog, table.catalog)
+                && Objects.equals(resolvedTable, table.resolvedTable);
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(objectIdentifier, catalog, resolvedTable, anonymous);

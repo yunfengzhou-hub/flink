@@ -21,6 +21,7 @@ package org.apache.flink.table.api.bridge.java.internal;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
@@ -45,7 +46,9 @@ import org.apache.flink.table.functions.TableAggregateFunction;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.UserDefinedFunctionHelper;
 import org.apache.flink.table.module.ModuleManager;
+import org.apache.flink.table.operations.ExternalQueryOperation;
 import org.apache.flink.table.operations.OutputConversionModifyOperation;
+import org.apache.flink.table.operations.QueryOperation;
 import org.apache.flink.table.resource.ResourceManager;
 import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.sources.TableSourceValidation;
@@ -221,6 +224,19 @@ public final class StreamTableEnvironmentImpl extends AbstractStreamTableEnviron
     @Override
     public DataStream<Row> toDataStream(Table table) {
         Preconditions.checkNotNull(table, "Table must not be null.");
+
+        QueryOperation queryOperation = table.getQueryOperation();
+        if (queryOperation instanceof ExternalQueryOperation) {
+            ExternalQueryOperation<?> externalQueryOperation =
+                    (ExternalQueryOperation<?>) queryOperation;
+            DataStream<?> stream = externalQueryOperation.getDataStream();
+            if (externalQueryOperation.equalsRegardlessOfIdentifier(
+                            fromDataStream(stream).getQueryOperation())
+                    && stream.getType() instanceof RowTypeInfo) {
+                return (DataStream<Row>) stream;
+            }
+        }
+
         // include all columns of the query (incl. metadata and computed columns)
         final DataType sourceType = table.getResolvedSchema().toSourceRowDataType();
         return toDataStream(table, sourceType);

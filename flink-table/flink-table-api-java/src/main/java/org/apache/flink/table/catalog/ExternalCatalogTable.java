@@ -90,4 +90,18 @@ public final class ExternalCatalogTable implements CatalogTable {
                         + "cannot be expressed with options and can thus also not be enriched "
                         + "with hints.");
     }
+
+    @Override
+    public int hashCode() {
+        return schema.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof ExternalCatalogTable)) {
+            return false;
+        }
+
+        return schema.equals(((ExternalCatalogTable) obj).schema);
+    }
 }
