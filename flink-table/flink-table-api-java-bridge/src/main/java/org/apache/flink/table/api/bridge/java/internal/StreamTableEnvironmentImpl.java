@@ -20,9 +20,12 @@ package org.apache.flink.table.api.bridge.java.internal;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.transformations.SourceTransformation;
+import org.apache.flink.streaming.api.transformations.TimestampsAndWatermarksTransformation;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.Schema;
@@ -179,7 +182,36 @@ public final class StreamTableEnvironmentImpl extends AbstractStreamTableEnviron
 
     @Override
     public <T> Table fromDataStream(DataStream<T> dataStream) {
-        return fromStreamInternal(dataStream, null, null, ChangelogMode.insertOnly());
+//        Table table = fromStreamInternal(dataStream, null, null, ChangelogMode.insertOnly());
+//
+////        return table;
+//
+//        System.out.println(table.getResolvedSchema().getColumn("rowtime"));
+
+        Schema schema = null;
+        if (isTransformationWithWatermark(dataStream.getTransformation())) {
+            schema = Schema.newBuilder()
+                    .columnByMetadata("rowtime", "TIMESTAMP_LTZ(3)")
+                    .watermark("rowtime", "SOURCE_WATERMARK()")
+                    .build();
+        }
+
+        return fromStreamInternal(dataStream, schema, null, ChangelogMode.insertOnly());
+    }
+
+    private boolean isTransformationWithWatermark(Transformation<?> transformation) {
+        System.out.println(transformation.getClass().getSimpleName());
+        if (transformation instanceof TimestampsAndWatermarksTransformation ||
+                transformation instanceof SourceTransformation) {
+            return true;
+        }
+
+        for (Transformation<?> input: transformation.getInputs()) {
+            if (!isTransformationWithWatermark(input)) {
+                return false;
+            }
+        }
+        return !transformation.getInputs().isEmpty();
     }
 
     @Override

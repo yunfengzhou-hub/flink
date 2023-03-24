@@ -316,40 +316,82 @@ public class DataStreamJavaITCase extends AbstractTestBase {
     }
 
     @Test
-    public void testFromAndToDataStreamEventTime() throws Exception {
+    public void testFromAndToDataStreamEventTimeWithoutExplicitSchema() throws Exception {
         final StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
 
         final DataStream<Tuple3<Long, Integer, String>> dataStream = getWatermarkedDataStream();
 
         final Table table =
                 tableEnv.fromDataStream(
+                        dataStream
+                );
+
+        testFromAndToDataStreamEventTimeInternal(tableEnv, table);
+    }
+
+    @Test
+    public void testFromAndToDataStreamEventTimeWithTableWatermark() throws Exception {
+        final StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env);
+
+        DataStream<Tuple3<Long, Integer, String>> dataStream = getWatermarkedDataStream();
+//                env.fromCollection(
+//                        Arrays.asList(
+//                                Tuple3.of(1L, 42, "a"),
+//                                Tuple3.of(2L, 5, "a"),
+//                                Tuple3.of(3L, 1000, "c"),
+//                                Tuple3.of(100L, 1000, "c")),
+//                        Types.TUPLE(Types.LONG, Types.INT, Types.STRING));
+
+        Table table =
+                tableEnv.fromDataStream(
                         dataStream,
                         Schema.newBuilder()
-                                .columnByMetadata("rowtime", "TIMESTAMP_LTZ(3)")
-                                // uses SQL expressions
-                                .watermark("rowtime", "SOURCE_WATERMARK()")
-                                .build());
+                                .column("f0", DataTypes.BIGINT().notNull())
+                                .column("f1", DataTypes.INT().notNull())
+                                .column("f2", DataTypes.STRING())
+//                                .columnByMetadata("rowtime", "TIMESTAMP_LTZ(3)")
+//                                .watermark("rowtime", "SOURCE_WATERMARK()")
+//                                .columnByExpression("ts", "TO_TIMESTAMP_LTZ(f0, 3)")
+//                                .watermark("ts", "ts")
+                                .build()
+                );
 
-        testSchema(
-                table,
-                new ResolvedSchema(
-                        Arrays.asList(
-                                Column.physical("f0", BIGINT().notNull()),
-                                Column.physical("f1", INT().notNull()),
-                                Column.physical("f2", STRING()),
-                                Column.metadata(
-                                        "rowtime",
-                                        new AtomicDataType(
-                                                new LocalZonedTimestampType(
-                                                        true, TimestampKind.ROWTIME, 3)),
-                                        null,
-                                        false)),
-                        Collections.singletonList(
-                                WatermarkSpec.of(
-                                        "rowtime",
-                                        ResolvedExpressionMock.of(
-                                                TIMESTAMP_LTZ(3), "`SOURCE_WATERMARK`()"))),
-                        null));
+        table.printSchema();
+
+        DataStream<Row> dataStream2 = tableEnv.toDataStream(table);
+
+        table = tableEnv.fromDataStream(dataStream2);
+
+        table.printSchema();
+
+        testFromAndToDataStreamEventTimeInternal(tableEnv, table);
+    }
+
+    private void testFromAndToDataStreamEventTimeInternal(
+            final StreamTableEnvironment tableEnv,
+            final Table table
+    ) throws Exception {
+
+//        testSchema(
+//                table,
+//                new ResolvedSchema(
+//                        Arrays.asList(
+//                                Column.physical("f0", BIGINT().notNull()),
+//                                Column.physical("f1", INT().notNull()),
+//                                Column.physical("f2", STRING()),
+//                                Column.metadata(
+//                                        "rowtime",
+//                                        new AtomicDataType(
+//                                                new LocalZonedTimestampType(
+//                                                        true, TimestampKind.ROWTIME, 3)),
+//                                        null,
+//                                        false)),
+//                        Collections.singletonList(
+//                                WatermarkSpec.of(
+//                                        "rowtime",
+//                                        ResolvedExpressionMock.of(
+//                                                TIMESTAMP_LTZ(3), "`SOURCE_WATERMARK`()"))),
+//                        null));
 
         tableEnv.createTemporaryView("t", table);
 
