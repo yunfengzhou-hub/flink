@@ -72,4 +72,8 @@ public interface SourceReaderContext {
     default int currentParallelism() {
         throw new UnsupportedOperationException();
     }
+
+    default void sendSourceEventToDownstreamOperator(SourceEvent sourceEvent) {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.StreamStatusEvent;
 import org.apache.flink.streaming.runtime.metrics.WatermarkGauge;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
@@ -143,6 +144,17 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
 
         try {
             recordWriter.randomEmit(serializationDelegate);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void emitStreamStatusEvent(StreamStatusEvent event) {
+        serializationDelegate.setInstance(event);
+
+        try {
+            recordWriter.emit(serializationDelegate);
         } catch (IOException e) {
             throw new UncheckedIOException(e.getMessage(), e);
         }

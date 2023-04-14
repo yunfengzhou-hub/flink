@@ -53,6 +53,8 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.source.TimestampsAndWatermarks;
 import org.apache.flink.streaming.api.operators.util.SimpleVersionedListState;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.SourceEventToStreamStatusEventConverter;
+import org.apache.flink.streaming.runtime.StreamStatusEvent;
 import org.apache.flink.streaming.runtime.io.DataInputStatus;
 import org.apache.flink.streaming.runtime.io.MultipleFuturesAvailabilityHelper;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput;
@@ -103,6 +105,8 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
     // Package private for unit test.
     static final ListStateDescriptor<byte[]> SPLITS_STATE_DESC =
             new ListStateDescriptor<>("SourceReaderState", BytePrimitiveArraySerializer.INSTANCE);
+
+    private final transient List<StreamStatusEvent> bufferedEvents = new ArrayList<>();
 
     /**
      * The factory for the source reader. This is a workaround, because currently the SourceReader
@@ -307,6 +311,25 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                     public int currentParallelism() {
                         return getRuntimeContext().getNumberOfParallelSubtasks();
                     }
+
+                    @Override
+                    public void sendSourceEventToDownstreamOperator(SourceEvent sourceEvent) {
+                        if (sourceReader instanceof SourceEventToStreamStatusEventConverter) {
+                            StreamStatusEvent event =
+                                    ((SourceEventToStreamStatusEventConverter) sourceReader)
+                                            .convert(sourceEvent);
+                            if (event != null) {
+                                bufferedEvents.add(event);
+                            }
+                            return;
+                        }
+
+                        throw new UnsupportedOperationException(
+                                "Unsupported source event type "
+                                        + sourceEvent.getClass().getSimpleName()
+                                        + " or source reader type "
+                                        + sourceReader.getClass().getSimpleName());
+                    }
                 };
 
         sourceReader = readerFactory.apply(context);
@@ -405,6 +428,12 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
         assert lastInvokedOutput == output
                 || lastInvokedOutput == null
                 || this.operatingMode == OperatingMode.DATA_FINISHED;
+
+        if (!bufferedEvents.isEmpty()) {
+            for (StreamStatusEvent event : bufferedEvents) {
+                output.emitStreamStatusEvent(event);
+            }
+        }
 
         // short circuit the hot path. Without this short circuit (READING handled in the
         // switch/case) InputBenchmark.mapSink was showing a performance regression.

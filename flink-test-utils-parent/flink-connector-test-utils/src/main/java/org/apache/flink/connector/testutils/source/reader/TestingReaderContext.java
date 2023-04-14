@@ -38,6 +38,8 @@ public class TestingReaderContext implements SourceReaderContext {
 
     private final ArrayList<SourceEvent> sentEvents = new ArrayList<>();
 
+    private final List<SourceEvent> eventsSentToDownStreamOperator = new ArrayList<>();
+
     private int numSplitRequests;
 
     public TestingReaderContext() {
@@ -89,6 +91,11 @@ public class TestingReaderContext implements SourceReaderContext {
     @Override
     public int currentParallelism() {
         return 1;
+    }
+
+    @Override
+    public void sendSourceEventToDownstreamOperator(SourceEvent sourceEvent) {
+        eventsSentToDownStreamOperator.add(sourceEvent);
     }
 
     // ------------------------------------------------------------------------

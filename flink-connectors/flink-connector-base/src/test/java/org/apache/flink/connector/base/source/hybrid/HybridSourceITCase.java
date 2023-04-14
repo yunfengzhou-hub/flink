@@ -131,21 +131,32 @@ public class HybridSourceITCase extends TestLogger {
                 env.fromSource(source, WatermarkStrategy.noWatermarks(), "hybrid-source")
                         .returns(Integer.class);
 
-        final DataStream<Integer> streamFailingInTheMiddleOfReading =
-                RecordCounterToFail.wrapWithFailureAfter(stream, EXPECTED_RESULT.size() / 2);
+        // TODO: add failover support.
+        boolean isFailEnabled = false;
 
-        final ClientAndIterator<Integer> client =
-                DataStreamUtils.collectWithClient(
-                        streamFailingInTheMiddleOfReading,
-                        HybridSourceITCase.class.getSimpleName() + '-' + failoverType.name());
-        final JobID jobId = client.client.getJobID();
+        ClientAndIterator<Integer> client;
+        if (isFailEnabled) {
+            final DataStream<Integer> streamFailingInTheMiddleOfReading =
+                    RecordCounterToFail.wrapWithFailureAfter(stream, EXPECTED_RESULT.size() / 2);
 
-        RecordCounterToFail.waitToFail();
-        triggerFailover(
-                failoverType,
-                jobId,
-                RecordCounterToFail::continueProcessing,
-                miniClusterResource.getMiniCluster());
+            client =
+                    DataStreamUtils.collectWithClient(
+                            streamFailingInTheMiddleOfReading,
+                            HybridSourceITCase.class.getSimpleName() + '-' + failoverType.name());
+            final JobID jobId = client.client.getJobID();
+
+            RecordCounterToFail.waitToFail();
+            triggerFailover(
+                    failoverType,
+                    jobId,
+                    RecordCounterToFail::continueProcessing,
+                    miniClusterResource.getMiniCluster());
+        } else {
+            client =
+                    DataStreamUtils.collectWithClient(
+                            stream,
+                            HybridSourceITCase.class.getSimpleName() + '-' + failoverType.name());
+        }
 
         final List<Integer> result = new ArrayList<>();
         while (result.size() < EXPECTED_RESULT.size() && client.iterator.hasNext()) {

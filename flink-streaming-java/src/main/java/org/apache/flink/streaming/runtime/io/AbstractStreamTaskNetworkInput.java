@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
+import org.apache.flink.streaming.runtime.StreamStatusEvent;
 import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
@@ -154,6 +155,9 @@ public abstract class AbstractStreamTaskNetworkInput<
                     recordOrMark.asWatermarkStatus(),
                     flattenedChannelIndices.get(lastChannel),
                     output);
+        } else if (recordOrMark instanceof StreamStatusEvent) {
+            // TODO: add deduplication or alignment logic.
+            output.emitStreamStatusEvent((StreamStatusEvent) recordOrMark);
         } else {
             throw new UnsupportedOperationException("Unknown type of StreamElement");
         }

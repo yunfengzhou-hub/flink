@@ -25,6 +25,9 @@ import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SourceSplit;
 import org.apache.flink.core.io.InputStatus;
+import org.apache.flink.streaming.runtime.SourceEventToStreamStatusEventConverter;
+import org.apache.flink.streaming.runtime.StreamStatusEvent;
+import org.apache.flink.streaming.runtime.StreamTypeUpdateEvent;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -51,7 +54,8 @@ import java.util.concurrent.CompletableFuture;
  * recovering from a checkpoint it may start processing splits for a previous source, which is
  * indicated via {@link SwitchSourceEvent}.
  */
-public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit> {
+public class HybridSourceReader<T>
+        implements SourceReader<T, HybridSourceSplit>, SourceEventToStreamStatusEventConverter {
     private static final Logger LOG = LoggerFactory.getLogger(HybridSourceReader.class);
     private final SourceReaderContext readerContext;
     private final SwitchedSources switchedSources = new SwitchedSources();
@@ -185,6 +189,7 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
             switchedSources.put(sse.sourceIndex(), sse.source());
             setCurrentReader(sse.sourceIndex());
             isFinalSource = sse.isFinalSource();
+            readerContext.sendSourceEventToDownstreamOperator(sourceEvent);
         } else {
             currentReader.handleSourceEvents(sourceEvent);
         }
@@ -246,5 +251,14 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
             }
             addSplits(splits);
         }
+    }
+
+    @Override
+    public StreamStatusEvent convert(SourceEvent event) {
+        if (event instanceof SwitchSourceEvent) {
+            return new StreamTypeUpdateEvent(((SwitchSourceEvent) event).source().getBoundedness());
+        }
+
+        return null;
     }
 }
