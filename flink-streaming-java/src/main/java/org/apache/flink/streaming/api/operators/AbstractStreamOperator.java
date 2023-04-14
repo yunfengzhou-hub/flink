@@ -49,6 +49,8 @@ import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.CheckpointedStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.StreamStatusEventHandler;
+import org.apache.flink.streaming.runtime.StreamTypeUpdateEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
@@ -88,6 +90,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public abstract class AbstractStreamOperator<OUT>
         implements StreamOperator<OUT>,
                 SetupableStreamOperator<OUT>,
+                StreamStatusEventHandler,
                 CheckpointedStreamOperator,
                 KeyContextHandler,
                 Serializable {
@@ -648,5 +651,10 @@ public abstract class AbstractStreamOperator<OUT>
 
     protected Optional<InternalTimeServiceManager<?>> getTimeServiceManager() {
         return Optional.ofNullable(timeServiceManager);
+    }
+
+    @Override
+    public void handleStreamTypeUpdateEvent(StreamTypeUpdateEvent event) {
+        output.emitStreamStatusEvent(event);
     }
 }

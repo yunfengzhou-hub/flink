@@ -32,6 +32,7 @@ import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.sort.SortingDataInput;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.StreamStatusEvent;
+import org.apache.flink.streaming.runtime.StreamStatusEventHandler;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput;
 import org.apache.flink.streaming.runtime.io.RecordProcessorUtils;
 import org.apache.flink.streaming.runtime.io.StreamOneInputProcessor;
@@ -256,7 +257,9 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 
         @Override
         public void emitStreamStatusEvent(StreamStatusEvent event) {
-            // TODO: allow operators to handle such events
+            if (operator instanceof StreamStatusEventHandler) {
+                ((StreamStatusEventHandler) operator).handleStreamStatusEvent(event);
+            }
         }
     }
 }

@@ -21,6 +21,7 @@ package org.apache.flink.connector.base.source.hybrid;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.connector.base.source.reader.mocks.MockBaseSource;
@@ -31,7 +32,12 @@ import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
+import org.apache.flink.streaming.runtime.StreamStatusEventHandler;
+import org.apache.flink.streaming.runtime.StreamTypeUpdateEvent;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.TestLogger;
 
@@ -127,9 +133,15 @@ public class HybridSourceITCase extends TestLogger {
                         ? RestartStrategies.noRestart()
                         : RestartStrategies.fixedDelayRestart(1, 0));
 
-        final DataStream<Integer> stream =
+        DataStream<Integer> stream =
                 env.fromSource(source, WatermarkStrategy.noWatermarks(), "hybrid-source")
                         .returns(Integer.class);
+
+        stream = stream.transform(
+                "handleSourceEventOperator",
+                Types.INT,
+                new SourceEventHandlingOperator<>()
+                );
 
         // TODO: add failover support.
         boolean isFailEnabled = false;
@@ -251,6 +263,31 @@ public class HybridSourceITCase extends TestLogger {
 
         private static void continueProcessing() {
             continueProcessing.complete(null);
+        }
+    }
+
+    private static class SourceEventHandlingOperator<T>
+            extends AbstractStreamOperator<T>
+            implements OneInputStreamOperator<T, T>, StreamStatusEventHandler {
+        private transient boolean receivedSourceEvent = false;
+
+        @Override
+        public void processElement(StreamRecord<T> element) {
+            output.collect(element);
+        }
+
+        @Override
+        public void handleStreamTypeUpdateEvent(StreamTypeUpdateEvent event) {
+            receivedSourceEvent = true;
+            output.emitStreamStatusEvent(event);
+        }
+
+        @Override
+        public void close() throws Exception {
+            super.close();
+            if (!receivedSourceEvent) {
+                throw new RuntimeException();
+            }
         }
     }
 }
