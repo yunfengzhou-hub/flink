@@ -249,6 +249,20 @@ public class HybridSource<T> implements Source<T, HybridSourceSplit, HybridSourc
             return (HybridSourceBuilder) this;
         }
 
+        /**
+         * Configures the checkpoint interval for the previously added source. If not explicitly
+         * set, the default value would be execution.checkpointing.interval.
+         *
+         * <p> This method can be invoked for multiple sources on the same {@link HybridSource},
+         * but cannot be invoked on multiple {@link HybridSource}s.
+         *
+         * @param checkpointInterval checkpoint interval in milliseconds.
+         */
+        public <ToEnumT extends SplitEnumerator, NextSourceT extends Source<T, ?, ?>>
+        HybridSourceBuilder<T, ToEnumT> setCheckpointInterval(long checkpointInterval) {
+            return (HybridSourceBuilder) this;
+        }
+
         /** Build the source. */
         public HybridSource<T> build() {
             return new HybridSource(sources);

@@ -21,6 +21,8 @@ package org.apache.flink.runtime.operators.coordination;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.metrics.groups.OperatorCoordinatorMetricGroup;
+import org.apache.flink.runtime.checkpoint.CheckpointType;
+import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -277,6 +279,18 @@ public interface OperatorCoordinator extends CheckpointListener, AutoCloseable {
          * concurrent running execution attempts.
          */
         boolean isConcurrentExecutionAttemptsSupported();
+
+        /** Gets whether this operator is responsible for triggering checkpoints. */
+        boolean isCheckpointTriggeringOwner();
+
+        /**
+         * Orders the {@link org.apache.flink.runtime.checkpoint.CheckpointCoordinator} to trigger a
+         * one-time checkpoint.
+         *
+         * @throws UnsupportedOperationException if the operator is not responsible for triggering
+         *     checkpoints, i.e., {@link #isCheckpointTriggeringOwner()} returns false.
+         */
+        CompletableFuture<CompletedCheckpoint> triggerCheckpoint(CheckpointType checkpointType);
     }
 
     // ------------------------------------------------------------------------

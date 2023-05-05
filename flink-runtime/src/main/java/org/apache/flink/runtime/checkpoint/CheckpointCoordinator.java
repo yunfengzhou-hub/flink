@@ -361,6 +361,23 @@ public class CheckpointCoordinator {
         this.vertexFinishedStateCheckerFactory = checkNotNull(vertexFinishedStateCheckerFactory);
     }
 
+    public void triggerCheckpoint() {}
+
+    /**
+     * Adds a requirement to the maximum interval of the periodic checkpoints.
+     *
+     * @param operatorID the ID of the operator that raises the requirement.
+     * @param checkpointInterval the maximum interval of checkpoints.
+     */
+    public void setCheckpointInterval(OperatorID operatorID, long checkpointInterval) {}
+
+    /**
+     * Removes requirements for checkpoint intervals from a certain operator.
+     *
+     * @param operatorID the ID of the operator whose requirements would be removed.
+     */
+    public void unsetCheckpointInterval(OperatorID operatorID) {}
+
     // --------------------------------------------------------------------------------------------
     //  Configuration
     // --------------------------------------------------------------------------------------------
