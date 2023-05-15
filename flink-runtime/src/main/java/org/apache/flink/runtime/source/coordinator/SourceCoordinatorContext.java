@@ -62,6 +62,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 import static org.apache.flink.runtime.operators.coordination.ComponentClosingUtils.shutdownExecutorForcefully;
@@ -333,11 +334,22 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
     }
 
     @Override
+    public void scheduleInCoordinatorThread(Runnable command,
+                                            long delay, TimeUnit unit) {
+        coordinatorExecutor.schedule(command, delay, unit);
+    }
+
+    @Override
     public void close() throws InterruptedException {
         closed = true;
         // Close quietly so the closing sequence will be executed completely.
         shutdownExecutorForcefully(workerExecutor, Duration.ofNanos(Long.MAX_VALUE));
         shutdownExecutorForcefully(coordinatorExecutor, Duration.ofNanos(Long.MAX_VALUE));
+    }
+
+    @Override
+    public void triggerCheckpoint(Duration minPause) {
+        getCoordinatorContext().triggerCheckpoint(minPause);
     }
 
     // --------- Package private additional methods for the SourceCoordinator ------------

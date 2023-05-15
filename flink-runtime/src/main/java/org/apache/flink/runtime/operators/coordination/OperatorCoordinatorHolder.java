@@ -19,7 +19,10 @@
 package org.apache.flink.runtime.operators.coordination;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.core.execution.CheckpointType;
 import org.apache.flink.metrics.groups.OperatorCoordinatorMetricGroup;
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
+import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.OperatorCoordinatorCheckpointContext;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -41,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -148,7 +152,8 @@ public class OperatorCoordinatorHolder
     public void lazyInitialize(
             GlobalFailureHandler globalFailureHandler,
             ComponentMainThreadExecutor mainThreadExecutor,
-            JobManagerJobMetricGroup jobManagerJobMetricGroup) {
+            JobManagerJobMetricGroup jobManagerJobMetricGroup,
+            CheckpointCoordinator checkpointCoordinator) {
 
         this.globalFailureHandler = globalFailureHandler;
         this.mainThreadExecutor = mainThreadExecutor;
@@ -162,7 +167,7 @@ public class OperatorCoordinatorHolder
                 new InternalOperatorCoordinatorMetricGroup(parentMetricGroup);
 
         context.lazyInitialize(
-                globalFailureHandler, mainThreadExecutor, operatorCoordinatorMetricGroup);
+                globalFailureHandler, mainThreadExecutor, operatorCoordinatorMetricGroup, checkpointCoordinator);
 
         setupAllSubtaskGateways();
     }
@@ -567,6 +572,7 @@ public class OperatorCoordinatorHolder
         private final ClassLoader userCodeClassLoader;
         private final int operatorParallelism;
         private final CoordinatorStore coordinatorStore;
+        private CheckpointCoordinator checkpointCoordinator;
         private final boolean supportsConcurrentExecutionAttempts;
 
         private GlobalFailureHandler globalFailureHandler;
@@ -593,10 +599,12 @@ public class OperatorCoordinatorHolder
         void lazyInitialize(
                 GlobalFailureHandler globalFailureHandler,
                 Executor schedulerExecutor,
-                OperatorCoordinatorMetricGroup metricGroup) {
+                OperatorCoordinatorMetricGroup metricGroup,
+                CheckpointCoordinator checkpointCoordinator) {
             this.globalFailureHandler = checkNotNull(globalFailureHandler);
             this.schedulerExecutor = checkNotNull(schedulerExecutor);
             this.metricGroup = metricGroup;
+            this.checkpointCoordinator = checkpointCoordinator;
         }
 
         void unInitialize() {
@@ -669,6 +677,11 @@ public class OperatorCoordinatorHolder
         @Override
         public boolean isConcurrentExecutionAttemptsSupported() {
             return supportsConcurrentExecutionAttempts;
+        }
+
+        @Override
+        public void triggerCheckpoint(Duration pause) {
+            checkpointCoordinator.triggerCheckpoint(CheckpointType.CONFIGURED);
         }
     }
 }

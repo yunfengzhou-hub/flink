@@ -222,6 +222,7 @@ public class RecreateOnResetOperatorCoordinator implements OperatorCoordinator {
 
         QuiesceableContext(OperatorCoordinator.Context context) {
             this.context = context;
+            System.out.println(context.getClass());
             quiesced = false;
         }
 
@@ -275,6 +276,11 @@ public class RecreateOnResetOperatorCoordinator implements OperatorCoordinator {
 
         private OperatorCoordinator.Context getContext() {
             return context;
+        }
+
+        @Override
+        public void triggerCheckpoint(Duration interval) {
+            context.triggerCheckpoint(interval);
         }
     }
 

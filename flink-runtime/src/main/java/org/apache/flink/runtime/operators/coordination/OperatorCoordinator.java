@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.operators.coordination;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.metrics.groups.OperatorCoordinatorMetricGroup;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -28,6 +29,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -240,6 +242,7 @@ public interface OperatorCoordinator extends CheckpointListener, AutoCloseable {
      * The context gives the OperatorCoordinator access to contextual information and provides a
      * gateway to interact with other components, such as sending operator events.
      */
+    @PublicEvolving
     interface Context {
 
         /** Gets the ID of the operator to which the coordinator belongs. */
@@ -277,6 +280,10 @@ public interface OperatorCoordinator extends CheckpointListener, AutoCloseable {
          * concurrent running execution attempts.
          */
         boolean isConcurrentExecutionAttemptsSupported();
+
+        default void triggerCheckpoint(Duration minPause) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     // ------------------------------------------------------------------------

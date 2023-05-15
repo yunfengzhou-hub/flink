@@ -122,7 +122,7 @@ public class CreatingExecutionGraph implements State {
                 final OperatorCoordinatorHandler operatorCoordinatorHandler =
                         operatorCoordinatorHandlerFactory.create(executionGraph, context);
                 operatorCoordinatorHandler.initializeOperatorCoordinators(
-                        context.getMainThreadExecutor(), context.getMetricGroup());
+                        context.getMainThreadExecutor(), context.getMetricGroup(), executionGraph.getCheckpointCoordinator());
                 operatorCoordinatorHandler.startAllOperatorCoordinators();
                 final String updatedPlan =
                         JsonPlanGenerator.generatePlan(

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
@@ -74,10 +75,11 @@ public class DefaultOperatorCoordinatorHandler implements OperatorCoordinatorHan
     @Override
     public void initializeOperatorCoordinators(
             ComponentMainThreadExecutor mainThreadExecutor,
-            JobManagerJobMetricGroup jobManagerJobMetricGroup) {
+            JobManagerJobMetricGroup jobManagerJobMetricGroup,
+            CheckpointCoordinator checkpointCoordinator) {
         for (OperatorCoordinatorHolder coordinatorHolder : coordinatorMap.values()) {
             coordinatorHolder.lazyInitialize(
-                    globalFailureHandler, mainThreadExecutor, jobManagerJobMetricGroup);
+                    globalFailureHandler, mainThreadExecutor, jobManagerJobMetricGroup, checkpointCoordinator);
         }
     }
 
@@ -160,7 +162,7 @@ public class DefaultOperatorCoordinatorHandler implements OperatorCoordinatorHan
         for (OperatorCoordinatorHolder coordinator : coordinators) {
             coordinatorMap.put(coordinator.operatorId(), coordinator);
             coordinator.lazyInitialize(
-                    globalFailureHandler, mainThreadExecutor, jobManagerJobMetricGroup);
+                    globalFailureHandler, mainThreadExecutor, jobManagerJobMetricGroup, null);
         }
         startOperatorCoordinators(coordinators);
     }

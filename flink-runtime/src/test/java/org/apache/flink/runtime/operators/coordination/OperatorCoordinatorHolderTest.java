@@ -531,7 +531,8 @@ public class OperatorCoordinatorHolderTest extends TestLogger {
         holder.lazyInitialize(
                 globalFailureHandler,
                 mainThreadExecutor,
-                UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup());
+                UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup(),
+                null);
         holder.start();
 
         return holder;

@@ -21,8 +21,10 @@ package org.apache.flink.api.connector.source;
 import org.apache.flink.annotation.Public;
 import org.apache.flink.metrics.groups.SplitEnumeratorMetricGroup;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 /**
@@ -181,4 +183,13 @@ public interface SplitEnumeratorContext<SplitT extends SourceSplit> {
      * @param runnable a runnable to execute
      */
     void runInCoordinatorThread(Runnable runnable);
+
+    default void scheduleInCoordinatorThread(Runnable command,
+                                             long delay, TimeUnit unit) {
+        throw new UnsupportedOperationException();
+    }
+
+    default void triggerCheckpoint(Duration minPause) {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.scheduler;
 
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -39,10 +40,12 @@ public interface OperatorCoordinatorHandler {
      * Initialize operator coordinators.
      *
      * @param mainThreadExecutor Executor for submitting work to the main thread.
+     * @param checkpointCoordinator
      */
     void initializeOperatorCoordinators(
             ComponentMainThreadExecutor mainThreadExecutor,
-            JobManagerJobMetricGroup jobManagerJobMetricGroup);
+            JobManagerJobMetricGroup jobManagerJobMetricGroup,
+            CheckpointCoordinator checkpointCoordinator);
 
     /** Start all operator coordinators. */
     void startAllOperatorCoordinators();

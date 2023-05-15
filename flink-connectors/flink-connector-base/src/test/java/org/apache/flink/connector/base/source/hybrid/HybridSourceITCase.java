@@ -18,29 +18,39 @@
 
 package org.apache.flink.connector.base.source.hybrid;
 
+import org.apache.commons.text.RandomStringGenerator;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.connector.base.source.reader.mocks.MockBaseSource;
 import org.apache.flink.runtime.highavailability.nonha.embedded.HaLeadershipControl;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.minicluster.RpcServiceSharing;
+import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,6 +87,60 @@ public class HybridSourceITCase extends TestLogger {
     @Test
     public void testHybridSource() throws Exception {
         testHybridSource(FailoverType.NONE, sourceWithFixedSwitchPosition());
+    }
+
+    @Test
+    public void testHybridSourceWithCheckpoint() throws Exception {
+        int numSplits = 2;
+        int numRecordsPerSplit = EXPECTED_RESULT.size() / 4;
+
+        Source source = HybridSource.builder(
+                        new MockBaseSource(numSplits, numRecordsPerSplit, Boundedness.BOUNDED))
+                .addSource(
+                        new MockBaseSource(numSplits, numRecordsPerSplit, 20, Boundedness.BOUNDED))
+                .setCheckpointingIntervalForLastSource(Duration.ofMillis(1))
+                .build();
+
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
+        env.setRestartStrategy(RestartStrategies.noRestart());
+
+        final String checkpointKey = new RandomStringGenerator.Builder().build().generate(10);
+
+        final DataStream<Integer> stream =
+                env.fromSource(source, WatermarkStrategy.noWatermarks(), "hybrid-source")
+                        .returns(Integer.class)
+                        .transform(
+                                "CheckpointRecordingOperator",
+                                Types.INT,
+                                new CheckpointRecordingOperator<>(checkpointKey)
+                        );
+
+
+        final DataStream<Integer> streamFailingInTheMiddleOfReading =
+                RecordCounterToFail.wrapWithFailureAfter(stream, EXPECTED_RESULT.size() / 2);
+
+        final ClientAndIterator<Integer> client =
+                DataStreamUtils.collectWithClient(
+                        streamFailingInTheMiddleOfReading,
+                        HybridSourceITCase.class.getSimpleName() + '-' + FailoverType.NONE.name());
+        final JobID jobId = client.client.getJobID();
+
+        RecordCounterToFail.waitToFail();
+        triggerFailover(
+                FailoverType.NONE,
+                jobId,
+                RecordCounterToFail::continueProcessing,
+                miniClusterResource.getMiniCluster());
+
+        final List<Integer> result = new ArrayList<>();
+        while (result.size() < EXPECTED_RESULT.size() && client.iterator.hasNext()) {
+            result.add(client.iterator.next());
+        }
+
+        verifyResult(result);
+
+        assertThat(CheckpointRecordingOperator.checkpointCounterMap.get(checkpointKey)).isGreaterThan(0);
     }
 
     /** Test the source in the happy path with runtime position transfer. */
@@ -240,6 +304,26 @@ public class HybridSourceITCase extends TestLogger {
 
         private static void continueProcessing() {
             continueProcessing.complete(null);
+        }
+    }
+
+    private static class CheckpointRecordingOperator<T> extends AbstractStreamOperator<T> implements OneInputStreamOperator<T, T> {
+        private static final Map<String, Integer> checkpointCounterMap = new HashMap<>();
+
+        private final String checkpointCounterKey;
+
+        private CheckpointRecordingOperator(String checkpointCounterKey) {
+            this.checkpointCounterKey = checkpointCounterKey;
+        }
+
+        @Override
+        public void processElement(StreamRecord<T> element) {
+            output.collect(element);
+        }
+
+        @Override
+        public void snapshotState(StateSnapshotContext context) {
+            checkpointCounterMap.merge(checkpointCounterKey, 1, Integer::sum);
         }
     }
 }

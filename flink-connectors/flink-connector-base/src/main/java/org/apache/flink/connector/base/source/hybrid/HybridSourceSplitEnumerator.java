@@ -26,6 +26,7 @@ import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.api.connector.source.SupportsIntermediateNoMoreSplits;
+import org.apache.flink.core.execution.CheckpointType;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.metrics.groups.SplitEnumeratorMetricGroup;
 import org.apache.flink.util.Preconditions;
@@ -34,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 /**
@@ -303,6 +306,33 @@ public class HybridSourceSplitEnumerator
         }
         LOG.info("Starting enumerator for sourceIndex={}", currentSourceIndex);
         currentEnumerator.start();
+
+        Duration checkpointInterval = sources.get(currentSourceIndex).getCheckpointInterval();
+        if (checkpointInterval != null) {
+            context.scheduleInCoordinatorThread(new CheckpointTrigger(currentSourceIndex), checkpointInterval.toMillis(), TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private class CheckpointTrigger implements Runnable {
+        private final int sourceIndex;
+
+        private final Duration checkpointInterval;
+
+        private CheckpointTrigger(int sourceIndex) {
+            this.sourceIndex = sourceIndex;
+            this.checkpointInterval = sources.get(sourceIndex).getCheckpointInterval();
+        }
+
+        @Override
+        public void run() {
+            if (sourceIndex != currentSourceIndex) {
+                return;
+            }
+
+            context.triggerCheckpoint(checkpointInterval);
+
+            context.scheduleInCoordinatorThread(new CheckpointTrigger(sourceIndex), checkpointInterval.toMillis(),TimeUnit.MILLISECONDS);
+        }
     }
 
     /**

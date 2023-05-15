@@ -32,6 +32,7 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -206,14 +207,24 @@ public class HybridSource<T> implements Source<T, HybridSourceSplit, HybridSourc
     static class SourceListEntry implements Serializable {
         protected final SourceFactory factory;
         protected final Boundedness boundedness;
+        private Duration checkpointInterval;
 
         private SourceListEntry(SourceFactory factory, Boundedness boundedness) {
             this.factory = Preconditions.checkNotNull(factory);
             this.boundedness = Preconditions.checkNotNull(boundedness);
+            this.checkpointInterval = null;
         }
 
         static SourceListEntry of(SourceFactory configurer, Boundedness boundedness) {
             return new SourceListEntry(configurer, boundedness);
+        }
+
+        void setCheckpointInterval(Duration checkpointInterval) {
+            this.checkpointInterval = Preconditions.checkNotNull(checkpointInterval);
+        }
+
+        Duration getCheckpointInterval() {
+            return this.checkpointInterval;
         }
     }
 
@@ -223,8 +234,11 @@ public class HybridSource<T> implements Source<T, HybridSourceSplit, HybridSourc
             implements Serializable {
         private final List<SourceListEntry> sources;
 
+        private SourceListEntry previousSource;
+
         public HybridSourceBuilder() {
             sources = new ArrayList<>();
+            previousSource = null;
         }
 
         /** Add pre-configured source (without switch time modification). */
@@ -245,7 +259,19 @@ public class HybridSource<T> implements Source<T, HybridSourceSplit, HybridSourc
             }
             ClosureCleaner.clean(
                     sourceFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
-            sources.add(SourceListEntry.of(sourceFactory, boundedness));
+            previousSource = SourceListEntry.of(sourceFactory, boundedness);
+            sources.add(previousSource);
+            return (HybridSourceBuilder) this;
+        }
+
+        /**
+         * Configures the maximum pause between consecutive checkpoint triggers when hybrid source is reading through the last added source.
+         *
+         * @param checkpointInterval checkpoint interval in milliseconds.
+         */
+        public <ToEnumT extends SplitEnumerator>
+        HybridSourceBuilder<T, ToEnumT> setCheckpointingIntervalForLastSource(Duration checkpointInterval) {
+            Preconditions.checkNotNull(previousSource).setCheckpointInterval(checkpointInterval);
             return (HybridSourceBuilder) this;
         }
 

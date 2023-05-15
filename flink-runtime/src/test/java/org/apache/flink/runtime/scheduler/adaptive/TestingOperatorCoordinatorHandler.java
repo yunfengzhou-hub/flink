@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.scheduler.adaptive;
 
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -47,7 +48,7 @@ class TestingOperatorCoordinatorHandler implements OperatorCoordinatorHandler {
     @Override
     public void initializeOperatorCoordinators(
             ComponentMainThreadExecutor mainThreadExecutor,
-            JobManagerJobMetricGroup jobManagerJobMetricGroup) {
+            JobManagerJobMetricGroup jobManagerJobMetricGroup, CheckpointCoordinator checkpointCoordinator) {
         // No-op.
     }
 
