@@ -25,8 +25,11 @@ import org.apache.flink.api.common.eventtime.WatermarkGenerator;
 import org.apache.flink.api.common.eventtime.WatermarkOutput;
 import org.apache.flink.api.connector.source.SourceOutput;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatenessEvent;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ExceptionInChainedOperatorException;
+
+import java.time.Duration;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -128,6 +131,11 @@ public class SourceOutputWithWatermarks<T> implements SourceOutput<T> {
     @Override
     public final void emitWatermark(Watermark watermark) {
         onEventWatermarkOutput.emitWatermark(watermark);
+    }
+
+    @Override
+    public void emitAllowedLateness(Duration allowedLateness) {
+        recordsOutput.emitAllowedLatenessEvent(new AllowedLatenessEvent(allowedLateness));
     }
 
     @Override

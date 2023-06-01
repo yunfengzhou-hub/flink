@@ -20,6 +20,7 @@ package org.apache.flink.streaming.runtime.tasks;
 import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.RecordWriterOutput;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatenessEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
@@ -63,6 +64,11 @@ public class FinishedOnRestoreInput<IN> implements Input<IN> {
 
     @Override
     public void processLatencyMarker(LatencyMarker latencyMarker) throws Exception {
+        throw new IllegalStateException();
+    }
+
+    @Override
+    public void processAllowedLatenessEvent(AllowedLatenessEvent allowedLatenessEvent) {
         throw new IllegalStateException();
     }
 

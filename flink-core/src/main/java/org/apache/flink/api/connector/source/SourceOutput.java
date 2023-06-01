@@ -22,6 +22,8 @@ import org.apache.flink.annotation.Public;
 import org.apache.flink.api.common.eventtime.TimestampAssigner;
 import org.apache.flink.api.common.eventtime.WatermarkOutput;
 
+import java.time.Duration;
+
 /**
  * The {@code SourceOutput} is the gateway for a {@link SourceReader}) to emit the produced records
  * and watermarks.
@@ -64,4 +66,6 @@ public interface SourceOutput<T> extends WatermarkOutput {
      * @param timestamp the timestamp of the record.
      */
     void collect(T record, long timestamp);
+
+    default void emitAllowedLateness(Duration allowedLateness) {}
 }

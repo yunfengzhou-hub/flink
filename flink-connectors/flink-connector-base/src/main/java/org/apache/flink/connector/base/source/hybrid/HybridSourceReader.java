@@ -30,6 +30,7 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -61,6 +62,8 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
     private CompletableFuture<Void> availabilityFuture = new CompletableFuture<>();
     private List<HybridSourceSplit> restoredSplits = new ArrayList<>();
 
+    private boolean justSwitchedSource = false;
+
     public HybridSourceReader(SourceReaderContext readerContext) {
         this.readerContext = readerContext;
     }
@@ -80,6 +83,11 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
     public InputStatus pollNext(ReaderOutput output) throws Exception {
         if (currentReader == null) {
             return InputStatus.NOTHING_AVAILABLE;
+        }
+
+        if (justSwitchedSource) {
+            output.emitAllowedLateness(Duration.ZERO);
+            justSwitchedSource = false;
         }
 
         InputStatus status = currentReader.pollNext(output);
@@ -185,6 +193,7 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
             switchedSources.put(sse.sourceIndex(), sse.source());
             setCurrentReader(sse.sourceIndex());
             isFinalSource = sse.isFinalSource();
+            justSwitchedSource = true;
         } else {
             currentReader.handleSourceEvents(sourceEvent);
         }
