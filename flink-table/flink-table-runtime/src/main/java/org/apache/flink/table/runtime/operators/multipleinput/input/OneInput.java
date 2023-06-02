@@ -21,7 +21,7 @@ package org.apache.flink.table.runtime.operators.multipleinput.input;
 import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
-import org.apache.flink.streaming.runtime.streamrecord.AllowedLatenessEvent;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatencyEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
@@ -52,8 +52,8 @@ public class OneInput extends InputBase {
     }
 
     @Override
-    public void processAllowedLatenessEvent(AllowedLatenessEvent allowedLatenessEvent) {
-        operator.processAllowedLatenessEvent(allowedLatenessEvent);
+    public void processAllowedLatencyEvent(AllowedLatencyEvent allowedLatencyEvent) {
+        operator.processAllowedLatencyEvent(allowedLatencyEvent);
     }
 
     @Override

@@ -62,8 +62,8 @@ public abstract class StreamElement {
         return getClass() == LatencyMarker.class;
     }
 
-    public final boolean isAllowedLatenessEvent() {
-        return getClass() == AllowedLatenessEvent.class;
+    public final boolean isAllowedLatencyEvent() {
+        return getClass() == AllowedLatencyEvent.class;
     }
 
     /**
@@ -108,7 +108,7 @@ public abstract class StreamElement {
         return (LatencyMarker) this;
     }
 
-    public final AllowedLatenessEvent asAllowedLatenessEvent() {
-        return (AllowedLatenessEvent) this;
+    public final AllowedLatencyEvent asAllowedLatencyEvent() {
+        return (AllowedLatencyEvent) this;
     }
 }

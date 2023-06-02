@@ -92,6 +92,13 @@ public class ExecutionOptions {
                     .withDescription(
                             "Tells if we should use compression for the state snapshot data or not");
 
+    /** zero: streaming none: batch */
+    public static final ConfigOption<Duration> ALLOWED_LATENCY =
+            ConfigOptions.key("execution.allowed-latency")
+                    .durationType()
+                    .defaultValue(null)
+                    .withDescription("foobar");
+
     public static final ConfigOption<Duration> BUFFER_TIMEOUT =
             ConfigOptions.key("execution.buffer-timeout")
                     .durationType()

@@ -67,5 +67,5 @@ public interface SourceOutput<T> extends WatermarkOutput {
      */
     void collect(T record, long timestamp);
 
-    default void emitAllowedLateness(Duration allowedLateness) {}
+    default void emitAllowedLatency(Duration allowedLatency) {}
 }

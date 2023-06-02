@@ -20,8 +20,8 @@ package org.apache.flink.streaming.api.operators;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
-import org.apache.flink.streaming.runtime.streamrecord.AllowedLatenessEvent;
-import org.apache.flink.streaming.runtime.streamrecord.AllowedLatenessEventHandler;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatencyEvent;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatencyEventHandler;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
@@ -73,10 +73,10 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
     }
 
     @Override
-    public void processAllowedLatenessEvent(AllowedLatenessEvent allowedLatenessEvent) {
-        if (userFunction instanceof AllowedLatenessEventHandler) {
-            ((AllowedLatenessEventHandler) userFunction)
-                    .handleAllowedLatenessEvent(allowedLatenessEvent);
+    public void processAllowedLatencyEvent(AllowedLatencyEvent allowedLatencyEvent) {
+        if (userFunction instanceof AllowedLatencyEventHandler) {
+            ((AllowedLatencyEventHandler) userFunction)
+                    .handleAllowedLatencyEvent(allowedLatencyEvent);
         }
     }
 

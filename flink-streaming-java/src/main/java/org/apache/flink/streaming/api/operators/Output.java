@@ -20,7 +20,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.streaming.api.watermark.Watermark;
-import org.apache.flink.streaming.runtime.streamrecord.AllowedLatenessEvent;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatencyEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
@@ -57,5 +57,5 @@ public interface Output<T> extends Collector<T> {
 
     void emitLatencyMarker(LatencyMarker latencyMarker);
 
-    default void emitAllowedLatenessEvent(AllowedLatenessEvent allowedLatenessEvent) {}
+    default void emitAllowedLatencyEvent(AllowedLatencyEvent allowedLatencyEvent) {}
 }

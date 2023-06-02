@@ -86,7 +86,7 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
         }
 
         if (justSwitchedSource) {
-            output.emitAllowedLateness(Duration.ZERO);
+            output.emitAllowedLatency(Duration.ZERO);
             justSwitchedSource = false;
         }
 

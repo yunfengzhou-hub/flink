@@ -7,15 +7,15 @@ import javax.annotation.Nullable;
 import java.time.Duration;
 
 @Internal
-public class AllowedLatenessEvent extends StreamElement {
+public class AllowedLatencyEvent extends StreamElement {
     /** None or positive value. If None, it means no lateness requirement. */
     private final Duration allowedLateness;
 
-    public AllowedLatenessEvent(@Nullable Duration allowedLateness) {
+    public AllowedLatencyEvent(@Nullable Duration allowedLateness) {
         this.allowedLateness = allowedLateness;
     }
 
-    public Duration getAllowedLateness() {
+    public Duration getAllowedLatency() {
         return allowedLateness;
     }
 }
