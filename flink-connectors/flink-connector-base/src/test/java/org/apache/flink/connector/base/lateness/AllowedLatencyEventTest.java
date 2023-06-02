@@ -36,6 +36,7 @@ public class AllowedLatencyEventTest {
                         .addSource(
                                 new MockBaseSource(
                                         numSplits, numRecordsPerSplit, 5, Boundedness.BOUNDED))
+                        .setAllowedLatency(Duration.ofSeconds(2))
                         .build();
 
         DataStream<Integer> stream =

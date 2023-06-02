@@ -149,7 +149,11 @@ public class HybridSourceSplitEnumerator
         Source source = switchedSources.sourceOf(sourceIndex);
         context.sendEventToSourceReader(
                 subtaskId,
-                new SwitchSourceEvent(sourceIndex, source, sourceIndex >= (sources.size() - 1)));
+                new SwitchSourceEvent(
+                        sourceIndex,
+                        source,
+                        sourceIndex >= (sources.size() - 1),
+                        sources.get(sourceIndex).allowedLatency));
         // send pending splits, if any
         TreeMap<Integer, List<HybridSourceSplit>> splitsBySource = pendingSplits.get(subtaskId);
         if (splitsBySource != null) {

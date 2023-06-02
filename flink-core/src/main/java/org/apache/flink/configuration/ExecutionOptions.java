@@ -92,7 +92,13 @@ public class ExecutionOptions {
                     .withDescription(
                             "Tells if we should use compression for the state snapshot data or not");
 
-    /** zero: streaming none: batch */
+    /**
+     * null: no additional requirements.
+     *
+     * <p>Duration.ZERO: streaming
+     *
+     * <p>ChronoUnit.FOREVER.getDuration(): batch
+     */
     public static final ConfigOption<Duration> ALLOWED_LATENCY =
             ConfigOptions.key("execution.allowed-latency")
                     .durationType()

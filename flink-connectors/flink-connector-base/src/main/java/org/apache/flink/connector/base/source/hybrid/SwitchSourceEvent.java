@@ -21,6 +21,8 @@ package org.apache.flink.connector.base.source.hybrid;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.connector.source.SourceEvent;
 
+import java.time.Duration;
+
 /**
  * Event sent from {@link HybridSourceSplitEnumerator} to {@link HybridSourceReader} to switch to
  * the indicated reader.
@@ -32,6 +34,8 @@ public class SwitchSourceEvent implements SourceEvent {
     private final Source source;
     private final boolean finalSource;
 
+    private final Duration allowedLatency;
+
     /**
      * Constructor.
      *
@@ -41,6 +45,15 @@ public class SwitchSourceEvent implements SourceEvent {
         this.sourceIndex = sourceIndex;
         this.source = source;
         this.finalSource = finalSource;
+        this.allowedLatency = null;
+    }
+
+    public SwitchSourceEvent(
+            int sourceIndex, Source source, boolean finalSource, Duration allowedLatency) {
+        this.sourceIndex = sourceIndex;
+        this.source = source;
+        this.finalSource = finalSource;
+        this.allowedLatency = allowedLatency;
     }
 
     public int sourceIndex() {
@@ -53,6 +66,10 @@ public class SwitchSourceEvent implements SourceEvent {
 
     public boolean isFinalSource() {
         return finalSource;
+    }
+
+    public Duration getAllowedLatency() {
+        return allowedLatency;
     }
 
     @Override

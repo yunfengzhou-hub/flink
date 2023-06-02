@@ -62,7 +62,7 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
     private CompletableFuture<Void> availabilityFuture = new CompletableFuture<>();
     private List<HybridSourceSplit> restoredSplits = new ArrayList<>();
 
-    private boolean justSwitchedSource = false;
+    private Duration allowedLatency = null;
 
     public HybridSourceReader(SourceReaderContext readerContext) {
         this.readerContext = readerContext;
@@ -85,9 +85,9 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
             return InputStatus.NOTHING_AVAILABLE;
         }
 
-        if (justSwitchedSource) {
-            output.emitAllowedLatency(Duration.ZERO);
-            justSwitchedSource = false;
+        if (allowedLatency != null) {
+            output.emitAllowedLatency(allowedLatency);
+            allowedLatency = null;
         }
 
         InputStatus status = currentReader.pollNext(output);
@@ -193,7 +193,7 @@ public class HybridSourceReader<T> implements SourceReader<T, HybridSourceSplit>
             switchedSources.put(sse.sourceIndex(), sse.source());
             setCurrentReader(sse.sourceIndex());
             isFinalSource = sse.isFinalSource();
-            justSwitchedSource = true;
+            allowedLatency = sse.getAllowedLatency();
         } else {
             currentReader.handleSourceEvents(sourceEvent);
         }
