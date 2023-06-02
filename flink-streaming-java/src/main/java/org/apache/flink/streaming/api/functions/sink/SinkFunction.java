@@ -22,6 +22,7 @@ import org.apache.flink.api.common.eventtime.Watermark;
 import org.apache.flink.api.common.functions.Function;
 
 import java.io.Serializable;
+import java.time.Duration;
 
 /**
  * Interface for implementing user defined sink functionality.
@@ -98,5 +99,10 @@ public interface SinkFunction<IN> extends Function, Serializable {
          * have an assigned timestamp.
          */
         Long timestamp();
+
+        /** Returns the current allowed latency. */
+        default Duration currentAllowedLatency() {
+            return null;
+        }
     }
 }
