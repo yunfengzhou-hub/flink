@@ -154,6 +154,8 @@ public abstract class AbstractStreamTaskNetworkInput<
                     recordOrMark.asWatermarkStatus(),
                     flattenedChannelIndices.get(lastChannel),
                     output);
+        } else if (recordOrMark.isAllowedLatencyEvent()) {
+            output.emitAllowedLatencyEvent(recordOrMark.asAllowedLatencyEvent());
         } else {
             throw new UnsupportedOperationException("Unknown type of StreamElement");
         }

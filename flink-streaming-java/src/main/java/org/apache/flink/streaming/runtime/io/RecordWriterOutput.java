@@ -30,6 +30,7 @@ import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.metrics.WatermarkGauge;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatencyEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
@@ -212,5 +213,16 @@ public class RecordWriterOutput<OUT>
     @Override
     public Gauge<Long> getWatermarkGauge() {
         return watermarkGauge;
+    }
+
+    @Override
+    public void emitAllowedLatencyEvent(AllowedLatencyEvent allowedLatencyEvent) {
+        serializationDelegate.setInstance(allowedLatencyEvent);
+
+        try {
+            recordWriter.emit(serializationDelegate);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e.getMessage(), e);
+        }
     }
 }

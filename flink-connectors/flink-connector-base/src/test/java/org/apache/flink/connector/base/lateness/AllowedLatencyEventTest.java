@@ -25,7 +25,7 @@ public class AllowedLatencyEventTest {
                 new Configuration().set(ALLOWED_LATENCY, Duration.ofSeconds(1));
         StreamExecutionEnvironment env =
                 StreamExecutionEnvironment.getExecutionEnvironment(configuration);
-        env.setParallelism(1);
+        env.setParallelism(2);
         int numSplits = 1;
         int numRecordsPerSplit = 5;
 
@@ -41,7 +41,9 @@ public class AllowedLatencyEventTest {
 
         DataStream<Integer> stream =
                 env.fromSource(source, WatermarkStrategy.noWatermarks(), "My Source")
-                        .returns(Integer.class);
+                        .returns(Integer.class)
+                        .map(x -> x)
+                        .disableChaining();
 
         stream.addSink(new MySinkFunction());
 

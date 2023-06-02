@@ -28,6 +28,7 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 
 import java.io.IOException;
+import java.time.Duration;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +51,7 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
     private static final int TAG_WATERMARK = 2;
     private static final int TAG_LATENCY_MARKER = 3;
     private static final int TAG_STREAM_STATUS = 4;
+    private static final int TAG_ALLOWED_LATENCY = 5;
 
     private final TypeSerializer<T> typeSerializer;
 
@@ -101,7 +103,10 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
         if (from.isRecord()) {
             StreamRecord<T> fromRecord = from.asRecord();
             return fromRecord.copy(typeSerializer.copy(fromRecord.getValue()));
-        } else if (from.isWatermark() || from.isWatermarkStatus() || from.isLatencyMarker()) {
+        } else if (from.isWatermark()
+                || from.isWatermarkStatus()
+                || from.isLatencyMarker()
+                || from.isAllowedLatencyEvent()) {
             // is immutable
             return from;
         } else {
@@ -118,7 +123,10 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             T valueCopy = typeSerializer.copy(fromRecord.getValue(), reuseRecord.getValue());
             fromRecord.copyTo(valueCopy, reuseRecord);
             return reuse;
-        } else if (from.isWatermark() || from.isWatermarkStatus() || from.isLatencyMarker()) {
+        } else if (from.isWatermark()
+                || from.isWatermarkStatus()
+                || from.isLatencyMarker()
+                || from.isAllowedLatencyEvent()) {
             // is immutable
             return from;
         } else {
@@ -146,6 +154,8 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             target.writeLong(source.readLong());
             target.writeLong(source.readLong());
             target.writeInt(source.readInt());
+        } else if (tag == TAG_ALLOWED_LATENCY) {
+            target.writeLong(source.readLong());
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
@@ -175,6 +185,9 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             target.writeLong(value.asLatencyMarker().getOperatorId().getLowerPart());
             target.writeLong(value.asLatencyMarker().getOperatorId().getUpperPart());
             target.writeInt(value.asLatencyMarker().getSubtaskIndex());
+        } else if (value.isAllowedLatencyEvent()) {
+            target.write(TAG_ALLOWED_LATENCY);
+            target.writeLong(value.asAllowedLatencyEvent().getAllowedLatency().toMillis());
         } else {
             throw new RuntimeException();
         }
@@ -197,6 +210,8 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
                     source.readLong(),
                     new OperatorID(source.readLong(), source.readLong()),
                     source.readInt());
+        } else if (tag == TAG_ALLOWED_LATENCY) {
+            return new AllowedLatencyEvent(Duration.ofMillis(source.readLong()));
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
@@ -223,6 +238,8 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
                     source.readLong(),
                     new OperatorID(source.readLong(), source.readLong()),
                     source.readInt());
+        } else if (tag == TAG_ALLOWED_LATENCY) {
+            return new AllowedLatencyEvent(Duration.ofMillis(source.readLong()));
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
