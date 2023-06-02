@@ -56,6 +56,7 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.DataInputStatus;
 import org.apache.flink.streaming.runtime.io.MultipleFuturesAvailabilityHelper;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput;
+import org.apache.flink.streaming.runtime.streamrecord.AllowedLatencyEvent;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -68,6 +69,7 @@ import org.apache.flink.util.function.FunctionWithException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -78,6 +80,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static org.apache.flink.configuration.ExecutionOptions.ALLOWED_LATENCY;
 import static org.apache.flink.configuration.PipelineOptions.ALLOW_UNALIGNED_SOURCE_SPLITS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -193,6 +196,8 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
 
     private final CanEmitBatchOfRecordsChecker canEmitBatchOfRecords;
 
+    private final Duration allowedLatency;
+
     public SourceOperator(
             FunctionWithException<SourceReaderContext, SourceReader<OUT, SplitT>, Exception>
                     readerFactory,
@@ -217,6 +222,7 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
         this.watermarkAlignmentParams = watermarkStrategy.getAlignmentParameters();
         this.allowUnalignedSourceSplits = configuration.get(ALLOW_UNALIGNED_SOURCE_SPLITS);
         this.canEmitBatchOfRecords = checkNotNull(canEmitBatchOfRecords);
+        this.allowedLatency = configuration.get(ALLOWED_LATENCY);
     }
 
     @Override
@@ -434,6 +440,9 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                             watermarkAlignmentParams.getUpdateInterval());
                 }
                 initializeMainOutput(output);
+                if (!allowedLatency.equals(Duration.ZERO)) {
+                    output.emitAllowedLatencyEvent(new AllowedLatencyEvent(allowedLatency));
+                }
                 return convertToInternalStatus(sourceReader.pollNext(currentMainOutput));
             case SOURCE_STOPPED:
                 this.operatingMode = OperatingMode.DATA_FINISHED;

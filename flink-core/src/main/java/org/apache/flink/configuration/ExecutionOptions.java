@@ -96,7 +96,7 @@ public class ExecutionOptions {
     public static final ConfigOption<Duration> ALLOWED_LATENCY =
             ConfigOptions.key("execution.allowed-latency")
                     .durationType()
-                    .defaultValue(null)
+                    .defaultValue(Duration.ZERO)
                     .withDescription("foobar");
 
     public static final ConfigOption<Duration> BUFFER_TIMEOUT =

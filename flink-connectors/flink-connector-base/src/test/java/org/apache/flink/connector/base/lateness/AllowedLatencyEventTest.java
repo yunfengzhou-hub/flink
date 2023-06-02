@@ -21,7 +21,8 @@ import static org.apache.flink.configuration.ExecutionOptions.ALLOWED_LATENCY;
 public class AllowedLatencyEventTest {
     @Test
     public void test() throws Exception {
-        Configuration configuration = new Configuration().set(ALLOWED_LATENCY, Duration.ZERO);
+        Configuration configuration =
+                new Configuration().set(ALLOWED_LATENCY, Duration.ofSeconds(1));
         StreamExecutionEnvironment env =
                 StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         env.setParallelism(1);
