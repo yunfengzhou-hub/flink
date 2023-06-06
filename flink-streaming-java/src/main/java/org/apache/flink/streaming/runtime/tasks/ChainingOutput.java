@@ -25,8 +25,8 @@ import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.RecordProcessorUtils;
 import org.apache.flink.streaming.runtime.metrics.WatermarkGauge;
-import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
+import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 import org.apache.flink.util.OutputTag;
@@ -66,6 +66,20 @@ class ChainingOutput<T>
         this.numRecordsIn = curOperatorMetricGroup.getIOMetricGroup().getNumRecordsInCounter();
         this.outputTag = outputTag;
         this.recordProcessor = RecordProcessorUtils.getRecordProcessor(input);
+    }
+
+    @Override
+    public void collect(StreamElement streamElement) {
+        if (streamElement instanceof StreamRecord) {
+            collect((StreamRecord<T>) streamElement);
+            return;
+        }
+
+        try {
+            input.processStreamElement(streamElement);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -154,10 +168,5 @@ class ChainingOutput<T>
                 throw new ExceptionInChainedOperatorException(e);
             }
         }
-    }
-
-    @Override
-    public void emitFlushEvent(FlushEvent flushEvent) {
-        input.processFlushEvent(flushEvent);
     }
 }

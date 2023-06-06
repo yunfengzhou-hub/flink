@@ -55,6 +55,19 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
         this.sinkContext = new SimpleContext<>(getProcessingTimeService());
     }
 
+    //    @Override
+    //    public void processStreamElement(StreamElement element) throws Exception {
+    //        if (element instanceof StreamRecord) {
+    //            processElement((StreamRecord<IN>) element);
+    //            return;
+    //        } else if (element instanceof FlushEvent) {
+    //            processFlushEvent((FlushEvent) element);
+    //            return;
+    //        }
+    //
+    //        throw new UnsupportedOperationException(element.getClass().getCanonicalName());
+    //    }
+
     @Override
     public void processElement(StreamRecord<IN> element) throws Exception {
         sinkContext.element = element;
@@ -85,6 +98,7 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
         if (flushEvent.getTimestamp() <= previousFlushTimestamp) {
             return;
         }
+        System.out.println("processFlushEvent " + flushEvent.getTimestamp());
         try {
             userFunction.flush();
         } catch (Exception e) {

@@ -450,7 +450,7 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                 long registerTime = processingTimeService.getCurrentProcessingTime();
                 if (flushInterval != null) {
                     if (flushInterval.equals(Duration.ZERO)) {
-                        output.emitFlushEvent(
+                        output.emit(
                                 new FlushStrategyUpdateEvent(
                                         registerTime, FlushStrategy.FLUSH_EVERY_RECORD));
                     } else {
@@ -458,7 +458,7 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                                 registerTime
                                         - (registerTime % flushInterval.toMillis())
                                         + flushInterval.toMillis();
-                        output.emitFlushEvent(
+                        output.emit(
                                 new FlushStrategyUpdateEvent(
                                         registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
                         if (!isFlushTimerRegistered) {
@@ -495,7 +495,7 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                     .ProcessingTimeCallback {
         @Override
         public void onProcessingTime(long time) {
-            output.emitFlushEvent(new FlushEvent(time));
+            output.collect(new FlushEvent(time));
             if (flushInterval != null && flushInterval.toMillis() > 0) {
                 processingTimeService.registerTimer(time + flushInterval.toMillis(), this);
             } else {
@@ -616,10 +616,10 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
 
             long registerTime = processingTimeService.getCurrentProcessingTime();
             if (flushInterval == null) {
-                output.emitFlushEvent(
+                output.collect(
                         new FlushStrategyUpdateEvent(registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
             } else if (flushInterval.equals(Duration.ZERO)) {
-                output.emitFlushEvent(
+                output.collect(
                         new FlushStrategyUpdateEvent(
                                 registerTime, FlushStrategy.FLUSH_EVERY_RECORD));
             } else {
@@ -627,7 +627,7 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                         registerTime
                                 - (registerTime % flushInterval.toMillis())
                                 + flushInterval.toMillis();
-                output.emitFlushEvent(
+                output.collect(
                         new FlushStrategyUpdateEvent(registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
                 if (!isFlushTimerRegistered) {
                     processingTimeService.registerTimer(

@@ -19,7 +19,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
+import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
 /** A {@link StreamOperator} for executing {@link MapFunction MapFunctions}. */
@@ -35,12 +35,17 @@ public class StreamMap<IN, OUT> extends AbstractUdfStreamOperator<OUT, MapFuncti
     }
 
     @Override
-    public void processElement(StreamRecord<IN> element) throws Exception {
-        output.collect(element.replace(userFunction.map(element.getValue())));
+    public void processStreamElement(StreamElement element) throws Exception {
+        if (element instanceof StreamRecord) {
+            StreamRecord<IN> record = (StreamRecord<IN>) element;
+            output.collect(record.replace(userFunction.map(record.getValue())));
+        } else {
+            output.collect(element);
+        }
     }
 
     @Override
-    public void processFlushEvent(FlushEvent flushEvent) {
-        output.emitFlushEvent(flushEvent);
+    public void processElement(StreamRecord<IN> element) throws Exception {
+        output.collect(element.replace(userFunction.map(element.getValue())));
     }
 }

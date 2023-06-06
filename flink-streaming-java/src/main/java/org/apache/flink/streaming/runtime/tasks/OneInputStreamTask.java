@@ -41,8 +41,8 @@ import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointBarrierHand
 import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate;
 import org.apache.flink.streaming.runtime.io.checkpointing.InputProcessorUtil;
 import org.apache.flink.streaming.runtime.metrics.WatermarkGauge;
-import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
+import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
@@ -233,6 +233,15 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         }
 
         @Override
+        public void emit(StreamElement streamElement) {
+            try {
+                operator.processStreamElement(streamElement);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
         public void emitRecord(StreamRecord<IN> record) throws Exception {
             numRecordsIn.inc();
             recordProcessor.accept(record);
@@ -252,11 +261,6 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         @Override
         public void emitLatencyMarker(LatencyMarker latencyMarker) throws Exception {
             operator.processLatencyMarker(latencyMarker);
-        }
-
-        @Override
-        public void emitFlushEvent(FlushEvent flushEvent) {
-            operator.processFlushEvent(flushEvent);
         }
     }
 }

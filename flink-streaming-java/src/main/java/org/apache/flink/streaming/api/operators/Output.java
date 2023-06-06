@@ -20,8 +20,8 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.streaming.api.watermark.Watermark;
-import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
+import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 import org.apache.flink.util.Collector;
@@ -36,6 +36,7 @@ import org.apache.flink.util.OutputTag;
  */
 @PublicEvolving
 public interface Output<T> extends Collector<T> {
+    default void collect(StreamElement streamElement) {}
 
     /**
      * Emits a {@link Watermark} from an operator. This watermark is broadcast to all downstream
@@ -56,6 +57,4 @@ public interface Output<T> extends Collector<T> {
     <X> void collect(OutputTag<X> outputTag, StreamRecord<X> record);
 
     void emitLatencyMarker(LatencyMarker latencyMarker);
-
-    default void emitFlushEvent(FlushEvent flushEvent) {}
 }

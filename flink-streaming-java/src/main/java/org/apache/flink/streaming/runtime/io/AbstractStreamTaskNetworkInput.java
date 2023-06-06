@@ -155,7 +155,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                     flattenedChannelIndices.get(lastChannel),
                     output);
         } else if (recordOrMark.isFlushEvent()) {
-            output.emitFlushEvent(recordOrMark.asFlushEvent());
+            output.emit(recordOrMark);
         } else {
             throw new UnsupportedOperationException(
                     "Unknown type of StreamElement " + recordOrMark.getClass());

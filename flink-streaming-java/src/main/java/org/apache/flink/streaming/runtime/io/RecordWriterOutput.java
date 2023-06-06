@@ -92,6 +92,21 @@ public class RecordWriterOutput<OUT>
     }
 
     @Override
+    public void collect(StreamElement element) {
+        serializationDelegate.setInstance(element);
+
+        try {
+            if (element instanceof FlushEvent) {
+                recordWriter.broadcastEmit(serializationDelegate);
+            } else {
+                throw new UnsupportedOperationException(element.getClass().getCanonicalName());
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e.getMessage(), e);
+        }
+    }
+
+    @Override
     public void collect(StreamRecord<OUT> record) {
         if (collectAndCheckIfChained(record)) {
             numRecordsOut.inc();
@@ -213,16 +228,5 @@ public class RecordWriterOutput<OUT>
     @Override
     public Gauge<Long> getWatermarkGauge() {
         return watermarkGauge;
-    }
-
-    @Override
-    public void emitFlushEvent(FlushEvent flushEvent) {
-        serializationDelegate.setInstance(flushEvent);
-
-        try {
-            recordWriter.broadcastEmit(serializationDelegate);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e.getMessage(), e);
-        }
     }
 }

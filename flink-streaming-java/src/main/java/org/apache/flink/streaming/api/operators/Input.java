@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
+import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 
@@ -33,6 +34,16 @@ import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
  */
 @PublicEvolving
 public interface Input<IN> {
+    default void processStreamElement(StreamElement element) throws Exception {
+        if (element instanceof FlushEvent) {
+            processFlushEvent((FlushEvent) element);
+            return;
+        }
+        // TODO: Migrate all StreamElement subclasses to use this method.
+
+        throw new UnsupportedOperationException(element.getClass().getCanonicalName());
+    }
+
     /**
      * Processes one element that arrived on this input of the {@link MultipleInputStreamOperator}.
      * This method is guaranteed to not be called concurrently with other methods of the operator.
@@ -64,14 +75,12 @@ public interface Input<IN> {
      */
     void processLatencyMarker(LatencyMarker latencyMarker) throws Exception;
 
-    default void processFlushEvent(FlushEvent flushEvent) {
-        // do nothing
-    }
-
     /**
      * Set the correct key context before processing the {@code record}. Used for example to extract
      * key from the {@code record} and pass that key to the state backends. This method is
      * guaranteed to not be called concurrently with other methods of the operator.
      */
     void setKeyContextElement(StreamRecord<IN> record) throws Exception;
+
+    default void processFlushEvent(FlushEvent flushEvent) {}
 }

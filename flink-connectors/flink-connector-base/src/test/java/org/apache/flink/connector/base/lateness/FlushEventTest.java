@@ -36,7 +36,8 @@ import static org.apache.flink.configuration.ExecutionOptions.ALLOWED_LATENCY;
 public class FlushEventTest {
     @Test
     public void test() throws Exception {
-        Configuration configuration = new Configuration().set(ALLOWED_LATENCY, Duration.ofSeconds(2));
+        Configuration configuration =
+                new Configuration().set(ALLOWED_LATENCY, Duration.ofSeconds(2));
         StreamExecutionEnvironment env =
                 StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         env.setParallelism(2);
@@ -79,5 +80,20 @@ public class FlushEventTest {
         public void flush() {
             System.out.println("flush()");
         }
+    }
+
+    private static void print(Number number) {
+        System.out.println("Number: " + number);
+    }
+
+    private static void print(Long number) {
+        System.out.println("Long: " + number);
+    }
+
+    public static void main(String[] args) {
+        print(1L);
+        print(2L);
+        Number number = 3L;
+        print(number);
     }
 }
