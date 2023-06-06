@@ -98,6 +98,11 @@ public class MockSplitReader implements SplitReader<int[], MockSourceSplit> {
     public void close() throws Exception {}
 
     private RecordsBySplits<int[]> getRecords() {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         final RecordsBySplits.Builder<int[]> records = new RecordsBySplits.Builder<>();
 
         // after this locked section, the thread might be interrupted

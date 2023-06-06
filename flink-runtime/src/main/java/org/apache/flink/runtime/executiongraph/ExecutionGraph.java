@@ -32,6 +32,7 @@ import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
+import org.apache.flink.runtime.flush.FlushCoordinator;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertex;
@@ -248,4 +249,8 @@ public interface ExecutionGraph extends AccessExecutionGraph {
     Optional<String> findVertexWithAttempt(final ExecutionAttemptID attemptId);
 
     Optional<AccessExecution> findExecution(final ExecutionAttemptID attemptId);
+
+    default FlushCoordinator getFlushCoordinator() {
+        throw new UnsupportedOperationException();
+    }
 }

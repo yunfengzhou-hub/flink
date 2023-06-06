@@ -21,6 +21,7 @@ package org.apache.flink.api.connector.source;
 import org.apache.flink.annotation.Public;
 import org.apache.flink.metrics.groups.SplitEnumeratorMetricGroup;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
@@ -181,4 +182,9 @@ public interface SplitEnumeratorContext<SplitT extends SourceSplit> {
      * @param runnable a runnable to execute
      */
     void runInCoordinatorThread(Runnable runnable);
+
+    /**
+     * Configures the latency requirement for the incoming records from this source during runtime.
+     */
+    default void setAllowedLatency(Duration allowedLatency) {}
 }

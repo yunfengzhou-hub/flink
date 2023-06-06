@@ -200,7 +200,7 @@ public class HBaseSinkFunction<T> extends RichSinkFunction<T>
         }
     }
 
-    private void flush() throws IOException {
+    public void flush() throws IOException {
         // BufferedMutator is thread-safe
         mutator.flush();
         numPendingRequests.set(0);

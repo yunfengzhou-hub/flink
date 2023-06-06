@@ -20,6 +20,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
@@ -62,6 +63,10 @@ public interface Input<IN> {
      * @see org.apache.flink.streaming.runtime.streamrecord.LatencyMarker
      */
     void processLatencyMarker(LatencyMarker latencyMarker) throws Exception;
+
+    default void processFlushEvent(FlushEvent flushEvent) {
+        // do nothing
+    }
 
     /**
      * Set the correct key context before processing the {@code record}. Used for example to extract

@@ -29,10 +29,12 @@ import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.api.connector.source.SupportsIntermediateNoMoreSplits;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.metrics.groups.SplitEnumeratorMetricGroup;
+import org.apache.flink.runtime.flush.FlushCoordinator;
 import org.apache.flink.runtime.metrics.groups.InternalSplitEnumeratorMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.source.event.AddSplitEvent;
+import org.apache.flink.runtime.source.event.FlushIntervalEvent;
 import org.apache.flink.runtime.source.event.NoMoreSplitsEvent;
 import org.apache.flink.runtime.source.event.SourceEventWrapper;
 import org.apache.flink.util.ExceptionUtils;
@@ -108,6 +110,8 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
     private final boolean[] subtaskHasNoMoreSplits;
     private volatile boolean closed;
 
+    private FlushCoordinator flushCoordinator;
+
     public SourceCoordinatorContext(
             SourceCoordinatorProvider.CoordinatorExecutorThreadFactory coordinatorThreadFactory,
             int numWorkerThreads,
@@ -146,6 +150,7 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
         this.assignmentTracker = splitAssignmentTracker;
         this.coordinatorThreadName = coordinatorThreadFactory.getCoordinatorThreadName();
         this.supportsConcurrentExecutionAttempts = supportsConcurrentExecutionAttempts;
+        this.flushCoordinator = null;
 
         final int parallelism = operatorCoordinatorContext.currentParallelism();
         this.subtaskGateways = new SubtaskGateways(parallelism);
@@ -302,6 +307,22 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
                     return null;
                 },
                 "Failed to send 'IntermediateNoMoreSplits' to reader " + subtask);
+    }
+
+    public void setFlushCoordinator(FlushCoordinator flushCoordinator) {
+        this.flushCoordinator = flushCoordinator;
+    }
+
+    @Override
+    public void setAllowedLatency(Duration allowedLatency) {
+        this.flushCoordinator.setAllowedLatency(
+                operatorCoordinatorContext.getOperatorId(), allowedLatency);
+    }
+
+    public void updateFlushInterval(Duration flushInterval) {
+        for (Map<Integer, OperatorCoordinator.SubtaskGateway> gateways : subtaskGateways.gateways) {
+            gateways.values().forEach(x -> x.sendEvent(new FlushIntervalEvent(flushInterval)));
+        }
     }
 
     @Override

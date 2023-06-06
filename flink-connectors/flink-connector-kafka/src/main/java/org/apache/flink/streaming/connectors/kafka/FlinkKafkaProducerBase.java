@@ -357,7 +357,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN>
     }
 
     /** Flush pending records. */
-    protected abstract void flush();
+    public abstract void flush();
 
     @Override
     public void initializeState(FunctionInitializationContext context) throws Exception {

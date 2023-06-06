@@ -62,6 +62,17 @@ public interface SinkFunction<IN> extends Function, Serializable {
     default void writeWatermark(Watermark watermark) throws Exception {}
 
     /**
+     * Flushes this function by writing out data buffered during {@link #invoke(Object, Context)} to
+     * the external system.
+     *
+     * <p>This method can be implemented optionally to improve the performance of this SinkFunction
+     * by allowing the Flink infrastructure to adjust flush triggering dynamically. A sink function
+     * need not implement this method if it can achieve the best performance without buffering, or
+     * if it achieves exactly-once semantics by flushing buffer only during checkpoints.
+     */
+    default void flush() throws Exception {}
+
+    /**
      * This method is called at the end of data processing.
      *
      * <p>The method is expected to flush all remaining buffered data. Exceptions will cause the

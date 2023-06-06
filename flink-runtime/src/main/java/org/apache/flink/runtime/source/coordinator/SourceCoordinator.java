@@ -30,6 +30,8 @@ import org.apache.flink.api.connector.source.SupportsHandleExecutionAttemptSourc
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.runtime.flush.FlushCoordinator;
+import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.CoordinatorStore;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
@@ -53,6 +55,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -436,6 +439,18 @@ public class SourceCoordinator<SplitT extends SourceSplit, EnumChkT>
             final EnumChkT enumeratorCheckpoint = deserializeCheckpoint(checkpointData);
             enumerator = source.restoreEnumerator(context, enumeratorCheckpoint);
         }
+    }
+
+    public void setFlushCoordinator(FlushCoordinator flushCoordinator) {
+        context.setFlushCoordinator(flushCoordinator);
+    }
+
+    public OperatorID getOperatorID() {
+        return context.getCoordinatorContext().getOperatorId();
+    }
+
+    public void updateFlushInterval(Duration flushInterval) {
+        context.updateFlushInterval(flushInterval);
     }
 
     private void runInEventLoop(

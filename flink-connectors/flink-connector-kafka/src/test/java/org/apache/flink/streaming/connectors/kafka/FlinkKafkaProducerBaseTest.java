@@ -461,7 +461,7 @@ public class FlinkKafkaProducerBaseTest {
         }
 
         @Override
-        protected void flush() {
+        public void flush() {
             flushLatch.trigger();
 
             // simply wait until the producer's pending records become zero.

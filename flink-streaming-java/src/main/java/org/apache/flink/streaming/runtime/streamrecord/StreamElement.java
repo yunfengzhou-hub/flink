@@ -62,6 +62,14 @@ public abstract class StreamElement {
         return getClass() == LatencyMarker.class;
     }
 
+    public final boolean isFlushEvent() {
+        return this instanceof FlushEvent;
+    }
+
+    public final boolean isFlushStrategyUpdateEvent() {
+        return getClass() == FlushStrategyUpdateEvent.class;
+    }
+
     /**
      * Casts this element into a StreamRecord.
      *
@@ -102,5 +110,13 @@ public abstract class StreamElement {
      */
     public final LatencyMarker asLatencyMarker() {
         return (LatencyMarker) this;
+    }
+
+    public final FlushEvent asFlushEvent() {
+        return (FlushEvent) this;
+    }
+
+    public final FlushStrategyUpdateEvent asFlushStrategyUpdateEvent() {
+        return (FlushStrategyUpdateEvent) this;
     }
 }

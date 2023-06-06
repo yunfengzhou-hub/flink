@@ -51,6 +51,7 @@ import org.apache.flink.runtime.entrypoint.ClusterEntryPointExceptionUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.PartitionGroupReleaseStrategy;
+import org.apache.flink.runtime.flush.FlushCoordinator;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -300,6 +301,8 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
 
     private final boolean nonFinishedHybridPartitionShouldBeUnknown;
 
+    private final FlushCoordinator flushCoordinator;
+
     // --------------------------------------------------------------------------------------------
     //   Constructors
     // --------------------------------------------------------------------------------------------
@@ -401,6 +404,8 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
         this.markPartitionFinishedStrategy = markPartitionFinishedStrategy;
 
         this.nonFinishedHybridPartitionShouldBeUnknown = nonFinishedHybridPartitionShouldBeUnknown;
+
+        this.flushCoordinator = new FlushCoordinator(jobInformation.getJobConfiguration());
 
         LOG.info(
                 "Created execution graph {} for job {}.",
@@ -1739,5 +1744,10 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     public JobVertexInputInfo getJobVertexInputInfo(
             JobVertexID jobVertexId, IntermediateDataSetID resultId) {
         return vertexInputInfoStore.get(jobVertexId, resultId);
+    }
+
+    @Override
+    public FlushCoordinator getFlushCoordinator() {
+        return flushCoordinator;
     }
 }

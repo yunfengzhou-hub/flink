@@ -25,6 +25,7 @@ import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
+import org.apache.flink.runtime.flush.FlushCoordinator;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
@@ -33,7 +34,9 @@ import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinatorHolder;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
+import org.apache.flink.runtime.operators.coordination.RecreateOnResetOperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
+import org.apache.flink.runtime.source.coordinator.SourceCoordinator;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -74,11 +77,34 @@ public class DefaultOperatorCoordinatorHandler implements OperatorCoordinatorHan
     @Override
     public void initializeOperatorCoordinators(
             ComponentMainThreadExecutor mainThreadExecutor,
-            JobManagerJobMetricGroup jobManagerJobMetricGroup) {
+            JobManagerJobMetricGroup jobManagerJobMetricGroup,
+            FlushCoordinator flushCoordinator) {
         for (OperatorCoordinatorHolder coordinatorHolder : coordinatorMap.values()) {
             coordinatorHolder.lazyInitialize(
                     globalFailureHandler, mainThreadExecutor, jobManagerJobMetricGroup);
+
+            SourceCoordinator<?, ?> sourceCoordinator =
+                    getSourceCoordinator(coordinatorHolder.coordinator());
+            if (sourceCoordinator != null) {
+                flushCoordinator.registerSourceCoordinator(sourceCoordinator);
+                sourceCoordinator.setFlushCoordinator(flushCoordinator);
+            }
         }
+    }
+
+    private SourceCoordinator<?, ?> getSourceCoordinator(OperatorCoordinator coordinator) {
+        if (coordinator instanceof SourceCoordinator) {
+            return (SourceCoordinator<?, ?>) coordinator;
+        } else if (coordinator instanceof RecreateOnResetOperatorCoordinator) {
+            try {
+                return getSourceCoordinator(
+                        ((RecreateOnResetOperatorCoordinator) coordinator)
+                                .getInternalCoordinator());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return null;
     }
 
     @Override

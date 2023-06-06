@@ -32,6 +32,7 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -206,14 +207,20 @@ public class HybridSource<T> implements Source<T, HybridSourceSplit, HybridSourc
     static class SourceListEntry implements Serializable {
         protected final SourceFactory factory;
         protected final Boundedness boundedness;
+        protected Duration allowedLatency;
 
         private SourceListEntry(SourceFactory factory, Boundedness boundedness) {
             this.factory = Preconditions.checkNotNull(factory);
             this.boundedness = Preconditions.checkNotNull(boundedness);
+            this.allowedLatency = null;
         }
 
         static SourceListEntry of(SourceFactory configurer, Boundedness boundedness) {
             return new SourceListEntry(configurer, boundedness);
+        }
+
+        void setAllowedLatency(Duration allowedLatency) {
+            this.allowedLatency = allowedLatency;
         }
     }
 
@@ -247,6 +254,13 @@ public class HybridSource<T> implements Source<T, HybridSourceSplit, HybridSourc
                     sourceFactory, ExecutionConfig.ClosureCleanerLevel.RECURSIVE, true);
             sources.add(SourceListEntry.of(sourceFactory, boundedness));
             return (HybridSourceBuilder) this;
+        }
+
+        /** Sets the latency requirement for records read from the last added source. */
+        public HybridSourceBuilder<T, EnumT> setAllowedLatencyForLastSource(
+                Duration allowedLatency) {
+            sources.get(sources.size() - 1).setAllowedLatency(allowedLatency);
+            return this;
         }
 
         /** Build the source. */

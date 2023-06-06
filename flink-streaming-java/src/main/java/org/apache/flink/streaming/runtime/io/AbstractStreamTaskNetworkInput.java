@@ -154,8 +154,11 @@ public abstract class AbstractStreamTaskNetworkInput<
                     recordOrMark.asWatermarkStatus(),
                     flattenedChannelIndices.get(lastChannel),
                     output);
+        } else if (recordOrMark.isFlushEvent()) {
+            output.emitFlushEvent(recordOrMark.asFlushEvent());
         } else {
-            throw new UnsupportedOperationException("Unknown type of StreamElement");
+            throw new UnsupportedOperationException(
+                    "Unknown type of StreamElement " + recordOrMark.getClass());
         }
     }
 

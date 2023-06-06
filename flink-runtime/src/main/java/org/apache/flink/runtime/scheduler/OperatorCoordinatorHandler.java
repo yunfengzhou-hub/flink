@@ -20,6 +20,7 @@ package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.flush.FlushCoordinator;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
@@ -42,7 +43,8 @@ public interface OperatorCoordinatorHandler {
      */
     void initializeOperatorCoordinators(
             ComponentMainThreadExecutor mainThreadExecutor,
-            JobManagerJobMetricGroup jobManagerJobMetricGroup);
+            JobManagerJobMetricGroup jobManagerJobMetricGroup,
+            FlushCoordinator flushCoordinator);
 
     /** Start all operator coordinators. */
     void startAllOperatorCoordinators();
