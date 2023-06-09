@@ -19,6 +19,7 @@ package org.apache.flink.runtime.flush;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.source.coordinator.SourceCoordinator;
 import org.apache.flink.util.Preconditions;
@@ -27,13 +28,13 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.apache.flink.configuration.ExecutionOptions.ALLOWED_LATENCY;
 
 /**
- * The FlushCoordinator controls the time when a Flink job triggers a flush event. It collects the
- * latency requirements from the configurations and SourceCoordinators, and determines the time
- * interval at which flush events are triggered.
+ * The FlushCoordinator periodically triggers flush events on a Flink job based on the latency
+ * requirements acquired from a job's configuration.
  */
 @Internal
 public class FlushCoordinator {
@@ -52,6 +53,21 @@ public class FlushCoordinator {
             allowedLatencyMap.put(GLOBAL_ALLOWED_LATENCY_KEY, allowedLatency);
         }
         coordinatorMap = new HashMap<>();
+    }
+
+    /** Initializes the coordinator. Sets access to the context. */
+    public void setup(FlushCoordinatorContext context) {
+
+    }
+
+    /** Starts the coordinator. */
+    public void start() {
+
+    }
+
+    /** Closes the coordinator. */
+    public void close() {
+
     }
 
     public void registerSourceCoordinator(SourceCoordinator<?, ?> coordinator) {
@@ -88,5 +104,15 @@ public class FlushCoordinator {
             coordinatorMap.values().forEach(x -> x.updateFlushInterval(newAllowedLatency));
             this.allowedLatency = newAllowedLatency;
         }
+    }
+
+    /**
+     * A {@link FlushCoordinatorContext} provides the information a {@link FlushCoordinator} might
+     * use when running.
+     */
+    interface FlushCoordinatorContext {
+        CheckpointCoordinator getCheckpointCoordinator();
+
+        Set<SourceCoordinator<?, ?>> getSourceCoordinators();
     }
 }

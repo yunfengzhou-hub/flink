@@ -235,7 +235,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         @Override
         public void emit(StreamElement streamElement) {
             try {
-                operator.processStreamElement(streamElement);
+                operator.processElement(streamElement);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

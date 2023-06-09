@@ -191,11 +191,11 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
         } else if (value.isFlushEvent()) {
             if (value.isFlushStrategyUpdateEvent()) {
                 target.write(TAG_FLUSH_STRATEGY_UPDATE);
-                target.writeLong(value.asFlushStrategyUpdateEvent().getTimestamp());
+                target.writeLong(value.asFlushStrategyUpdateEvent().getFlushEventId());
                 target.writeByte(value.asFlushStrategyUpdateEvent().getFlushStrategy().ordinal());
             } else {
                 target.write(TAG_FLUSH_TRIGGERING);
-                target.writeLong(value.asFlushEvent().getTimestamp());
+                target.writeLong(value.asFlushEvent().getFlushEventId());
             }
         } else {
             throw new RuntimeException();

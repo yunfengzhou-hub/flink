@@ -35,7 +35,7 @@ public class StreamMap<IN, OUT> extends AbstractUdfStreamOperator<OUT, MapFuncti
     }
 
     @Override
-    public void processStreamElement(StreamElement element) throws Exception {
+    public void processElement(StreamElement element) throws Exception {
         if (element instanceof StreamRecord) {
             StreamRecord<IN> record = (StreamRecord<IN>) element;
             output.collect(record.replace(userFunction.map(record.getValue())));

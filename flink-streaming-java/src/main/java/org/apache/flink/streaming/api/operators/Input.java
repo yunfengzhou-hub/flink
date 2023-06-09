@@ -20,6 +20,7 @@ package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.streamrecord.ControlEvent;
 import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
@@ -34,10 +35,22 @@ import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
  */
 @PublicEvolving
 public interface Input<IN> {
-    default void processStreamElement(StreamElement element) throws Exception {
+    default void processElement(StreamElement element) throws Exception {
         if (element instanceof FlushEvent) {
             processFlushEvent((FlushEvent) element);
             return;
+//        } else if (element instanceof StreamRecord) {
+//            processElement((StreamRecord<IN>) element);
+//            return;
+//        } else if (element instanceof Watermark) {
+//            processWatermark((Watermark) element);
+//            return;
+//        } else if (element instanceof WatermarkStatus) {
+//            processWatermarkStatus((WatermarkStatus) element);
+//            return;
+//        } else if (element instanceof LatencyMarker) {
+//            processLatencyMarker((LatencyMarker) element);
+//            return;
         }
         // TODO: Migrate all StreamElement subclasses to use this method.
 
@@ -82,5 +95,35 @@ public interface Input<IN> {
      */
     void setKeyContextElement(StreamRecord<IN> record) throws Exception;
 
+    /**
+     * Processes a {@link ControlEvent} that arrived on the input of this operator. See JavaDocs of
+     * {@link ControlEvent}'s subclasses for the behaviors each operator should take upon receiving
+     * the corresponding control event.
+     */
+    default void processControlEvent(ControlEvent event) {
+        if (event instanceof FlushEvent) {
+            // No-op for FlushEvents by default.
+            return;
+        }
+
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Processes a {@link FlushEvent} that arrived at this input.
+     *
+     * <p> If the operator works without buffer and outputs results as soon as possible, this method
+     * can be ignored.
+     *
+     * <p> Otherwise, the operator should trigger calculations on the buffered inputs and forward
+     * results to the downstream operators. When the operator finishes processing this event,
+     * all output records that could be correctly inferred from previously received input records
+     * should have all been flushed downstream.
+     *
+     * <p> Besides, the operator should also adjust its flushing behavior towards stream records
+     * received after this event according to {@link FlushEvent#getFlushStrategy()}. See
+     * {@link org.apache.flink.streaming.runtime.streamrecord.FlushStrategy} for a list of strategies
+     * an operator should support.
+     */
     default void processFlushEvent(FlushEvent flushEvent) {}
 }

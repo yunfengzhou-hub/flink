@@ -487,7 +487,7 @@ object CodeGenUtils {
       case DOUBLE =>
         s"$rowTerm.getDouble($indexTerm)"
       case TIMESTAMP_WITHOUT_TIME_ZONE | TIMESTAMP_WITH_LOCAL_TIME_ZONE =>
-        s"$rowTerm.getTimestamp($indexTerm, ${getPrecision(t)})"
+        s"$rowTerm.getFlushEventId($indexTerm, ${getPrecision(t)})"
       case TIMESTAMP_WITH_TIME_ZONE =>
         throw new UnsupportedOperationException("Unsupported type: " + t)
       case ARRAY =>

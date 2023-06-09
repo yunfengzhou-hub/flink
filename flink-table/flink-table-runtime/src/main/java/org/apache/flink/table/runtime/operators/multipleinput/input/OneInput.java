@@ -37,8 +37,8 @@ public class OneInput extends InputBase {
     }
 
     @Override
-    public void processStreamElement(StreamElement element) throws Exception {
-        operator.processStreamElement(element);
+    public void processElement(StreamElement element) throws Exception {
+        operator.processElement(element);
     }
 
     @Override

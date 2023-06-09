@@ -40,7 +40,7 @@ public class StreamRecordTest {
         assertEquals("test", record.getValue());
 
         //		try {
-        //			record.getTimestamp();
+        //			record.getFlushEventId();
         //			fail("should throw an exception");
         //		} catch (IllegalStateException e) {
         //			assertTrue(e.getMessage().contains("timestamp"));

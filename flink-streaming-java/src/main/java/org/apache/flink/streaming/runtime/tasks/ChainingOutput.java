@@ -76,7 +76,7 @@ class ChainingOutput<T>
         }
 
         try {
-            input.processStreamElement(streamElement);
+            input.processElement(streamElement);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

@@ -29,6 +29,10 @@ public class FlushStrategyUpdateEvent extends FlushEvent {
         this.flushStrategy = flushStrategy;
     }
 
+    /**
+     * Gets the strategy describing how receiver operators should perform flush operations
+     * for the incoming records.
+     */
     public FlushStrategy getFlushStrategy() {
         return flushStrategy;
     }

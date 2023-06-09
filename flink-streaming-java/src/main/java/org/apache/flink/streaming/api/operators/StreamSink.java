@@ -56,7 +56,7 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
     }
 
     //    @Override
-    //    public void processStreamElement(StreamElement element) throws Exception {
+    //    public void processElement(StreamElement element) throws Exception {
     //        if (element instanceof StreamRecord) {
     //            processElement((StreamRecord<IN>) element);
     //            return;
@@ -95,16 +95,16 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
 
     @Override
     public void processFlushEvent(FlushEvent flushEvent) {
-        if (flushEvent.getTimestamp() <= previousFlushTimestamp) {
+        if (flushEvent.getFlushEventId() <= previousFlushTimestamp) {
             return;
         }
-        System.out.println("processFlushEvent " + flushEvent.getTimestamp());
+        System.out.println("processFlushEvent " + flushEvent.getFlushEventId());
         try {
             userFunction.flush();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        previousFlushTimestamp = flushEvent.getTimestamp();
+        previousFlushTimestamp = flushEvent.getFlushEventId();
 
         if (flushEvent instanceof FlushStrategyUpdateEvent) {
             flushStrategy = ((FlushStrategyUpdateEvent) flushEvent).getFlushStrategy();

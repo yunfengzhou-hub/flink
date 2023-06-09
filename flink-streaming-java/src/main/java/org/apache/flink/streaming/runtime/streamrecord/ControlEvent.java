@@ -17,27 +17,11 @@
 
 package org.apache.flink.streaming.runtime.streamrecord;
 
-import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 
-/** The strategy how receiver operators should perform flush operation for the incoming records. */
+/**
+ * A parent class for {@link StreamElement} subclasses that are used as control events that might
+ * affect stream operators' status or behavior.
+ */
 @PublicEvolving
-public enum FlushStrategy {
-    /**
-     * The operator may use buffers and cache output results until the next {@link FlushEvent} is
-     * received or the stream ended its input.
-     */
-    NO_ACTIVE_FLUSH,
-
-    /**
-     * The operator may use buffers and cache output results between checkpoints, but should clear
-     * its buffer and forward results at each checkpoint.
-     */
-    FLUSH_ON_CHECKPOINT,
-
-    /**
-     * The operator should forward each output record to downstream operator as soon as possible
-     * without using buffer.
-     */
-    FLUSH_EVERY_RECORD,
-}
+public abstract class ControlEvent extends StreamElement {}

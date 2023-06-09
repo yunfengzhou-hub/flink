@@ -165,7 +165,7 @@ object SinkCodeGenerator {
       val rowtimeTerm = CodeGenUtils.newName("rowtime")
       s"""
          | Long $rowtimeTerm =
-         | $afterIndexModify.getTimestamp($modifiedRowtimeIndex, 3).getMillisecond();
+         | $afterIndexModify.getFlushEventId($modifiedRowtimeIndex, 3).getMillisecond();
          | ${generateCollectWithTimestamp(resultTerm, rowtimeTerm)}
           """.stripMargin
     } else {
