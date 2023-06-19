@@ -926,12 +926,6 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
                                 "Encountered two job vertices with ID %s : previous=[%s] / new=[%s]",
                                 jobVertex.getID(), ejv, previousTask));
             }
-            if (jobVertex.isInputVertex()) {
-                for (ExecutionVertex vertex : ejv.getTaskVertices()) {
-                    this.flushCoordinatorContext.addSourceExecution(
-                            vertex.getCurrentExecutionAttempt());
-                }
-            }
 
             this.verticesInCreationOrder.add(ejv);
             this.numJobVerticesTotal++;

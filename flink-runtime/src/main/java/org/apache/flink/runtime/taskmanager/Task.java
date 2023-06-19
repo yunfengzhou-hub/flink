@@ -50,7 +50,7 @@ import org.apache.flink.runtime.executiongraph.JobInformation;
 import org.apache.flink.runtime.executiongraph.TaskInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceInfoProvider;
 import org.apache.flink.runtime.filecache.FileCache;
-import org.apache.flink.runtime.flush.FlushRuntimeEvent;
+import org.apache.flink.runtime.flush.FlushEvent;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
@@ -1386,12 +1386,12 @@ public class Task
         }
     }
 
-    public void triggerFlush(FlushRuntimeEvent event) {
+    public void flush(FlushEvent event) {
         if (!(this.invokable instanceof FlushableTask)) {
             throw new RuntimeException();
         }
         Preconditions.checkState(this.invokable instanceof FlushableTask);
-        ((FlushableTask) this.invokable).triggerFlush(event);
+        ((FlushableTask) this.invokable).flush(event);
     }
 
     private void declineCheckpoint(long checkpointID, CheckpointFailureReason failureReason) {

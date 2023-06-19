@@ -30,7 +30,7 @@ import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
-import org.apache.flink.runtime.flush.FlushRuntimeEvent;
+import org.apache.flink.runtime.flush.FlushEvent;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -303,5 +303,5 @@ public interface TaskExecutorGateway
     CompletableFuture<Acknowledge> updateDelegationTokens(
             ResourceManagerId resourceManagerId, byte[] tokens);
 
-    default void triggerFlush(ExecutionAttemptID executionAttemptID, FlushRuntimeEvent event) {}
+    default void flush(ExecutionAttemptID executionAttemptID, FlushEvent event) {}
 }

@@ -22,7 +22,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.source.coordinator.SourceCoordinator;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -32,7 +31,7 @@ import java.util.Set;
 import static org.apache.flink.configuration.ExecutionOptions.ALLOWED_LATENCY;
 
 /**
- * The FlushCoordinator periodically triggers flush events on a Flink job based on the latency
+ * The FlushCoordinator regularly triggers flush events on a Flink job based on the latency
  * requirements acquired from a job's configuration.
  */
 @Internal
@@ -40,8 +39,6 @@ public class FlushCoordinator {
     private static final String GLOBAL_ALLOWED_LATENCY_KEY = "";
 
     private final Map<String, Duration> allowedLatencyMap;
-
-    private final Map<String, SourceCoordinator<?, ?>> coordinatorMap;
 
     private Duration allowedLatency;
 
@@ -57,7 +54,6 @@ public class FlushCoordinator {
         if (allowedLatency != null) {
             allowedLatencyMap.put(GLOBAL_ALLOWED_LATENCY_KEY, allowedLatency);
         }
-        coordinatorMap = new HashMap<>();
     }
 
     /** Initializes the coordinator. Sets access to the context. */
@@ -74,19 +70,15 @@ public class FlushCoordinator {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            System.out.println("Execution::triggerFlush " + context.getSourceExecutions().size());
+            System.out.println("Execution::flush " + context.getSourceExecutions().size());
 
-            context.getSourceExecutions().forEach(Execution::triggerFlush);
+            context.getSourceExecutions().forEach(Execution::flush);
         }
     }
 
     /** Closes the coordinator. */
     public void close() {
         isClosed = true;
-    }
-
-    public void registerSourceCoordinator(SourceCoordinator<?, ?> coordinator) {
-        coordinatorMap.put(coordinator.getOperatorID().toHexString(), coordinator);
     }
 
     /** Configures the latency requirement of a certain source operator. */
@@ -128,8 +120,6 @@ public class FlushCoordinator {
      */
     interface FlushCoordinatorContext {
         CheckpointCoordinator getCheckpointCoordinator();
-
-        Set<SourceCoordinator<?, ?>> getSourceCoordinators();
 
         Set<Execution> getSourceExecutions();
     }

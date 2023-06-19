@@ -285,9 +285,9 @@ public class SourceOperatorStreamTask<T> extends StreamTask<T, SourceOperator<T,
     }
 
     //    @Override
-    //    public void triggerFlush(FlushRuntimeEvent event) {
-    //        System.out.println("SourceOperatorStreamTask.triggerFlush");
-    //        operatorChain.triggerFlush(event);
+    //    public void flush(FlushRuntimeEvent event) {
+    //        System.out.println("SourceOperatorStreamTask.flush");
+    //        operatorChain.flush(event);
     //        try {
     //            operatorChain.broadcastEvent(event);
     //        } catch (IOException e) {

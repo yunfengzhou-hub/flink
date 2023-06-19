@@ -50,8 +50,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
     private static final int TAG_WATERMARK = 2;
     private static final int TAG_LATENCY_MARKER = 3;
     private static final int TAG_STREAM_STATUS = 4;
-    private static final int TAG_FLUSH_TRIGGERING = 5;
-    private static final int TAG_FLUSH_STRATEGY_UPDATE = 6;
 
     private final TypeSerializer<T> typeSerializer;
 
@@ -103,10 +101,7 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
         if (from.isRecord()) {
             StreamRecord<T> fromRecord = from.asRecord();
             return fromRecord.copy(typeSerializer.copy(fromRecord.getValue()));
-        } else if (from.isWatermark()
-                || from.isWatermarkStatus()
-                || from.isLatencyMarker()
-                || from.isFlushEvent()) {
+        } else if (from.isWatermark() || from.isWatermarkStatus() || from.isLatencyMarker()) {
             // is immutable
             return from;
         } else {
@@ -123,10 +118,7 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             T valueCopy = typeSerializer.copy(fromRecord.getValue(), reuseRecord.getValue());
             fromRecord.copyTo(valueCopy, reuseRecord);
             return reuse;
-        } else if (from.isWatermark()
-                || from.isWatermarkStatus()
-                || from.isLatencyMarker()
-                || from.isFlushEvent()) {
+        } else if (from.isWatermark() || from.isWatermarkStatus() || from.isLatencyMarker()) {
             // is immutable
             return from;
         } else {
@@ -154,11 +146,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             target.writeLong(source.readLong());
             target.writeLong(source.readLong());
             target.writeInt(source.readInt());
-        } else if (tag == TAG_FLUSH_TRIGGERING) {
-            target.writeLong(source.readLong());
-        } else if (tag == TAG_FLUSH_STRATEGY_UPDATE) {
-            target.writeLong(source.readLong());
-            target.writeByte(source.readByte());
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
@@ -188,15 +175,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             target.writeLong(value.asLatencyMarker().getOperatorId().getLowerPart());
             target.writeLong(value.asLatencyMarker().getOperatorId().getUpperPart());
             target.writeInt(value.asLatencyMarker().getSubtaskIndex());
-        } else if (value.isFlushEvent()) {
-            if (value.isFlushStrategyUpdateEvent()) {
-                target.write(TAG_FLUSH_STRATEGY_UPDATE);
-                target.writeLong(value.asFlushStrategyUpdateEvent().getFlushEventId());
-                target.writeByte(value.asFlushStrategyUpdateEvent().getFlushStrategy().ordinal());
-            } else {
-                target.write(TAG_FLUSH_TRIGGERING);
-                target.writeLong(value.asFlushEvent().getFlushEventId());
-            }
         } else {
             throw new RuntimeException();
         }
@@ -219,11 +197,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
                     source.readLong(),
                     new OperatorID(source.readLong(), source.readLong()),
                     source.readInt());
-        } else if (tag == TAG_FLUSH_TRIGGERING) {
-            return new FlushEvent(source.readLong());
-        } else if (tag == TAG_FLUSH_STRATEGY_UPDATE) {
-            return new FlushStrategyUpdateEvent(
-                    source.readLong(), FlushStrategy.values()[source.readByte()]);
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
@@ -250,11 +223,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
                     source.readLong(),
                     new OperatorID(source.readLong(), source.readLong()),
                     source.readInt());
-        } else if (tag == TAG_FLUSH_TRIGGERING) {
-            return new FlushEvent(source.readLong());
-        } else if (tag == TAG_FLUSH_STRATEGY_UPDATE) {
-            return new FlushStrategyUpdateEvent(
-                    source.readLong(), FlushStrategy.values()[source.readByte()]);
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }

@@ -22,7 +22,6 @@ import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.io.PullingAsyncDataInput;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
-import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 
@@ -48,9 +47,6 @@ public interface PushingAsyncDataInput<T> extends AvailabilityProvider {
      * @param <T> The type encapsulated with the stream record.
      */
     interface DataOutput<T> {
-        default void emit(StreamElement streamElement) {}
-
-        default void flush() {}
 
         void emitRecord(StreamRecord<T> streamRecord) throws Exception;
 

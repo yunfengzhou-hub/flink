@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.jobgraph.tasks;
 
-import org.apache.flink.runtime.flush.FlushRuntimeEvent;
+import org.apache.flink.runtime.flush.FlushEvent;
 
 public interface FlushableTask {
-    void triggerFlush(FlushRuntimeEvent event);
+    void flush(FlushEvent event);
 }

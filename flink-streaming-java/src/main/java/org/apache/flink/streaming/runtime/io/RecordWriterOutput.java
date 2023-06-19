@@ -30,7 +30,6 @@ import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.metrics.WatermarkGauge;
-import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
@@ -89,21 +88,6 @@ public class RecordWriterOutput<OUT>
         }
 
         this.supportsUnalignedCheckpoints = supportsUnalignedCheckpoints;
-    }
-
-    @Override
-    public void collect(StreamElement element) {
-        serializationDelegate.setInstance(element);
-
-        try {
-            if (element instanceof FlushEvent) {
-                recordWriter.broadcastEmit(serializationDelegate);
-            } else {
-                throw new UnsupportedOperationException(element.getClass().getCanonicalName());
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e.getMessage(), e);
-        }
     }
 
     @Override

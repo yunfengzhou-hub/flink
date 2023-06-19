@@ -20,7 +20,7 @@ package org.apache.flink.streaming.runtime.io;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.AbstractEvent;
-import org.apache.flink.runtime.flush.FlushRuntimeEvent;
+import org.apache.flink.runtime.flush.FlushEvent;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
@@ -155,8 +155,6 @@ public abstract class AbstractStreamTaskNetworkInput<
                     recordOrMark.asWatermarkStatus(),
                     flattenedChannelIndices.get(lastChannel),
                     output);
-        } else if (recordOrMark.isFlushEvent()) {
-            output.emit(recordOrMark);
         } else {
             throw new UnsupportedOperationException(
                     "Unknown type of StreamElement " + recordOrMark.getClass());
@@ -187,7 +185,7 @@ public abstract class AbstractStreamTaskNetworkInput<
             if (checkpointedInputGate.allChannelsRecovered()) {
                 return DataInputStatus.END_OF_RECOVERY;
             }
-        } else if (event.getClass() == FlushRuntimeEvent.class) {
+        } else if (event.getClass() == FlushEvent.class) {
             //            output.flush();
             return DataInputStatus.NEED_FLUSH;
         }

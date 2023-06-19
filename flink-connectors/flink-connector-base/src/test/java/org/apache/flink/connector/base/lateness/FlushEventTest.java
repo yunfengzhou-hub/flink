@@ -79,22 +79,7 @@ public class FlushEventTest {
 
         @Override
         public void flush() {
-            System.out.println("flush()");
+            System.out.println("MySinkFunction flush()");
         }
-    }
-
-    private static void print(Number number) {
-        System.out.println("Number: " + number);
-    }
-
-    private static void print(Long number) {
-        System.out.println("Long: " + number);
-    }
-
-    public static void main(String[] args) {
-        print(1L);
-        print(2L);
-        Number number = 3L;
-        print(number);
     }
 }

@@ -43,7 +43,7 @@ import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.checkpoint.channel.SequentialChannelStateReader;
 import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.execution.Environment;
-import org.apache.flink.runtime.flush.FlushRuntimeEvent;
+import org.apache.flink.runtime.flush.FlushEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
@@ -570,7 +570,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                 }
                 break;
             case NEED_FLUSH:
-                triggerFlush(new FlushRuntimeEvent());
+                flush(new FlushEvent());
                 return;
             case NOTHING_AVAILABLE:
                 break;
@@ -1798,9 +1798,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     }
 
     @Override
-    public void triggerFlush(FlushRuntimeEvent event) {
-        System.out.println("StreamTask.triggerFlush");
-        operatorChain.triggerFlush(event);
+    public void flush(FlushEvent event) {
+        System.out.println("StreamTask.flush");
+        operatorChain.flush(event);
         try {
             operatorChain.broadcastEvent(event);
         } catch (IOException e) {

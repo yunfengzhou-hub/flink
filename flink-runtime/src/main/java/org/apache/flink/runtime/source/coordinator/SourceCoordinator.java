@@ -55,7 +55,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -447,10 +446,6 @@ public class SourceCoordinator<SplitT extends SourceSplit, EnumChkT>
 
     public OperatorID getOperatorID() {
         return context.getCoordinatorContext().getOperatorId();
-    }
-
-    public void updateFlushInterval(Duration flushInterval) {
-        context.updateFlushInterval(flushInterval);
     }
 
     private void runInEventLoop(

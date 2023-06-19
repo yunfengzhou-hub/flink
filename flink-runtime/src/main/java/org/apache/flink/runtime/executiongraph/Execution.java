@@ -34,7 +34,7 @@ import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptorFactory;
 import org.apache.flink.runtime.execution.ExecutionState;
-import org.apache.flink.runtime.flush.FlushRuntimeEvent;
+import org.apache.flink.runtime.flush.FlushEvent;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -905,12 +905,12 @@ public class Execution
         }
     }
 
-    public void triggerFlush() {
+    public void flush() {
         final LogicalSlot slot = assignedResource;
 
         if (slot != null) {
             final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
-            taskManagerGateway.triggerFlush(getAttemptId(), new FlushRuntimeEvent());
+            taskManagerGateway.flush(getAttemptId(), new FlushEvent());
             return;
         }
         throw new RuntimeException();

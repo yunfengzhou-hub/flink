@@ -25,7 +25,7 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
-import org.apache.flink.runtime.flush.FlushRuntimeEvent;
+import org.apache.flink.runtime.flush.FlushEvent;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
@@ -128,7 +128,7 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
     }
 
     @Override
-    public void triggerFlush(ExecutionAttemptID executionAttemptID, FlushRuntimeEvent event) {
-        taskExecutorGateway.triggerFlush(executionAttemptID, event);
+    public void flush(ExecutionAttemptID executionAttemptID, FlushEvent event) {
+        taskExecutorGateway.flush(executionAttemptID, event);
     }
 }

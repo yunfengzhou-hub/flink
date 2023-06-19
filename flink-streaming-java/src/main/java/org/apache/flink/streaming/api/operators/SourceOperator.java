@@ -41,7 +41,6 @@ import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventGateway;
 import org.apache.flink.runtime.operators.coordination.OperatorEventHandler;
 import org.apache.flink.runtime.source.event.AddSplitEvent;
-import org.apache.flink.runtime.source.event.FlushIntervalEvent;
 import org.apache.flink.runtime.source.event.NoMoreSplitsEvent;
 import org.apache.flink.runtime.source.event.ReaderRegistrationEvent;
 import org.apache.flink.runtime.source.event.ReportedWatermarkEvent;
@@ -57,9 +56,6 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.DataInputStatus;
 import org.apache.flink.streaming.runtime.io.MultipleFuturesAvailabilityHelper;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput;
-import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
-import org.apache.flink.streaming.runtime.streamrecord.FlushStrategy;
-import org.apache.flink.streaming.runtime.streamrecord.FlushStrategyUpdateEvent;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -447,28 +443,6 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                 }
                 initializeMainOutput(output);
 
-                long registerTime = processingTimeService.getCurrentProcessingTime();
-                if (flushInterval != null) {
-                    if (flushInterval.equals(Duration.ZERO)) {
-                        output.emit(
-                                new FlushStrategyUpdateEvent(
-                                        registerTime, FlushStrategy.FLUSH_EVERY_RECORD));
-                    } else {
-                        registerTime =
-                                registerTime
-                                        - (registerTime % flushInterval.toMillis())
-                                        + flushInterval.toMillis();
-                        output.emit(
-                                new FlushStrategyUpdateEvent(
-                                        registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
-                        //                        if (!isFlushTimerRegistered) {
-                        //                            processingTimeService.registerTimer(
-                        //                                    registerTime +
-                        // flushInterval.toMillis(),
-                        //                                    new FlushProcessingTimeCallback());
-                        //                        }
-                    }
-                }
                 return convertToInternalStatus(sourceReader.pollNext(currentMainOutput));
             case SOURCE_STOPPED:
                 this.operatingMode = OperatingMode.DATA_FINISHED;
@@ -488,20 +462,6 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
             case READING:
             default:
                 throw new IllegalStateException("Unknown operating mode: " + operatingMode);
-        }
-    }
-
-    private class FlushProcessingTimeCallback
-            implements org.apache.flink.api.common.operators.ProcessingTimeService
-                    .ProcessingTimeCallback {
-        @Override
-        public void onProcessingTime(long time) {
-            output.collect(new FlushEvent(time));
-            if (flushInterval != null && flushInterval.toMillis() > 0) {
-                processingTimeService.registerTimer(time + flushInterval.toMillis(), this);
-            } else {
-                isFlushTimerRegistered = false;
-            }
         }
     }
 
@@ -612,30 +572,6 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
             sourceReader.handleSourceEvents(((SourceEventWrapper) event).getSourceEvent());
         } else if (event instanceof NoMoreSplitsEvent) {
             sourceReader.notifyNoMoreSplits();
-        } else if (event instanceof FlushIntervalEvent) {
-            flushInterval = ((FlushIntervalEvent) event).getFlushInterval();
-
-            long registerTime = processingTimeService.getCurrentProcessingTime();
-            if (flushInterval == null) {
-                output.collect(
-                        new FlushStrategyUpdateEvent(registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
-            } else if (flushInterval.equals(Duration.ZERO)) {
-                output.collect(
-                        new FlushStrategyUpdateEvent(
-                                registerTime, FlushStrategy.FLUSH_EVERY_RECORD));
-            } else {
-                registerTime =
-                        registerTime
-                                - (registerTime % flushInterval.toMillis())
-                                + flushInterval.toMillis();
-                output.collect(
-                        new FlushStrategyUpdateEvent(registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
-                //                if (!isFlushTimerRegistered) {
-                //                    processingTimeService.registerTimer(
-                //                            registerTime + flushInterval.toMillis(),
-                //                            new FlushProcessingTimeCallback());
-                //                }
-            }
         } else {
             throw new IllegalStateException("Received unexpected operator event " + event);
         }

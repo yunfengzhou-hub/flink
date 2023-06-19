@@ -20,9 +20,6 @@ package org.apache.flink.streaming.api.operators;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
-import org.apache.flink.streaming.runtime.streamrecord.FlushEvent;
-import org.apache.flink.streaming.runtime.streamrecord.FlushStrategy;
-import org.apache.flink.streaming.runtime.streamrecord.FlushStrategyUpdateEvent;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
@@ -35,10 +32,6 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
     private static final long serialVersionUID = 1L;
 
     private transient SimpleContext sinkContext;
-
-    private transient long previousFlushTimestamp = -1L;
-
-    private transient FlushStrategy flushStrategy = FlushStrategy.NO_ACTIVE_FLUSH;
 
     /** We listen to this ourselves because we don't have an {@link InternalTimerService}. */
     private long currentWatermark = Long.MIN_VALUE;
@@ -55,26 +48,10 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
         this.sinkContext = new SimpleContext<>(getProcessingTimeService());
     }
 
-    //    @Override
-    //    public void processElement(StreamElement element) throws Exception {
-    //        if (element instanceof StreamRecord) {
-    //            processElement((StreamRecord<IN>) element);
-    //            return;
-    //        } else if (element instanceof FlushEvent) {
-    //            processFlushEvent((FlushEvent) element);
-    //            return;
-    //        }
-    //
-    //        throw new UnsupportedOperationException(element.getClass().getCanonicalName());
-    //    }
-
     @Override
     public void processElement(StreamRecord<IN> element) throws Exception {
         sinkContext.element = element;
         userFunction.invoke(element.getValue(), sinkContext);
-        if (flushStrategy == FlushStrategy.FLUSH_EVERY_RECORD) {
-            userFunction.flush();
-        }
     }
 
     @Override
@@ -94,31 +71,8 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
     }
 
     @Override
-    public void processFlushEvent(FlushEvent flushEvent) {
-        if (flushEvent.getFlushEventId() <= previousFlushTimestamp) {
-            return;
-        }
-        System.out.println("processFlushEvent " + flushEvent.getFlushEventId());
-        try {
-            userFunction.flush();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        previousFlushTimestamp = flushEvent.getFlushEventId();
-
-        if (flushEvent instanceof FlushStrategyUpdateEvent) {
-            flushStrategy = ((FlushStrategyUpdateEvent) flushEvent).getFlushStrategy();
-        }
-    }
-
-    @Override
-    public void triggerFlush() {
-        super.triggerFlush();
-        try {
-            userFunction.flush();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public void flush() throws Exception {
+        userFunction.flush();
     }
 
     private class SimpleContext<IN> implements SinkFunction.Context {

@@ -34,7 +34,6 @@ import org.apache.flink.runtime.metrics.groups.InternalSplitEnumeratorMetricGrou
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.source.event.AddSplitEvent;
-import org.apache.flink.runtime.source.event.FlushIntervalEvent;
 import org.apache.flink.runtime.source.event.NoMoreSplitsEvent;
 import org.apache.flink.runtime.source.event.SourceEventWrapper;
 import org.apache.flink.util.ExceptionUtils;
@@ -317,12 +316,6 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
     public void setAllowedLatency(Duration allowedLatency) {
         this.flushCoordinator.setAllowedLatency(
                 operatorCoordinatorContext.getOperatorId(), allowedLatency);
-    }
-
-    public void updateFlushInterval(Duration flushInterval) {
-        for (Map<Integer, OperatorCoordinator.SubtaskGateway> gateways : subtaskGateways.gateways) {
-            gateways.values().forEach(x -> x.sendEvent(new FlushIntervalEvent(flushInterval)));
-        }
     }
 
     @Override
