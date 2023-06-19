@@ -137,6 +137,8 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
     /** Provides a context to initialize all state in the operator. */
     void initializeState(StreamTaskStateInitializer streamTaskStateManager) throws Exception;
 
+    default void triggerFlush() {}
+
     // ------------------------------------------------------------------------
     //  miscellaneous
     // ------------------------------------------------------------------------

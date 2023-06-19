@@ -86,7 +86,7 @@ public class DefaultOperatorCoordinatorHandler implements OperatorCoordinatorHan
             SourceCoordinator<?, ?> sourceCoordinator =
                     getSourceCoordinator(coordinatorHolder.coordinator());
             if (sourceCoordinator != null) {
-                flushCoordinator.registerSourceCoordinator(sourceCoordinator);
+                //                flushCoordinator.registerSourceCoordinator(sourceCoordinator);
                 sourceCoordinator.setFlushCoordinator(flushCoordinator);
             }
         }

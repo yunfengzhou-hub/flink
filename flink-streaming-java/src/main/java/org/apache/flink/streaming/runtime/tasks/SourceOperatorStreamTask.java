@@ -284,6 +284,17 @@ public class SourceOperatorStreamTask<T> extends StreamTask<T, SourceOperator<T,
         maybeResumeProcessing();
     }
 
+    //    @Override
+    //    public void triggerFlush(FlushRuntimeEvent event) {
+    //        System.out.println("SourceOperatorStreamTask.triggerFlush");
+    //        operatorChain.triggerFlush(event);
+    //        try {
+    //            operatorChain.broadcastEvent(event);
+    //        } catch (IOException e) {
+    //            throw new RuntimeException(e);
+    //        }
+    //    }
+
     // ---------------------------
 
     /** Implementation of {@link DataOutput} that wraps a specific {@link Output}. */

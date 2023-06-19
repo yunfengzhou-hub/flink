@@ -30,8 +30,8 @@ public class FlushStrategyUpdateEvent extends FlushEvent {
     }
 
     /**
-     * Gets the strategy describing how receiver operators should perform flush operations
-     * for the incoming records.
+     * Gets the strategy describing how receiver operators should perform flush operations for the
+     * incoming records.
      */
     public FlushStrategy getFlushStrategy() {
         return flushStrategy;

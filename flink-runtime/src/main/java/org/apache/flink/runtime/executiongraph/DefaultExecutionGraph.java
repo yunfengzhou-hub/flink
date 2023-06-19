@@ -51,6 +51,7 @@ import org.apache.flink.runtime.entrypoint.ClusterEntryPointExceptionUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.PartitionGroupReleaseStrategy;
+import org.apache.flink.runtime.flush.DefaultFlushCoordinatorContext;
 import org.apache.flink.runtime.flush.FlushCoordinator;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -103,11 +104,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -303,6 +306,8 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
 
     private final FlushCoordinator flushCoordinator;
 
+    private final DefaultFlushCoordinatorContext flushCoordinatorContext;
+
     // --------------------------------------------------------------------------------------------
     //   Constructors
     // --------------------------------------------------------------------------------------------
@@ -405,7 +410,20 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
 
         this.nonFinishedHybridPartitionShouldBeUnknown = nonFinishedHybridPartitionShouldBeUnknown;
 
+        Set<Execution> sourceExecutions = new HashSet<>();
+        System.out.println("tasks.values() " + tasks.values().size());
+        tasks.values()
+                .forEach(
+                        x -> {
+                            if (x.getJobVertex().isInputVertex()) {
+                                for (ExecutionVertex vertex : x.getTaskVertices()) {
+                                    sourceExecutions.add(vertex.getCurrentExecutionAttempt());
+                                }
+                            }
+                        });
+        this.flushCoordinatorContext = new DefaultFlushCoordinatorContext(tasks);
         this.flushCoordinator = new FlushCoordinator(jobInformation.getJobConfiguration());
+        this.flushCoordinator.setup(flushCoordinatorContext);
 
         LOG.info(
                 "Created execution graph {} for job {}.",
@@ -418,6 +436,27 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
     @Override
     public void start(@Nonnull ComponentMainThreadExecutor jobMasterMainThreadExecutor) {
         this.jobMasterMainThreadExecutor = jobMasterMainThreadExecutor;
+
+        System.out.println("execute flushCoordinator::start");
+        Thread t = new Thread(new MyRunnable(this.flushCoordinator));
+        t.start();
+        //        getJobMasterMainThreadExecutor()
+        //                .execute(
+        //                        this.flushCoordinator::start);
+        //        this.flushCoordinator.start();
+    }
+
+    private static class MyRunnable implements Runnable {
+        private final FlushCoordinator coordinator;
+
+        private MyRunnable(FlushCoordinator coordinator) {
+            this.coordinator = coordinator;
+        }
+
+        @Override
+        public void run() {
+            coordinator.start();
+        }
     }
 
     // --------------------------------------------------------------------------------------------
@@ -878,12 +917,20 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
                     executionJobVertexFactory.createExecutionJobVertex(
                             this, jobVertex, parallelismInfo);
 
+            System.out.println(
+                    "attachJobVertices " + jobVertex.getID() + " " + jobVertex.isInputVertex());
             ExecutionJobVertex previousTask = this.tasks.putIfAbsent(jobVertex.getID(), ejv);
             if (previousTask != null) {
                 throw new JobException(
                         String.format(
                                 "Encountered two job vertices with ID %s : previous=[%s] / new=[%s]",
                                 jobVertex.getID(), ejv, previousTask));
+            }
+            if (jobVertex.isInputVertex()) {
+                for (ExecutionVertex vertex : ejv.getTaskVertices()) {
+                    this.flushCoordinatorContext.addSourceExecution(
+                            vertex.getCurrentExecutionAttempt());
+                }
             }
 
             this.verticesInCreationOrder.add(ejv);

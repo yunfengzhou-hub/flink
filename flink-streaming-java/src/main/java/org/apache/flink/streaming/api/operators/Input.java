@@ -39,23 +39,25 @@ public interface Input<IN> {
         if (element instanceof FlushEvent) {
             processFlushEvent((FlushEvent) element);
             return;
-//        } else if (element instanceof StreamRecord) {
-//            processElement((StreamRecord<IN>) element);
-//            return;
-//        } else if (element instanceof Watermark) {
-//            processWatermark((Watermark) element);
-//            return;
-//        } else if (element instanceof WatermarkStatus) {
-//            processWatermarkStatus((WatermarkStatus) element);
-//            return;
-//        } else if (element instanceof LatencyMarker) {
-//            processLatencyMarker((LatencyMarker) element);
-//            return;
+            //        } else if (element instanceof StreamRecord) {
+            //            processElement((StreamRecord<IN>) element);
+            //            return;
+            //        } else if (element instanceof Watermark) {
+            //            processWatermark((Watermark) element);
+            //            return;
+            //        } else if (element instanceof WatermarkStatus) {
+            //            processWatermarkStatus((WatermarkStatus) element);
+            //            return;
+            //        } else if (element instanceof LatencyMarker) {
+            //            processLatencyMarker((LatencyMarker) element);
+            //            return;
         }
         // TODO: Migrate all StreamElement subclasses to use this method.
 
         throw new UnsupportedOperationException(element.getClass().getCanonicalName());
     }
+
+    default void flush() {}
 
     /**
      * Processes one element that arrived on this input of the {@link MultipleInputStreamOperator}.
@@ -112,18 +114,18 @@ public interface Input<IN> {
     /**
      * Processes a {@link FlushEvent} that arrived at this input.
      *
-     * <p> If the operator works without buffer and outputs results as soon as possible, this method
+     * <p>If the operator works without buffer and outputs results as soon as possible, this method
      * can be ignored.
      *
-     * <p> Otherwise, the operator should trigger calculations on the buffered inputs and forward
-     * results to the downstream operators. When the operator finishes processing this event,
-     * all output records that could be correctly inferred from previously received input records
-     * should have all been flushed downstream.
+     * <p>Otherwise, the operator should trigger calculations on the buffered inputs and forward
+     * results to the downstream operators. When the operator finishes processing this event, all
+     * output records that could be correctly inferred from previously received input records should
+     * have all been flushed downstream.
      *
-     * <p> Besides, the operator should also adjust its flushing behavior towards stream records
-     * received after this event according to {@link FlushEvent#getFlushStrategy()}. See
-     * {@link org.apache.flink.streaming.runtime.streamrecord.FlushStrategy} for a list of strategies
-     * an operator should support.
+     * <p>Besides, the operator should also adjust its flushing behavior towards stream records
+     * received after this event according to {@link FlushEvent#getFlushStrategy()}. See {@link
+     * org.apache.flink.streaming.runtime.streamrecord.FlushStrategy} for a list of strategies an
+     * operator should support.
      */
     default void processFlushEvent(FlushEvent flushEvent) {}
 }

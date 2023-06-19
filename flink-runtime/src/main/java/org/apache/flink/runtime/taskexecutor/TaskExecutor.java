@@ -47,6 +47,7 @@ import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.executiongraph.TaskInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceInfoProvider;
 import org.apache.flink.runtime.filecache.FileCache;
+import org.apache.flink.runtime.flush.FlushRuntimeEvent;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
 import org.apache.flink.runtime.heartbeat.HeartbeatManager;
 import org.apache.flink.runtime.heartbeat.HeartbeatReceiver;
@@ -2240,6 +2241,16 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                     new FlinkException("Could not upload file " + fileTag + '.', e));
         }
         return CompletableFuture.completedFuture(transientBlobKey);
+    }
+
+    @Override
+    public void triggerFlush(ExecutionAttemptID executionAttemptID, FlushRuntimeEvent event) {
+        final Task task = taskSlotTable.getTask(executionAttemptID);
+        System.out.println("TaskExecutor received FlushRuntimeEvent ");
+
+        if (task != null) {
+            task.triggerFlush(event);
+        }
     }
 
     // ------------------------------------------------------------------------

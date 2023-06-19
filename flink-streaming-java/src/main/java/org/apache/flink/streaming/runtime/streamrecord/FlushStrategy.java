@@ -17,7 +17,6 @@
 
 package org.apache.flink.streaming.runtime.streamrecord;
 
-import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 
 /** The strategy how receiver operators should perform flush operation for the incoming records. */

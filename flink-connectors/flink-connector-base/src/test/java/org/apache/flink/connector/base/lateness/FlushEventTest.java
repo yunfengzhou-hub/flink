@@ -41,6 +41,7 @@ public class FlushEventTest {
         StreamExecutionEnvironment env =
                 StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         env.setParallelism(2);
+        //        env.enableCheckpointing(100);
         int numSplits = 1;
         int numRecordsPerSplit = 5;
 

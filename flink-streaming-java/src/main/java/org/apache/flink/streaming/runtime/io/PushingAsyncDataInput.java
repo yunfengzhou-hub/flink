@@ -50,6 +50,8 @@ public interface PushingAsyncDataInput<T> extends AvailabilityProvider {
     interface DataOutput<T> {
         default void emit(StreamElement streamElement) {}
 
+        default void flush() {}
+
         void emitRecord(StreamRecord<T> streamRecord) throws Exception;
 
         void emitWatermark(Watermark watermark) throws Exception;

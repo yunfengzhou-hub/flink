@@ -28,6 +28,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.checkpoint.SavepointType;
 import org.apache.flink.runtime.checkpoint.SnapshotType;
 import org.apache.flink.runtime.event.AbstractEvent;
+import org.apache.flink.runtime.flush.FlushRuntimeEvent;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.EndOfData;
@@ -74,6 +75,8 @@ public class EventSerializer {
     private static final int VIRTUAL_CHANNEL_SELECTOR_EVENT = 7;
 
     private static final int END_OF_USER_RECORDS_EVENT = 8;
+
+    private static final int FLUSH_EVENT = 9;
 
     private static final byte CHECKPOINT_TYPE_CHECKPOINT = 0;
 
@@ -139,6 +142,10 @@ public class EventSerializer {
             buf.putInt(selector.getOutputSubtaskIndex());
             buf.flip();
             return buf;
+        } else if (eventClass == FlushRuntimeEvent.class) {
+            ByteBuffer buf = ByteBuffer.allocate(4);
+            buf.putInt(0, FLUSH_EVENT);
+            return buf;
         } else {
             try {
                 final DataOutputSerializer serializer = new DataOutputSerializer(128);
@@ -183,6 +190,8 @@ public class EventSerializer {
                 return new EventAnnouncement(announcedEvent, sequenceNumber);
             } else if (type == VIRTUAL_CHANNEL_SELECTOR_EVENT) {
                 return new SubtaskConnectionDescriptor(buffer.getInt(), buffer.getInt());
+            } else if (type == FLUSH_EVENT) {
+                return new FlushRuntimeEvent();
             } else if (type == OTHER_EVENT) {
                 try {
                     final DataInputDeserializer deserializer = new DataInputDeserializer(buffer);

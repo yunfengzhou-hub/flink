@@ -43,6 +43,7 @@ import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.checkpoint.channel.SequentialChannelStateReader;
 import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.execution.Environment;
+import org.apache.flink.runtime.flush.FlushRuntimeEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
@@ -61,6 +62,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.RestoreMode;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointableTask;
 import org.apache.flink.runtime.jobgraph.tasks.CoordinatedTask;
+import org.apache.flink.runtime.jobgraph.tasks.FlushableTask;
 import org.apache.flink.runtime.jobgraph.tasks.TaskInvokable;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
@@ -191,6 +193,7 @@ import static org.apache.flink.util.concurrent.FutureUtils.assertNoException;
 public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         implements TaskInvokable,
                 CheckpointableTask,
+                FlushableTask,
                 CoordinatedTask,
                 AsyncExceptionHandler,
                 ContainingTaskDetails {
@@ -566,6 +569,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                     return;
                 }
                 break;
+            case NEED_FLUSH:
+                triggerFlush(new FlushRuntimeEvent());
+                return;
             case NOTHING_AVAILABLE:
                 break;
             case END_OF_RECOVERY:
@@ -1789,6 +1795,17 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     @Override
     public final Environment getEnvironment() {
         return environment;
+    }
+
+    @Override
+    public void triggerFlush(FlushRuntimeEvent event) {
+        System.out.println("StreamTask.triggerFlush");
+        operatorChain.triggerFlush(event);
+        try {
+            operatorChain.broadcastEvent(event);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /** Check whether records can be emitted in batch. */

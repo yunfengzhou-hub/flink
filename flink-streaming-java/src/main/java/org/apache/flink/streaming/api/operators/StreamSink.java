@@ -111,6 +111,16 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
         }
     }
 
+    @Override
+    public void triggerFlush() {
+        super.triggerFlush();
+        try {
+            userFunction.flush();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private class SimpleContext<IN> implements SinkFunction.Context {
 
         private StreamRecord<IN> element;

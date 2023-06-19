@@ -20,20 +20,18 @@ package org.apache.flink.streaming.runtime.streamrecord;
 import org.apache.flink.annotation.PublicEvolving;
 
 /**
- * A {@link ControlEvent} signaling that the receiver operator should perform a flush operation.
- * A flush operation means that after processing this event, the operator should have forwarded
- * all output records that could be correctly inferred from previously received input records
- * to downstream operators or external systems. After the output records have been flushed, the
+ * A {@link ControlEvent} signaling that the receiver operator should perform a flush operation. A
+ * flush operation means that after processing this event, the operator should have forwarded all
+ * output records that could be correctly inferred from previously received input records to
+ * downstream operators or external systems. After the output records have been flushed, the
  * operator should also forward this event to downstream.
  *
- * <p> If the Flink job has enabled exactly-once checkpoint, which means some operators can only
+ * <p>If the Flink job has enabled exactly-once checkpoint, which means some operators can only
  * flush results on checkpoints, operators in the Flink job would not receive flush events.
  */
 @PublicEvolving
 public class FlushEvent extends ControlEvent {
-    /**
-     * A monotonically increasing number that signals the order of flush events.
-     */
+    /** A monotonically increasing number that signals the order of flush events. */
     protected final long flushEventId;
 
     public FlushEvent(long flushEventId) {
@@ -41,10 +39,10 @@ public class FlushEvent extends ControlEvent {
     }
 
     /**
-     * Returns the ID of this FlushEvent. An ID is a monotonically increasing number that signals the
-     * order of flush events.
+     * Returns the ID of this FlushEvent. An ID is a monotonically increasing number that signals
+     * the order of flush events.
      *
-     * <p> If the receiver operator of this event has more than one input, the operator may only
+     * <p>If the receiver operator of this event has more than one input, the operator may only
      * flush results when the maximum ID of flush events received from all inputs has increased.
      */
     public long getFlushEventId() {
@@ -61,8 +59,8 @@ public class FlushEvent extends ControlEvent {
     }
 
     /**
-     * Gets the strategy describing how receiver operators should perform flush operations
-     * for the incoming records.
+     * Gets the strategy describing how receiver operators should perform flush operations for the
+     * incoming records.
      */
     public FlushStrategy getFlushStrategy() {
         return FlushStrategy.NO_ACTIVE_FLUSH;

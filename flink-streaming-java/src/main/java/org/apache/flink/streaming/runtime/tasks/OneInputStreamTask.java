@@ -242,6 +242,12 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         }
 
         @Override
+        public void flush() {
+            operator.flush();
+            System.out.println("OneInputStreamTask.flush " + operator.getClass().getSimpleName());
+        }
+
+        @Override
         public void emitRecord(StreamRecord<IN> record) throws Exception {
             numRecordsIn.inc();
             recordProcessor.accept(record);

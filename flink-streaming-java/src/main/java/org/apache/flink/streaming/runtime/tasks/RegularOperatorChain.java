@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
+import org.apache.flink.runtime.flush.FlushRuntimeEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -235,6 +236,18 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
                 LOG.info(ex.getMessage(), ex);
             }
             throw ex;
+        }
+    }
+
+    @Override
+    public void triggerFlush(FlushRuntimeEvent event) {
+        for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators()) {
+            if (!operatorWrapper.isClosed()) {
+                System.out.println(
+                        "StreamOperator.triggerFlush "
+                                + operatorWrapper.getStreamOperator().getClass().getSimpleName());
+                operatorWrapper.getStreamOperator().triggerFlush();
+            }
         }
     }
 }

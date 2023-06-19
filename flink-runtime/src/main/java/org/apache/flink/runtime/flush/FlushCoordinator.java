@@ -20,14 +20,13 @@ package org.apache.flink.runtime.flush;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
+import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.source.coordinator.SourceCoordinator;
-import org.apache.flink.util.Preconditions;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import static org.apache.flink.configuration.ExecutionOptions.ALLOWED_LATENCY;
@@ -46,6 +45,12 @@ public class FlushCoordinator {
 
     private Duration allowedLatency;
 
+    private Duration flushInterval = Duration.ofSeconds(1);
+
+    private volatile boolean isClosed = false;
+
+    private FlushCoordinatorContext context;
+
     public FlushCoordinator(Configuration configuration) {
         allowedLatencyMap = new HashMap<>();
         allowedLatency = configuration.get(ALLOWED_LATENCY);
@@ -57,17 +62,27 @@ public class FlushCoordinator {
 
     /** Initializes the coordinator. Sets access to the context. */
     public void setup(FlushCoordinatorContext context) {
-
+        this.context = context;
     }
 
     /** Starts the coordinator. */
     public void start() {
+        System.out.println("FlushCoordinator.start");
+        while (!isClosed) {
+            try {
+                Thread.sleep(flushInterval.toMillis());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            System.out.println("Execution::triggerFlush " + context.getSourceExecutions().size());
 
+            context.getSourceExecutions().forEach(Execution::triggerFlush);
+        }
     }
 
     /** Closes the coordinator. */
     public void close() {
-
+        isClosed = true;
     }
 
     public void registerSourceCoordinator(SourceCoordinator<?, ?> coordinator) {
@@ -76,34 +91,35 @@ public class FlushCoordinator {
 
     /** Configures the latency requirement of a certain source operator. */
     public void setAllowedLatency(OperatorID operatorID, Duration allowedLatency) {
-        String key = operatorID.toHexString();
-        Preconditions.checkArgument(coordinatorMap.containsKey(key));
-        if (allowedLatency != null) {
-            allowedLatencyMap.put(key, allowedLatency);
-        } else {
-            allowedLatencyMap.remove(key);
-        }
-
-        Duration newAllowedLatency;
-        if (!allowedLatencyMap.isEmpty()) {
-            newAllowedLatency =
-                    allowedLatencyMap.values().stream()
-                            .reduce(
-                                    (duration, duration2) -> {
-                                        if (duration.compareTo(duration2) < 0) {
-                                            return duration;
-                                        }
-                                        return duration2;
-                                    })
-                            .get();
-        } else {
-            newAllowedLatency = null;
-        }
-
-        if (!Objects.equals(newAllowedLatency, this.allowedLatency)) {
-            coordinatorMap.values().forEach(x -> x.updateFlushInterval(newAllowedLatency));
-            this.allowedLatency = newAllowedLatency;
-        }
+        //        String key = operatorID.toHexString();
+        //        Preconditions.checkArgument(coordinatorMap.containsKey(key));
+        //        if (allowedLatency != null) {
+        //            allowedLatencyMap.put(key, allowedLatency);
+        //        } else {
+        //            allowedLatencyMap.remove(key);
+        //        }
+        //
+        //        Duration newAllowedLatency;
+        //        if (!allowedLatencyMap.isEmpty()) {
+        //            newAllowedLatency =
+        //                    allowedLatencyMap.values().stream()
+        //                            .reduce(
+        //                                    (duration, duration2) -> {
+        //                                        if (duration.compareTo(duration2) < 0) {
+        //                                            return duration;
+        //                                        }
+        //                                        return duration2;
+        //                                    })
+        //                            .get();
+        //        } else {
+        //            newAllowedLatency = null;
+        //        }
+        //
+        //        if (!Objects.equals(newAllowedLatency, this.allowedLatency)) {
+        //            coordinatorMap.values().forEach(x ->
+        // x.updateFlushInterval(newAllowedLatency));
+        //            this.allowedLatency = newAllowedLatency;
+        //        }
     }
 
     /**
@@ -114,5 +130,7 @@ public class FlushCoordinator {
         CheckpointCoordinator getCheckpointCoordinator();
 
         Set<SourceCoordinator<?, ?>> getSourceCoordinators();
+
+        Set<Execution> getSourceExecutions();
     }
 }

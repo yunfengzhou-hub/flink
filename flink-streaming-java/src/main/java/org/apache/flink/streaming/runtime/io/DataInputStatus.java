@@ -54,5 +54,11 @@ public enum DataInputStatus {
      * Indicator that the input has reached the end of data and control events. The input is about
      * to close.
      */
-    END_OF_INPUT
+    END_OF_INPUT,
+
+    /**
+     * Indicator that the input has reached the end of data and control events. The input is about
+     * to close.
+     */
+    NEED_FLUSH
 }

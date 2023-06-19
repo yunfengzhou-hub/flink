@@ -461,11 +461,12 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                         output.emit(
                                 new FlushStrategyUpdateEvent(
                                         registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
-                        if (!isFlushTimerRegistered) {
-                            processingTimeService.registerTimer(
-                                    registerTime + flushInterval.toMillis(),
-                                    new FlushProcessingTimeCallback());
-                        }
+                        //                        if (!isFlushTimerRegistered) {
+                        //                            processingTimeService.registerTimer(
+                        //                                    registerTime +
+                        // flushInterval.toMillis(),
+                        //                                    new FlushProcessingTimeCallback());
+                        //                        }
                     }
                 }
                 return convertToInternalStatus(sourceReader.pollNext(currentMainOutput));
@@ -629,11 +630,11 @@ public class SourceOperator<OUT, SplitT extends SourceSplit> extends AbstractStr
                                 + flushInterval.toMillis();
                 output.collect(
                         new FlushStrategyUpdateEvent(registerTime, FlushStrategy.NO_ACTIVE_FLUSH));
-                if (!isFlushTimerRegistered) {
-                    processingTimeService.registerTimer(
-                            registerTime + flushInterval.toMillis(),
-                            new FlushProcessingTimeCallback());
-                }
+                //                if (!isFlushTimerRegistered) {
+                //                    processingTimeService.registerTimer(
+                //                            registerTime + flushInterval.toMillis(),
+                //                            new FlushProcessingTimeCallback());
+                //                }
             }
         } else {
             throw new IllegalStateException("Received unexpected operator event " + event);

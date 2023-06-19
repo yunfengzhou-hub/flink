@@ -20,6 +20,7 @@ package org.apache.flink.streaming.runtime.io;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.AbstractEvent;
+import org.apache.flink.runtime.flush.FlushRuntimeEvent;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
@@ -123,7 +124,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                 if (bufferOrEvent.get().isBuffer()) {
                     processBuffer(bufferOrEvent.get());
                 } else {
-                    DataInputStatus status = processEvent(bufferOrEvent.get());
+                    DataInputStatus status = processEvent(bufferOrEvent.get(), output);
                     if (status == DataInputStatus.MORE_AVAILABLE && canEmitBatchOfRecords.check()) {
                         continue;
                     }
@@ -162,7 +163,7 @@ public abstract class AbstractStreamTaskNetworkInput<
         }
     }
 
-    protected DataInputStatus processEvent(BufferOrEvent bufferOrEvent) {
+    protected DataInputStatus processEvent(BufferOrEvent bufferOrEvent, DataOutput<T> output) {
         // Event received
         final AbstractEvent event = bufferOrEvent.getEvent();
         if (event.getClass() == EndOfData.class) {
@@ -186,6 +187,9 @@ public abstract class AbstractStreamTaskNetworkInput<
             if (checkpointedInputGate.allChannelsRecovered()) {
                 return DataInputStatus.END_OF_RECOVERY;
             }
+        } else if (event.getClass() == FlushRuntimeEvent.class) {
+            //            output.flush();
+            return DataInputStatus.NEED_FLUSH;
         }
         return DataInputStatus.MORE_AVAILABLE;
     }
