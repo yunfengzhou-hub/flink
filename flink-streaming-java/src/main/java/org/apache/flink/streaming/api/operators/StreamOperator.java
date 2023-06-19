@@ -138,11 +138,11 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
     void initializeState(StreamTaskStateInitializer streamTaskStateManager) throws Exception;
 
     /**
-     * Flushes all intermediate buffered data to the output stream.
+     * Flushes all buffered results to the output stream.
      *
      * <p>This method would be regularly invoked iff the value of the configuration
-     * execution.allowed-latency is not null. In this case, the operator may hold computations and
-     * outputs until this method is invoked. Specifically, if exactly-once checkpoint is enabled,
+     * execution.allowed-latency is not null. In this case, the operator may hold results until
+     * this method is invoked. Specifically, if exactly-once checkpoint is enabled,
      * this method would be invoked every time before {@link #snapshotState(long, long,
      * CheckpointOptions, CheckpointStreamFactory)} is invoked.
      */

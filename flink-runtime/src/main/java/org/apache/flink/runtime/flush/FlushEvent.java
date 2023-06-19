@@ -12,9 +12,6 @@ import java.io.IOException;
  * output records that could be correctly inferred from previously received input records to
  * downstream operators or external systems. After the output records have been flushed, this event
  * should also be forwarded to downstream.
- *
- * <p>If the Flink job has enabled exactly-once checkpoint, which means some operators can only
- * flush results on checkpoints, operators in the Flink job would not receive flush events.
  */
 public class FlushEvent extends RuntimeEvent {
     /**
