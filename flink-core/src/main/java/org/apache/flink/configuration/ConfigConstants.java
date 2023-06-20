@@ -23,6 +23,8 @@ import org.apache.flink.annotation.PublicEvolving;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 
@@ -33,6 +35,13 @@ import static org.apache.flink.configuration.ConfigOptions.key;
 @Public
 @SuppressWarnings("unused")
 public final class ConfigConstants {
+    /**
+     * A duration value larger than the current estimated age of the universe that can be
+     * approximately used to represent a duration of infinite length.
+     */
+    public static final Duration POSITIVE_INFINITY = ChronoUnit.FOREVER.getDuration();
+
+    public static final String POSITIVE_INFINITY_DURATION_STRING = "POSITIVE_INFINITY";
 
     // ------------------------------------------------------------------------
     //                            Configuration Keys

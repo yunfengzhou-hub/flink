@@ -1,6 +1,5 @@
 package org.apache.flink.runtime.flush;
 
-import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
@@ -15,11 +14,6 @@ public class DefaultFlushCoordinatorContext implements FlushCoordinator.FlushCoo
 
     public DefaultFlushCoordinatorContext(Map<JobVertexID, ExecutionJobVertex> tasks) {
         this.tasks = tasks;
-    }
-
-    @Override
-    public CheckpointCoordinator getCheckpointCoordinator() {
-        return null;
     }
 
     @Override
