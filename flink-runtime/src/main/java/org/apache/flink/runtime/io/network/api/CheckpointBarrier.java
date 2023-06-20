@@ -41,6 +41,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * is complete (exactly once).
  *
  * <p>The checkpoint barrier IDs are strictly monotonous increasing.
+ *
+ * <p>If the value of {@code execution.allowed-latency.align-with-checkpoint} is true,
+ * CheckpointBarriers would also trigger the operator's specific flush behavior before triggering
+ * the checkpoints.
  */
 public class CheckpointBarrier extends RuntimeEvent {
 

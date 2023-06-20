@@ -26,6 +26,7 @@ import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
 import java.io.Serializable;
+import java.time.Duration;
 
 /**
  * Basic interface for stream operators. Implementers would implement one of {@link
@@ -138,15 +139,28 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
     void initializeState(StreamTaskStateInitializer streamTaskStateManager) throws Exception;
 
     /**
-     * Flushes all buffered results to the output stream.
+     * Flushes all buffered results to the output stream and adjusts the operator's buffering and
+     * flushing behavior according to the flush context. This method might be invoked in the
+     * following scenarios:
      *
-     * <p>This method would be regularly invoked iff the value of the configuration
-     * execution.allowed-latency is not null. In this case, the operator may hold results until
-     * this method is invoked. Specifically, if exactly-once checkpoint is enabled,
-     * this method would be invoked every time before {@link #snapshotState(long, long,
-     * CheckpointOptions, CheckpointStreamFactory)} is invoked.
+     * <ul>
+     *   <li>If the method has ever been invoked, this method will be periodically invoked iff
+     *       {@link FlushContext#isPeriodicFlushEnabled()} is set to true during the last
+     *       invocation. Otherwise, this method would be periodically invoked iff the value of
+     *       {@code execution.allowed-latency} is not null.
+     *   <li>If the value of {@code execution.allowed-latency.align-with-checkpoint} is true, this
+     *       method would be invoked every time before {@link #snapshotState(long, long,
+     *       CheckpointOptions, CheckpointStreamFactory)} is invoked.
+     *   <li>If a source changes its latency requirement through {@link
+     *       org.apache.flink.api.connector.source.SplitEnumeratorContext#setAllowedLatency(Duration)},
+     *       a one-time invocation of this method would be triggered.
+     * </ul>
+     *
+     * <p>If the invocation of this method can be expected in the future according to the scenarios
+     * described above, the operator may hold its results until this method is invoked. Otherwise,
+     * the operator should flush itself automatically during runtime.
      */
-    default void flush() throws Exception {}
+    default void flush(FlushContext context) throws Exception {}
 
     // ------------------------------------------------------------------------
     //  miscellaneous
@@ -159,4 +173,13 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
     OperatorMetricGroup getMetricGroup();
 
     OperatorID getOperatorID();
+
+    /**
+     * A context that provides information an operator might use in its {@link #flush(FlushContext)}
+     * method.
+     */
+    interface FlushContext {
+        /** Returns a boolean denoting whether the operator would be flushed periodically. */
+        boolean isPeriodicFlushEnabled();
+    }
 }

@@ -19,7 +19,6 @@ package org.apache.flink.runtime.flush;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 
@@ -119,8 +118,6 @@ public class FlushCoordinator {
      * use when running.
      */
     interface FlushCoordinatorContext {
-        CheckpointCoordinator getCheckpointCoordinator();
-
         Set<Execution> getSourceExecutions();
     }
 }

@@ -25,6 +25,15 @@ public class FlushEvent extends RuntimeEvent {
         return 0L;
     }
 
+    /**
+     * Returns a boolean denoting the flushing behavior an operator should follow when processing
+     * the next incoming records. If true, operators should flush records automatically at real-time
+     * interval. If false, operators may retain outputs until the next {@link FlushEvent}.
+     */
+    public boolean enableAutoFlush() {
+        return true;
+    }
+
     @Override
     public void write(DataOutputView out) throws IOException {
         throw new UnsupportedOperationException("This method should never be called");

@@ -247,7 +247,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
                         "StreamOperator.flush "
                                 + operatorWrapper.getStreamOperator().getClass().getSimpleName());
                 try {
-                    operatorWrapper.getStreamOperator().flush();
+                    operatorWrapper.getStreamOperator().flush(null);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

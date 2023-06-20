@@ -71,7 +71,7 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
     }
 
     @Override
-    public void flush() throws Exception {
+    public void flush(FlushContext context) throws Exception {
         userFunction.flush();
     }
 
