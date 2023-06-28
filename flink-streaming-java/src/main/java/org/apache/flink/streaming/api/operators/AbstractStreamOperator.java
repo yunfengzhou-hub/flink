@@ -50,17 +50,21 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.CheckpointedStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
+import org.apache.flink.streaming.runtime.streamrecord.RecordAttributes;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 import org.apache.flink.streaming.util.LatencyStats;
+import org.apache.flink.util.ArrayUtils;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -147,6 +151,10 @@ public abstract class AbstractStreamOperator<OUT>
     // ---------------- time handler ------------------
 
     protected transient ProcessingTimeService processingTimeService;
+
+    private transient List<Boolean> isBackLog = Arrays.asList(false, false);
+
+    private transient boolean combinedIsBackLog = false;
 
     // ------------------------------------------------------------------------
     //  Life Cycle
@@ -616,6 +624,26 @@ public abstract class AbstractStreamOperator<OUT>
 
     public void processWatermark2(Watermark mark) throws Exception {
         processWatermark(mark, 1);
+    }
+
+    public void processRecordAttributes(RecordAttributes attributes) {
+        output.emitRecordAttributes(attributes);
+    }
+
+    public void processRecordAttributes(RecordAttributes attributes, int index) {
+        isBackLog.set(index, attributes.getIsBacklog());
+        boolean newIsBackLog = !isBackLog.contains(false);
+        if (newIsBackLog != combinedIsBackLog) {
+            combinedIsBackLog = newIsBackLog;
+            output.emitRecordAttributes(new RecordAttributes());
+        }
+    }
+    public void processRecordAttributes1(RecordAttributes attributes) {
+        output.emitRecordAttributes(attributes);
+    }
+
+    public void processRecordAttributes2(RecordAttributes attributes) {
+        output.emitRecordAttributes(attributes);
     }
 
     public void processWatermarkStatus(WatermarkStatus watermarkStatus) throws Exception {

@@ -18,6 +18,10 @@
 
 package org.apache.flink.table.test;
 
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.data.GenericArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.StringData;
@@ -35,6 +39,7 @@ import static org.apache.flink.table.api.DataTypes.FIELD;
 import static org.apache.flink.table.api.DataTypes.INT;
 import static org.apache.flink.table.api.DataTypes.ROW;
 import static org.apache.flink.table.api.DataTypes.STRING;
+import static org.apache.flink.table.api.Expressions.$;
 import static org.apache.flink.table.test.TableAssertions.assertThat;
 import static org.apache.flink.table.test.TableAssertions.assertThatRows;
 
@@ -72,5 +77,21 @@ class TableAssertionTest {
         // Test equality with Row
         assertThat(binaryRowData).asRow(dataType).isEqualTo(row);
         assertThatRows(binaryRowData).asRows(dataType).containsOnly(row);
+    }
+
+    public static void main(String[] args) {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+        Table table = tEnv.fromValues(1, 2, 3);
+        tEnv.registerTable("input_table", table);
+        table =
+                tEnv.sqlQuery("SELECT MAP[f0, 1] AS f1 from input_table")
+                        .select(
+                                $("f1").cast(
+                                        DataTypes.MAP(DataTypes.INT(), DataTypes.INT())
+                                                .nullable()));
+
+        tEnv.registerTable("input_table_2", table);
+        tEnv.sqlQuery("SELECT * from input_table_2").printSchema();
     }
 }
