@@ -31,6 +31,7 @@ import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.metrics.groups.JobManagerOperatorMetricGroup;
 import org.apache.flink.runtime.operators.coordination.util.IncompleteFuturesTracker;
 import org.apache.flink.runtime.scheduler.GlobalFailureHandler;
+import org.apache.flink.runtime.source.coordinator.SourceCoordinator;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.SerializedValue;
@@ -166,8 +167,15 @@ public class OperatorCoordinatorHolder
         context.lazyInitialize(
                 globalFailureHandler,
                 mainThreadExecutor,
-                operatorCoordinatorMetricGroup,
-                checkpointCoordinator);
+                operatorCoordinatorMetricGroup);
+
+        OperatorCoordinator rootCoordinator = coordinator;
+        if (coordinator instanceof RecreateOnResetOperatorCoordinator) {
+            rootCoordinator = ((RecreateOnResetOperatorCoordinator) rootCoordinator).getInternalCoordinator();
+        }
+        if (rootCoordinator instanceof SourceCoordinator) {
+            ((SourceCoordinator<?, ?>) rootCoordinator).lazyInitialize(checkpointCoordinator);
+        }
 
         setupAllSubtaskGateways();
     }
@@ -573,8 +581,6 @@ public class OperatorCoordinatorHolder
         private final int operatorParallelism;
         private final CoordinatorStore coordinatorStore;
         private final boolean supportsConcurrentExecutionAttempts;
-
-        private CheckpointCoordinator checkpointCoordinator;
         private GlobalFailureHandler globalFailureHandler;
         private Executor schedulerExecutor;
         private OperatorCoordinatorMetricGroup metricGroup;
@@ -599,12 +605,10 @@ public class OperatorCoordinatorHolder
         void lazyInitialize(
                 GlobalFailureHandler globalFailureHandler,
                 Executor schedulerExecutor,
-                OperatorCoordinatorMetricGroup metricGroup,
-                CheckpointCoordinator checkpointCoordinator) {
+                OperatorCoordinatorMetricGroup metricGroup) {
             this.globalFailureHandler = checkNotNull(globalFailureHandler);
             this.schedulerExecutor = checkNotNull(schedulerExecutor);
             this.metricGroup = metricGroup;
-            this.checkpointCoordinator = checkpointCoordinator;
         }
 
         void unInitialize() {
@@ -677,11 +681,6 @@ public class OperatorCoordinatorHolder
         @Override
         public boolean isConcurrentExecutionAttemptsSupported() {
             return supportsConcurrentExecutionAttempts;
-        }
-
-        @Override
-        public void setIsProcessingBacklog(boolean isProcessingBacklog) {
-            checkpointCoordinator.setIsProcessingBacklog(operatorId, isProcessingBacklog);
         }
     }
 }

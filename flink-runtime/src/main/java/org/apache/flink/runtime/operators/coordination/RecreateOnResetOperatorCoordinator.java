@@ -156,9 +156,7 @@ public class RecreateOnResetOperatorCoordinator implements OperatorCoordinator {
 
     // ---------------------
 
-    @VisibleForTesting
-    public OperatorCoordinator getInternalCoordinator() throws Exception {
-        waitForAllAsyncCallsFinish();
+    public OperatorCoordinator getInternalCoordinator() {
         return coordinator.internalCoordinator;
     }
 
@@ -169,7 +167,7 @@ public class RecreateOnResetOperatorCoordinator implements OperatorCoordinator {
     }
 
     @VisibleForTesting
-    void waitForAllAsyncCallsFinish() throws Exception {
+    public void waitForAllAsyncCallsFinish() throws Exception {
         CompletableFuture<Void> future = new CompletableFuture<>();
         coordinator.applyCall("waitForAllAsyncCallsFinish", c -> future.complete(null));
         future.get();
@@ -275,11 +273,6 @@ public class RecreateOnResetOperatorCoordinator implements OperatorCoordinator {
 
         private OperatorCoordinator.Context getContext() {
             return context;
-        }
-
-        @Override
-        public void setIsProcessingBacklog(boolean isProcessingBacklog) {
-            context.setIsProcessingBacklog(isProcessingBacklog);
         }
     }
 

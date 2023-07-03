@@ -92,11 +92,6 @@ public class MockOperatorCoordinatorContext implements OperatorCoordinator.Conte
         return false;
     }
 
-    @Override
-    public void setIsProcessingBacklog(boolean isProcessingBacklog) {
-        throw new UnsupportedOperationException();
-    }
-
     // -------------------------------
 
     public boolean isJobFailed() {

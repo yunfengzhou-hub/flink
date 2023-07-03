@@ -30,6 +30,7 @@ import org.apache.flink.api.connector.source.SupportsHandleExecutionAttemptSourc
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.operators.coordination.CoordinatorStore;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
@@ -190,6 +191,10 @@ public class SourceCoordinator<SplitT extends SourceSplit, EnumChkT>
             context.sendEventToSourceOperator(
                     subtaskId, new WatermarkAlignmentEvent(maxAllowedWatermark));
         }
+    }
+
+    public void lazyInitialize(CheckpointCoordinator checkpointCoordinator) {
+        context.setCheckpointCoordinator(checkpointCoordinator);
     }
 
     @Override

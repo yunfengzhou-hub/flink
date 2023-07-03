@@ -424,6 +424,11 @@ public class HybridSourceSplitEnumerator
         public void runInCoordinatorThread(Runnable runnable) {
             realContext.runInCoordinatorThread(runnable);
         }
+
+        @Override
+        public void setIsProcessingBacklog(boolean isProcessingBacklog) {
+            realContext.setIsProcessingBacklog(isProcessingBacklog);
+        }
     }
 
     private static void checkAndSignalNoMoreSplits(

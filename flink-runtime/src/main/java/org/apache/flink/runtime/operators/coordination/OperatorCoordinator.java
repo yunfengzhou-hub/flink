@@ -279,8 +279,6 @@ public interface OperatorCoordinator extends CheckpointListener, AutoCloseable {
          * concurrent running execution attempts.
          */
         boolean isConcurrentExecutionAttemptsSupported();
-
-        void setIsProcessingBacklog(boolean isProcessingBacklog);
     }
 
     // ------------------------------------------------------------------------

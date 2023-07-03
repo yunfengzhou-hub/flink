@@ -112,7 +112,7 @@ public class CheckpointIntervalDuringBacklogITCase {
                                         EXPECTED_RESULT.size() / 2,
                                         EXPECTED_RESULT.size() - 1,
                                         NUM_SPLITS,
-                                        true))
+                                        false))
                         .build();
 
         Configuration configuration = new Configuration();

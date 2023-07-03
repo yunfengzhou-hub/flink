@@ -29,6 +29,7 @@ import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.api.connector.source.SupportsIntermediateNoMoreSplits;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.metrics.groups.SplitEnumeratorMetricGroup;
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.metrics.groups.InternalSplitEnumeratorMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
@@ -106,6 +107,7 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
     private final String coordinatorThreadName;
     private final boolean supportsConcurrentExecutionAttempts;
     private final boolean[] subtaskHasNoMoreSplits;
+    private transient CheckpointCoordinator checkpointCoordinator;
     private volatile boolean closed;
 
     public SourceCoordinatorContext(
@@ -342,10 +344,14 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
 
     @Override
     public void setIsProcessingBacklog(boolean isProcessingBacklog) {
-        getCoordinatorContext().setIsProcessingBacklog(isProcessingBacklog);
+        checkpointCoordinator.setIsProcessingBacklog(getCoordinatorContext().getOperatorId(), isProcessingBacklog);
     }
 
     // --------- Package private additional methods for the SourceCoordinator ------------
+
+    void setCheckpointCoordinator(CheckpointCoordinator checkpointCoordinator) {
+        this.checkpointCoordinator = checkpointCoordinator;
+    }
 
     void attemptReady(OperatorCoordinator.SubtaskGateway gateway) {
         checkState(coordinatorThreadFactory.isCurrentThreadCoordinatorThread());

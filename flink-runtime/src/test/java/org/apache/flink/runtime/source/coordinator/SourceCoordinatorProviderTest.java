@@ -27,6 +27,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.MockOperatorCoordinatorContext;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.RecreateOnResetOperatorCoordinator;
+import org.apache.flink.runtime.operators.coordination.TestingOperatorCoordinator;
 import org.apache.flink.runtime.source.event.ReaderRegistrationEvent;
 
 import org.junit.Before;
@@ -72,8 +73,7 @@ public class SourceCoordinatorProviderTest {
                 new MockOperatorCoordinatorContext(OPERATOR_ID, NUM_SPLITS);
         final RecreateOnResetOperatorCoordinator coordinator =
                 (RecreateOnResetOperatorCoordinator) provider.create(context);
-        final SourceCoordinator<?, ?> sourceCoordinator =
-                (SourceCoordinator<?, ?>) coordinator.getInternalCoordinator();
+        final SourceCoordinator<?, ?> sourceCoordinator = getInternalCoordinator(coordinator);
 
         // Start the coordinator.
         coordinator.start();
@@ -92,8 +92,7 @@ public class SourceCoordinatorProviderTest {
 
         // reset the coordinator to the checkpoint which only contains reader 0.
         coordinator.resetToCheckpoint(0L, bytes);
-        final SourceCoordinator<?, ?> restoredSourceCoordinator =
-                (SourceCoordinator<?, ?>) coordinator.getInternalCoordinator();
+        final SourceCoordinator<?, ?> restoredSourceCoordinator = getInternalCoordinator(coordinator);
         assertNotEquals(
                 "The restored source coordinator should be a different instance",
                 restoredSourceCoordinator,
@@ -111,8 +110,7 @@ public class SourceCoordinatorProviderTest {
                 new MockOperatorCoordinatorContext(OPERATOR_ID, NUM_SPLITS);
         RecreateOnResetOperatorCoordinator coordinator =
                 (RecreateOnResetOperatorCoordinator) provider.create(context);
-        SourceCoordinator<?, ?> sourceCoordinator =
-                (SourceCoordinator<?, ?>) coordinator.getInternalCoordinator();
+        SourceCoordinator<?, ?> sourceCoordinator = getInternalCoordinator(coordinator);
         sourceCoordinator
                 .getContext()
                 .callAsync(
@@ -124,5 +122,11 @@ public class SourceCoordinatorProviderTest {
                 context::isJobFailed,
                 Duration.ofSeconds(10L),
                 "The job did not fail before timeout.");
+    }
+
+    private SourceCoordinator<?, ?> getInternalCoordinator(
+            RecreateOnResetOperatorCoordinator coordinator) throws Exception {
+        coordinator.waitForAllAsyncCallsFinish();
+        return (SourceCoordinator<?, ?>) coordinator.getInternalCoordinator();
     }
 }
