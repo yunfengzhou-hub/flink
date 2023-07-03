@@ -37,9 +37,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 
-
 /**
- * A {@link NumberSequenceSource} that can be blocked by checkpoints. This source can be used to guarantee that a checkpoint is invoked without using sleep.
+ * A {@link NumberSequenceSource} that can be blocked by checkpoints. This source can be used to
+ * guarantee that a checkpoint is invoked without using sleep.
  */
 public class NumberSequenceSourceBlockableByCheckpoint extends NumberSequenceSource {
     private static final long serialVersionUID = 1L;
@@ -48,8 +48,7 @@ public class NumberSequenceSourceBlockableByCheckpoint extends NumberSequenceSou
     private final int numSplits;
     private final long numAllowedMessageBeforeCheckpoint;
 
-    public NumberSequenceSourceBlockableByCheckpoint(
-            long from, long to, int numSplits) {
+    public NumberSequenceSourceBlockableByCheckpoint(long from, long to, int numSplits) {
         this(from, to, numSplits, true);
     }
 
@@ -66,10 +65,9 @@ public class NumberSequenceSourceBlockableByCheckpoint extends NumberSequenceSou
     }
 
     @Override
-    public SplitEnumerator<NumberSequenceSplit, Collection<NumberSequenceSplit>>
-    createEnumerator(final SplitEnumeratorContext<NumberSequenceSplit> enumContext) {
-        final List<NumberSequenceSplit> splits =
-                splitNumberRange(getFrom(), getTo(), numSplits);
+    public SplitEnumerator<NumberSequenceSplit, Collection<NumberSequenceSplit>> createEnumerator(
+            final SplitEnumeratorContext<NumberSequenceSplit> enumContext) {
+        final List<NumberSequenceSplit> splits = splitNumberRange(getFrom(), getTo(), numSplits);
         if (isBlockByCheckpoint) {
             return new AssignAfterCheckpointEnumerator<>(enumContext, splits);
         } else {
@@ -78,12 +76,10 @@ public class NumberSequenceSourceBlockableByCheckpoint extends NumberSequenceSou
     }
 
     @Override
-    public SourceReader<Long, NumberSequenceSplit> createReader(
-            SourceReaderContext readerContext) {
+    public SourceReader<Long, NumberSequenceSplit> createReader(SourceReaderContext readerContext) {
         return new CheckpointListeningIteratorSourceReader<>(
                 readerContext, numAllowedMessageBeforeCheckpoint);
     }
-
 
     /**
      * This is an enumerator for the {@link NumberSequenceSource}, which only responds to the split
@@ -91,7 +87,7 @@ public class NumberSequenceSourceBlockableByCheckpoint extends NumberSequenceSou
      * processing across checkpoints without artificial sleep statements.
      */
     private static final class AssignAfterCheckpointEnumerator<
-            SplitT extends IteratorSourceSplit<?, ?>>
+                    SplitT extends IteratorSourceSplit<?, ?>>
             extends IteratorSourceEnumerator<SplitT> {
         private final Queue<Integer> pendingRequests = new ArrayDeque<>();
         private final SplitEnumeratorContext<?> context;
@@ -127,8 +123,9 @@ public class NumberSequenceSourceBlockableByCheckpoint extends NumberSequenceSou
             pendingRequests.clear();
         }
     }
+
     private static class CheckpointListeningIteratorSourceReader<
-            E, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
+                    E, IterT extends Iterator<E>, SplitT extends IteratorSourceSplit<E, IterT>>
             extends IteratorSourceReader<E, IterT, SplitT> {
         private boolean checkpointed = false;
         private long messagesProduced = 0;

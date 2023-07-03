@@ -47,10 +47,15 @@ import static org.apache.flink.streaming.api.environment.ExecutionCheckpointingO
 import static org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL_DURING_BACKLOG;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * A test suite that verifies the correctness of the configuration {@link
+ * org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions#CHECKPOINTING_INTERVAL_DURING_BACKLOG}.
+ */
 public class CheckpointIntervalDuringBacklogITCase {
     private static final int NUM_SPLITS = 2;
+    private static final int NUM_RECORDS = 40;
     private static final List<Long> EXPECTED_RESULT =
-            LongStream.rangeClosed(0, 39).boxed().collect(Collectors.toList());
+            LongStream.rangeClosed(0, NUM_RECORDS - 1).boxed().collect(Collectors.toList());
 
     @After
     public void tearDown() {
@@ -58,17 +63,14 @@ public class CheckpointIntervalDuringBacklogITCase {
     }
 
     @Test
-    public void testHybridSourceWithCheckpoint() throws Exception {
+    public void testCheckpoint() throws Exception {
         Source<Long, ?, ?> source =
                 HybridSource.builder(
                                 new NumberSequenceSourceBlockableByCheckpoint(
-                                        0, EXPECTED_RESULT.size() / 2 - 1, NUM_SPLITS, true))
+                                        0, NUM_RECORDS / 2 - 1, NUM_SPLITS, true))
                         .addSource(
                                 new NumberSequenceSourceBlockableByCheckpoint(
-                                        EXPECTED_RESULT.size() / 2,
-                                        EXPECTED_RESULT.size() - 1,
-                                        NUM_SPLITS,
-                                        true))
+                                        NUM_RECORDS / 2, NUM_RECORDS - 1, NUM_SPLITS, true))
                         .build();
 
         Configuration configuration = new Configuration();
@@ -80,24 +82,21 @@ public class CheckpointIntervalDuringBacklogITCase {
 
         runAndVerifyResult(env, source);
 
-        assertThat(CheckpointRecordingOperator.checkpointCounterBeforeSwitchSource.get())
+        assertThat(CheckpointRecordingOperator.numCheckpointsBeforeSwitchSource.get())
                 .isGreaterThan(0);
-        assertThat(CheckpointRecordingOperator.checkpointCounterAfterSwitchSource.get())
+        assertThat(CheckpointRecordingOperator.numCheckpointsAfterSwitchSource.get())
                 .isGreaterThan(0);
     }
 
     @Test
-    public void testHybridSourceWithCheckpoint2() throws Exception {
+    public void testOnlyCheckpointWithoutBacklog() throws Exception {
         Source<Long, ?, ?> source =
                 HybridSource.builder(
                                 new NumberSequenceSourceBlockableByCheckpoint(
-                                        0, EXPECTED_RESULT.size() / 2 - 1, NUM_SPLITS, false))
+                                        0, NUM_RECORDS / 2 - 1, NUM_SPLITS, false))
                         .addSource(
                                 new NumberSequenceSourceBlockableByCheckpoint(
-                                        EXPECTED_RESULT.size() / 2,
-                                        EXPECTED_RESULT.size() - 1,
-                                        NUM_SPLITS,
-                                        false))
+                                        NUM_RECORDS / 2, NUM_RECORDS - 1, NUM_SPLITS, false))
                         .build();
 
         Configuration configuration = new Configuration();
@@ -108,14 +107,13 @@ public class CheckpointIntervalDuringBacklogITCase {
 
         runAndVerifyResult(env, source);
 
-        assertThat(CheckpointRecordingOperator.checkpointCounterBeforeSwitchSource.get())
-                .isEqualTo(0);
-        assertThat(CheckpointRecordingOperator.checkpointCounterAfterSwitchSource.get())
+        assertThat(CheckpointRecordingOperator.numCheckpointsBeforeSwitchSource.get()).isEqualTo(0);
+        assertThat(CheckpointRecordingOperator.numCheckpointsAfterSwitchSource.get())
                 .isGreaterThan(0);
     }
 
-    private void runAndVerifyResult(StreamExecutionEnvironment env, Source<Long, ?, ?> source) throws Exception {
-
+    private void runAndVerifyResult(StreamExecutionEnvironment env, Source<Long, ?, ?> source)
+            throws Exception {
         final DataStream<Long> stream =
                 env.fromSource(source, WatermarkStrategy.noWatermarks(), "hybrid-source")
                         .returns(Long.class)
@@ -137,10 +135,8 @@ public class CheckpointIntervalDuringBacklogITCase {
 
     private static class CheckpointRecordingOperator<T> extends AbstractStreamOperator<T>
             implements OneInputStreamOperator<T, T> {
-        private static final AtomicInteger checkpointCounterBeforeSwitchSource =
-                new AtomicInteger(0);
-        private static final AtomicInteger checkpointCounterAfterSwitchSource =
-                new AtomicInteger(0);
+        private static final AtomicInteger numCheckpointsBeforeSwitchSource = new AtomicInteger(0);
+        private static final AtomicInteger numCheckpointsAfterSwitchSource = new AtomicInteger(0);
 
         private int numRecords;
 
@@ -149,8 +145,8 @@ public class CheckpointIntervalDuringBacklogITCase {
         }
 
         private static void reset() {
-            checkpointCounterBeforeSwitchSource.set(0);
-            checkpointCounterAfterSwitchSource.set(0);
+            numCheckpointsBeforeSwitchSource.set(0);
+            numCheckpointsAfterSwitchSource.set(0);
         }
 
         @Override
@@ -161,10 +157,10 @@ public class CheckpointIntervalDuringBacklogITCase {
 
         @Override
         public void snapshotState(StateSnapshotContext context) {
-            if (numRecords < EXPECTED_RESULT.size() / 2) {
-                checkpointCounterBeforeSwitchSource.incrementAndGet();
+            if (numRecords < NUM_RECORDS / 2) {
+                numCheckpointsBeforeSwitchSource.incrementAndGet();
             } else {
-                checkpointCounterAfterSwitchSource.incrementAndGet();
+                numCheckpointsAfterSwitchSource.incrementAndGet();
             }
         }
     }

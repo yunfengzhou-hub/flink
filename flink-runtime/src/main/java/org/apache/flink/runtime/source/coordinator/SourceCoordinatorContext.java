@@ -344,7 +344,8 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
 
     @Override
     public void setIsProcessingBacklog(boolean isProcessingBacklog) {
-        checkpointCoordinator.setIsProcessingBacklog(getCoordinatorContext().getOperatorId(), isProcessingBacklog);
+        checkpointCoordinator.setIsProcessingBacklog(
+                getCoordinatorContext().getOperatorId(), isProcessingBacklog);
     }
 
     // --------- Package private additional methods for the SourceCoordinator ------------

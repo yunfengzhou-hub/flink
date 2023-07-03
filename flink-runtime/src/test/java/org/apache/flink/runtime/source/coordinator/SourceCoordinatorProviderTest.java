@@ -27,7 +27,6 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.MockOperatorCoordinatorContext;
 import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
 import org.apache.flink.runtime.operators.coordination.RecreateOnResetOperatorCoordinator;
-import org.apache.flink.runtime.operators.coordination.TestingOperatorCoordinator;
 import org.apache.flink.runtime.source.event.ReaderRegistrationEvent;
 
 import org.junit.Before;
@@ -92,7 +91,8 @@ public class SourceCoordinatorProviderTest {
 
         // reset the coordinator to the checkpoint which only contains reader 0.
         coordinator.resetToCheckpoint(0L, bytes);
-        final SourceCoordinator<?, ?> restoredSourceCoordinator = getInternalCoordinator(coordinator);
+        final SourceCoordinator<?, ?> restoredSourceCoordinator =
+                getInternalCoordinator(coordinator);
         assertNotEquals(
                 "The restored source coordinator should be a different instance",
                 restoredSourceCoordinator,

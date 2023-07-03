@@ -165,13 +165,12 @@ public class OperatorCoordinatorHolder
                 new InternalOperatorCoordinatorMetricGroup(parentMetricGroup);
 
         context.lazyInitialize(
-                globalFailureHandler,
-                mainThreadExecutor,
-                operatorCoordinatorMetricGroup);
+                globalFailureHandler, mainThreadExecutor, operatorCoordinatorMetricGroup);
 
         OperatorCoordinator rootCoordinator = coordinator;
         if (coordinator instanceof RecreateOnResetOperatorCoordinator) {
-            rootCoordinator = ((RecreateOnResetOperatorCoordinator) rootCoordinator).getInternalCoordinator();
+            rootCoordinator =
+                    ((RecreateOnResetOperatorCoordinator) rootCoordinator).getInternalCoordinator();
         }
         if (rootCoordinator instanceof SourceCoordinator) {
             ((SourceCoordinator<?, ?>) rootCoordinator).lazyInitialize(checkpointCoordinator);

@@ -105,6 +105,8 @@ public class CheckpointCoordinator {
     /** The number of recent checkpoints whose IDs are remembered. */
     private static final int NUM_GHOST_CHECKPOINT_IDS = 16;
 
+    private static final long NO_CHECKPOINT = Long.MIN_VALUE;
+
     // ------------------------------------------------------------------------
 
     /** Coordinator-wide lock to safeguard the checkpoint updates. */
@@ -149,15 +151,21 @@ public class CheckpointCoordinator {
      */
     private final CheckpointIDCounter checkpointIdCounter;
 
+    /**
+     * The checkpoint interval in normal situations. Actual trigger time may be affected by the max
+     * concurrent checkpoints, minimum-pause values and checkpoint interval during backlog.
+     */
     private final long checkpointInterval;
 
+    /**
+     * The checkpoint interval when any source reports isProcessingBacklog=true. Actual trigger time
+     * may be affected by the max concurrent checkpoints and minimum-pause values.
+     */
     private final long checkpointIntervalDuringBacklog;
 
-    private long lastTriggeredCheckpointTimestamp = Long.MIN_VALUE;
-
     /**
-     * The base checkpoint interval. Actual trigger time may be affected by the max concurrent
-     * checkpoints and minimum-pause values
+     * The base checkpoint interval. Its value might be either checkpointInterval or
+     * checkpointIntervalDuringBacklog depending on whether there is processing backlog.
      */
     private long baseInterval;
 
@@ -188,6 +196,11 @@ public class CheckpointCoordinator {
 
     /** A handle to the current periodic trigger, to cancel it when necessary. */
     private ScheduledFuture<?> currentPeriodicTrigger;
+
+    /**
+     * The timestamp (via {@link Clock#relativeTimeMillis()}) when the last checkpoint is triggered.
+     */
+    private long lastCheckpointTriggeringRelativeTime;
 
     /**
      * The timestamp (via {@link Clock#relativeTimeMillis()}) when the last checkpoint completed.
@@ -325,7 +338,7 @@ public class CheckpointCoordinator {
         this.job = checkNotNull(job);
         this.checkpointInterval = checkpointInterval;
         this.checkpointIntervalDuringBacklog = checkpointIntervalDuringBacklog;
-        this.lastTriggeredCheckpointTimestamp = Long.MIN_VALUE;
+        this.lastCheckpointTriggeringRelativeTime = NO_CHECKPOINT;
         this.baseInterval = checkpointInterval;
         this.checkpointTimeout = chkConfig.getCheckpointTimeout();
         this.minPauseBetweenCheckpoints = minPauseBetweenCheckpoints;
@@ -456,6 +469,20 @@ public class CheckpointCoordinator {
         return shutdown;
     }
 
+    /**
+     * Reports whether a source operator is currently processing backlog.
+     *
+     * <p>If any source operator is processing backlog, the checkpoint interval would be decided by
+     * {@code execution.checkpointing.interval-during-backlog} instead of {@code
+     * execution.checkpointing.interval}.
+     *
+     * <p>If a source has not invoked this method, the source is considered to have
+     * isProcessingBacklog=false. If a source operator has invoked this method multiple times, the
+     * last reported value is used.
+     *
+     * @param operatorID the operator ID of the source operator.
+     * @param isProcessingBacklog whether the source operator is processing backlog.
+     */
     public void setIsProcessingBacklog(OperatorID operatorID, boolean isProcessingBacklog) {
         if (isProcessingBacklog) {
             backloggedOperators.add(operatorID);
@@ -2128,11 +2155,13 @@ public class CheckpointCoordinator {
 
         @Override
         public void run() {
-            if (lastTriggeredCheckpointTimestamp != Long.MIN_VALUE &&
-                    System.currentTimeMillis() - lastTriggeredCheckpointTimestamp < baseInterval) {
+            long currentTime = clock.relativeTimeMillis();
+            if (lastCheckpointTriggeringRelativeTime != NO_CHECKPOINT
+                    && currentTime - lastCheckpointTriggeringRelativeTime
+                            < baseInterval) {
                 return;
             }
-            lastTriggeredCheckpointTimestamp = System.currentTimeMillis();
+            lastCheckpointTriggeringRelativeTime = currentTime;
 
             try {
                 triggerCheckpoint(checkpointProperties, null, true);
