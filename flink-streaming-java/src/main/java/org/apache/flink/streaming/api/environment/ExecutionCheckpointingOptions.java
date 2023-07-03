@@ -126,6 +126,23 @@ public class ExecutionCheckpointingOptions {
                                                                     .key()))
                                             .build());
 
+    public static final ConfigOption<Duration> CHECKPOINTING_INTERVAL_DURING_BACKLOG =
+            ConfigOptions.key("execution.checkpointing.interval-during-backlog")
+                    .durationType()
+                    .noDefaultValue()
+                    .withDescription(
+                            Description.builder()
+                                    .text(
+                                            "Gets the interval in which checkpoints are periodically scheduled "
+                                                    + "when any source reports isProcessingBacklog=true.")
+                                    .linebreak()
+                                    .linebreak()
+                                    .text(
+                                            "Checkpoint triggering may be delayed by the settings %s and %s",
+                                            TextElement.code(MAX_CONCURRENT_CHECKPOINTS.key()),
+                                            TextElement.code(MIN_PAUSE_BETWEEN_CHECKPOINTS.key()))
+                                    .build());
+
     public static final ConfigOption<Duration> CHECKPOINTING_INTERVAL =
             ConfigOptions.key("execution.checkpointing.interval")
                     .durationType()
@@ -138,9 +155,11 @@ public class ExecutionCheckpointingOptions {
                                     .linebreak()
                                     .text(
                                             "This setting defines the base interval. Checkpoint triggering may be delayed by the settings "
-                                                    + "%s and %s",
+                                                    + "%s, %s and %s",
                                             TextElement.code(MAX_CONCURRENT_CHECKPOINTS.key()),
-                                            TextElement.code(MIN_PAUSE_BETWEEN_CHECKPOINTS.key()))
+                                            TextElement.code(MIN_PAUSE_BETWEEN_CHECKPOINTS.key()),
+                                            TextElement.code(
+                                                    CHECKPOINTING_INTERVAL_DURING_BACKLOG.key()))
                                     .build());
 
     public static final ConfigOption<Boolean> ENABLE_UNALIGNED =

@@ -20,6 +20,7 @@ package org.apache.flink.runtime.operators.coordination;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.metrics.groups.OperatorCoordinatorMetricGroup;
+import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.OperatorCoordinatorCheckpointContext;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -30,6 +31,7 @@ import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.metrics.groups.JobManagerOperatorMetricGroup;
 import org.apache.flink.runtime.operators.coordination.util.IncompleteFuturesTracker;
 import org.apache.flink.runtime.scheduler.GlobalFailureHandler;
+import org.apache.flink.runtime.source.coordinator.SourceCoordinator;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.SerializedValue;
@@ -148,7 +150,8 @@ public class OperatorCoordinatorHolder
     public void lazyInitialize(
             GlobalFailureHandler globalFailureHandler,
             ComponentMainThreadExecutor mainThreadExecutor,
-            JobManagerJobMetricGroup jobManagerJobMetricGroup) {
+            JobManagerJobMetricGroup jobManagerJobMetricGroup,
+            CheckpointCoordinator checkpointCoordinator) {
 
         this.globalFailureHandler = globalFailureHandler;
         this.mainThreadExecutor = mainThreadExecutor;
@@ -163,6 +166,15 @@ public class OperatorCoordinatorHolder
 
         context.lazyInitialize(
                 globalFailureHandler, mainThreadExecutor, operatorCoordinatorMetricGroup);
+
+        OperatorCoordinator rootCoordinator = coordinator;
+        if (coordinator instanceof RecreateOnResetOperatorCoordinator) {
+            rootCoordinator =
+                    ((RecreateOnResetOperatorCoordinator) rootCoordinator).getInternalCoordinator();
+        }
+        if (rootCoordinator instanceof SourceCoordinator) {
+            ((SourceCoordinator<?, ?>) rootCoordinator).lazyInitialize(checkpointCoordinator);
+        }
 
         setupAllSubtaskGateways();
     }
@@ -568,7 +580,6 @@ public class OperatorCoordinatorHolder
         private final int operatorParallelism;
         private final CoordinatorStore coordinatorStore;
         private final boolean supportsConcurrentExecutionAttempts;
-
         private GlobalFailureHandler globalFailureHandler;
         private Executor schedulerExecutor;
         private OperatorCoordinatorMetricGroup metricGroup;
