@@ -77,6 +77,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -150,10 +151,16 @@ public class CheckpointCoordinator {
     private final CheckpointIDCounter checkpointIdCounter;
 
     /**
-     * The base checkpoint interval. Actual trigger time may be affected by the max concurrent
-     * checkpoints and minimum-pause values
+     * The checkpoint interval in normal situations. Actual trigger time may be affected by the max
+     * concurrent checkpoints, minimum-pause values and checkpoint interval during backlog.
      */
     private final long baseInterval;
+
+    /**
+     * The checkpoint interval when any source reports isProcessingBacklog=true. Actual trigger time
+     * may be affected by the max concurrent checkpoints and minimum-pause values.
+     */
+    private final long baseIntervalDuringBacklog;
 
     /** The max time (in ms) that a checkpoint may take. */
     private final long checkpointTimeout;
@@ -181,7 +188,16 @@ public class CheckpointCoordinator {
     private JobStatusListener jobStatusListener;
 
     /** A handle to the current periodic trigger, to cancel it when necessary. */
-    private ScheduledFuture<?> currentPeriodicTrigger;
+    private Future<?> currentPeriodicTrigger;
+
+    /**
+     * The timestamp (via {@link Clock#relativeTimeMillis()}) when the next checkpoint will be
+     * triggered.
+     *
+     * <p>If it's value is {@link Long#MAX_VALUE}, it means there is not a next checkpoint
+     * scheduled.
+     */
+    private long nextCheckpointTriggeringRelativeTime;
 
     /**
      * The timestamp (via {@link Clock#relativeTimeMillis()}) when the last checkpoint completed.
@@ -221,6 +237,9 @@ public class CheckpointCoordinator {
     private final CheckpointRequestDecider requestDecider;
 
     private final CheckpointPlanCalculator checkpointPlanCalculator;
+
+    /** IDs of the source operators that are currently processing backlog. */
+    private final Set<OperatorID> backlogOperators = Collections.synchronizedSet(new HashSet<>());
 
     private boolean baseLocationsForCheckpointInitialized = false;
 
@@ -298,6 +317,7 @@ public class CheckpointCoordinator {
 
         this.job = checkNotNull(job);
         this.baseInterval = baseInterval;
+        this.baseIntervalDuringBacklog = chkConfig.getCheckpointIntervalDuringBacklog();
         this.checkpointTimeout = chkConfig.getCheckpointTimeout();
         this.minPauseBetweenCheckpoints = minPauseBetweenCheckpoints;
         this.coordinatorsToCheckpoint =
@@ -424,6 +444,36 @@ public class CheckpointCoordinator {
 
     public boolean isShutdown() {
         return shutdown;
+    }
+
+    /**
+     * Reports whether a source operator is currently processing backlog.
+     *
+     * <p>If any source operator is processing backlog, the checkpoint interval would be decided by
+     * {@code execution.checkpointing.interval-during-backlog} instead of {@code
+     * execution.checkpointing.interval}.
+     *
+     * <p>If a source has not invoked this method, the source is considered to have
+     * isProcessingBacklog=false. If a source operator has invoked this method multiple times, the
+     * last reported value is used.
+     *
+     * @param operatorID the operator ID of the source operator.
+     * @param isProcessingBacklog whether the source operator is processing backlog.
+     */
+    public void setIsProcessingBacklog(OperatorID operatorID, boolean isProcessingBacklog) {
+        if (isProcessingBacklog) {
+            backlogOperators.add(operatorID);
+        } else {
+            backlogOperators.remove(operatorID);
+        }
+
+        if (getCurrentCheckpointInterval() != Long.MAX_VALUE) {
+            long newNextCheckpointTriggeringTime =
+                    clock.absoluteTimeMillis() + getCurrentCheckpointInterval();
+            if (newNextCheckpointTriggeringTime < nextCheckpointTriggeringRelativeTime) {
+                rescheduleTrigger(getCurrentCheckpointInterval());
+            }
+        }
     }
 
     // --------------------------------------------------------------------------------------------
@@ -1915,6 +1965,14 @@ public class CheckpointCoordinator {
         return completedCheckpointStore;
     }
 
+    /**
+     * Gets the checkpoint interval. Its value might vary depending on whether there is processing
+     * backlog.
+     */
+    private long getCurrentCheckpointInterval() {
+        return backlogOperators.isEmpty() ? baseInterval : baseIntervalDuringBacklog;
+    }
+
     public long getCheckpointTimeout() {
         return checkpointTimeout;
     }
@@ -1963,7 +2021,9 @@ public class CheckpointCoordinator {
             stopCheckpointScheduler();
 
             periodicScheduling = true;
-            currentPeriodicTrigger = scheduleTriggerWithDelay(getRandomInitDelay());
+            long initDelay = getRandomInitDelay();
+            nextCheckpointTriggeringRelativeTime = clock.relativeTimeMillis() + initDelay;
+            currentPeriodicTrigger = scheduleTriggerWithDelay(initDelay);
         }
     }
 
@@ -2013,23 +2073,25 @@ public class CheckpointCoordinator {
 
     private void rescheduleTrigger(long tillNextMillis) {
         cancelPeriodicTrigger();
+        nextCheckpointTriggeringRelativeTime = clock.relativeTimeMillis() + tillNextMillis;
         currentPeriodicTrigger = scheduleTriggerWithDelay(tillNextMillis);
     }
 
     private void cancelPeriodicTrigger() {
         if (currentPeriodicTrigger != null) {
+            nextCheckpointTriggeringRelativeTime = Long.MAX_VALUE;
             currentPeriodicTrigger.cancel(false);
             currentPeriodicTrigger = null;
         }
     }
 
     private long getRandomInitDelay() {
-        return ThreadLocalRandom.current().nextLong(minPauseBetweenCheckpoints, baseInterval + 1L);
+        return ThreadLocalRandom.current()
+                .nextLong(minPauseBetweenCheckpoints, getCurrentCheckpointInterval() + 1L);
     }
 
     private ScheduledFuture<?> scheduleTriggerWithDelay(long initDelay) {
-        return timer.scheduleAtFixedRate(
-                new ScheduledTrigger(), initDelay, baseInterval, TimeUnit.MILLISECONDS);
+        return timer.schedule(new ScheduledTrigger(), initDelay, TimeUnit.MILLISECONDS);
     }
 
     private void restoreStateToCoordinators(
@@ -2075,10 +2137,19 @@ public class CheckpointCoordinator {
 
     // ------------------------------------------------------------------------
 
-    private final class ScheduledTrigger implements Runnable {
-
+    final class ScheduledTrigger implements Runnable {
         @Override
         public void run() {
+            long checkpointInterval = getCurrentCheckpointInterval();
+            if (checkpointInterval != Long.MAX_VALUE) {
+                nextCheckpointTriggeringRelativeTime += checkpointInterval;
+                currentPeriodicTrigger =
+                        timer.schedule(this, checkpointInterval, TimeUnit.MILLISECONDS);
+            } else {
+                nextCheckpointTriggeringRelativeTime = Long.MAX_VALUE;
+                currentPeriodicTrigger = null;
+            }
+
             try {
                 triggerCheckpoint(checkpointProperties, null, true);
             } catch (Exception e) {
@@ -2190,7 +2261,7 @@ public class CheckpointCoordinator {
      * The canceller of checkpoint. The checkpoint might be cancelled if it doesn't finish in a
      * configured period.
      */
-    private class CheckpointCanceller implements Runnable {
+    class CheckpointCanceller implements Runnable {
 
         private final PendingCheckpoint pendingCheckpoint;
 

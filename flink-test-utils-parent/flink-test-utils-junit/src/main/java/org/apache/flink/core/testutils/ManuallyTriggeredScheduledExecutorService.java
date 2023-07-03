@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
@@ -222,6 +223,20 @@ public class ManuallyTriggeredScheduledExecutorService implements ScheduledExecu
                 .collect(Collectors.toList());
     }
 
+    public Collection<ScheduledFuture<?>> getActiveNonPeriodicScheduledRunnable(
+            Class<?> runnableClazz) {
+        return nonPeriodicScheduledTasks.stream()
+                .filter(scheduledTask -> !scheduledTask.isCancelled())
+                .filter(
+                        scheduledTask ->
+                                scheduledTask.getCallable() instanceof RunnableCaller
+                                        && ((RunnableCaller<?>) scheduledTask.getCallable())
+                                                .command
+                                                .getClass()
+                                                .equals(runnableClazz))
+                .collect(Collectors.toList());
+    }
+
     public List<ScheduledFuture<?>> getAllScheduledTasks() {
         final ArrayList<ScheduledFuture<?>> scheduledTasks =
                 new ArrayList<>(nonPeriodicScheduledTasks.size() + periodicScheduledTasks.size());
@@ -284,6 +299,23 @@ public class ManuallyTriggeredScheduledExecutorService implements ScheduledExecu
         }
     }
 
+    public void triggerNonPeriodicScheduledRunnables(Class<?> runnableClazz) {
+        final Iterator<ScheduledTask<?>> iterator =
+                new LinkedList<>(nonPeriodicScheduledTasks).iterator();
+        nonPeriodicScheduledTasks.clear();
+
+        while (iterator.hasNext()) {
+            final ScheduledTask<?> scheduledTask = iterator.next();
+            Callable<?> callable = scheduledTask.getCallable();
+            if (callable instanceof RunnableCaller
+                    && ((RunnableCaller<?>) callable).command.getClass().equals(runnableClazz)) {
+                if (!scheduledTask.isCancelled()) {
+                    scheduledTask.execute();
+                }
+            }
+        }
+    }
+
     public void triggerPeriodicScheduledTasks() {
         for (ScheduledTask<?> scheduledTask : periodicScheduledTasks) {
             if (!scheduledTask.isCancelled()) {
@@ -310,13 +342,7 @@ public class ManuallyTriggeredScheduledExecutorService implements ScheduledExecu
     }
 
     private ScheduledFuture<?> insertNonPeriodicTask(Runnable command, long delay, TimeUnit unit) {
-        return insertNonPeriodicTask(
-                () -> {
-                    command.run();
-                    return null;
-                },
-                delay,
-                unit);
+        return insertNonPeriodicTask(new RunnableCaller<>(command), delay, unit);
     }
 
     private <V> ScheduledFuture<V> insertNonPeriodicTask(
@@ -327,5 +353,19 @@ public class ManuallyTriggeredScheduledExecutorService implements ScheduledExecu
         nonPeriodicScheduledTasks.offer(scheduledTask);
 
         return scheduledTask;
+    }
+
+    private static class RunnableCaller<T> implements Callable<T> {
+        private final Runnable command;
+
+        private RunnableCaller(Runnable command) {
+            this.command = command;
+        }
+
+        @Override
+        public T call() {
+            command.run();
+            return null;
+        }
     }
 }

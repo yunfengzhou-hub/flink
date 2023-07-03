@@ -223,6 +223,50 @@ public class CheckpointConfig implements java.io.Serializable {
     }
 
     /**
+     * Gets the interval in which checkpoints are periodically scheduled during backlog.
+     *
+     * <p>This setting defines the base interval. Checkpoint triggering may be delayed by the
+     * settings {@link #getMaxConcurrentCheckpoints()} and {@link #getMinPauseBetweenCheckpoints()}.
+     *
+     * <p>If not explicitly configured, checkpoint interval during backlog will be the same as that
+     * in normal situation(see {@link #getCheckpointInterval()}). If the return value is zero, it
+     * means that checkpoints would be disabled during backlog.
+     *
+     * @return The checkpoint interval, in milliseconds.
+     */
+    public long getCheckpointIntervalDuringBacklog() {
+        return configuration
+                .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL_DURING_BACKLOG)
+                .map(Duration::toMillis)
+                .orElseGet(this::getCheckpointInterval);
+    }
+
+    /**
+     * Sets the interval in which checkpoints are periodically scheduled during backlog.
+     *
+     * <p>This setting defines the base interval. Checkpoint triggering may be delayed by the
+     * settings {@link #setMaxConcurrentCheckpoints(int)} and {@link
+     * #setMinPauseBetweenCheckpoints(long)}.
+     *
+     * <p>If not explicitly configured, checkpoint interval during backlog will be the same as that
+     * in normal situation(see {@link #setCheckpointInterval(long)}). If configured to zero,
+     * checkpoints would be disabled during backlog.
+     *
+     * @param checkpointInterval The checkpoint interval, in milliseconds.
+     */
+    public void setCheckpointIntervalDuringBacklog(long checkpointInterval) {
+        if (checkpointInterval != 0 && checkpointInterval < MINIMAL_CHECKPOINT_TIME) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Checkpoint interval must be zero or larger than or equal to %s ms",
+                            MINIMAL_CHECKPOINT_TIME));
+        }
+        configuration.set(
+                ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL_DURING_BACKLOG,
+                Duration.ofMillis(checkpointInterval));
+    }
+
+    /**
      * Gets the maximum time that a checkpoint may take before being discarded.
      *
      * @return The checkpoint timeout, in milliseconds.
@@ -840,6 +884,9 @@ public class CheckpointConfig implements java.io.Serializable {
         configuration
                 .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL)
                 .ifPresent(i -> this.setCheckpointInterval(i.toMillis()));
+        configuration
+                .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL_DURING_BACKLOG)
+                .ifPresent(i -> this.setCheckpointIntervalDuringBacklog(i.toMillis()));
         configuration
                 .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_TIMEOUT)
                 .ifPresent(t -> this.setCheckpointTimeout(t.toMillis()));

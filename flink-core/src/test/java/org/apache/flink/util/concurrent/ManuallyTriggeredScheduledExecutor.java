@@ -94,6 +94,11 @@ public class ManuallyTriggeredScheduledExecutor implements ScheduledExecutor {
         return execService.getActiveNonPeriodicScheduledTask();
     }
 
+    public Collection<ScheduledFuture<?>> getActiveNonPeriodicScheduledRunnable(
+            Class<?> runnableClazz) {
+        return execService.getActiveNonPeriodicScheduledRunnable(runnableClazz);
+    }
+
     public List<ScheduledFuture<?>> getAllScheduledTasks() {
         return execService.getAllScheduledTasks();
     }
@@ -123,6 +128,10 @@ public class ManuallyTriggeredScheduledExecutor implements ScheduledExecutor {
 
     public void triggerNonPeriodicScheduledTasks() {
         execService.triggerNonPeriodicScheduledTasks();
+    }
+
+    public void triggerNonPeriodicScheduledRunnables(Class<?> runnableClazz) {
+        execService.triggerNonPeriodicScheduledRunnables(runnableClazz);
     }
 
     public void triggerPeriodicScheduledTasks() {

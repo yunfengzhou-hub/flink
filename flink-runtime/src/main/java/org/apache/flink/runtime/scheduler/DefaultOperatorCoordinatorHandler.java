@@ -77,7 +77,10 @@ public class DefaultOperatorCoordinatorHandler implements OperatorCoordinatorHan
             JobManagerJobMetricGroup jobManagerJobMetricGroup) {
         for (OperatorCoordinatorHolder coordinatorHolder : coordinatorMap.values()) {
             coordinatorHolder.lazyInitialize(
-                    globalFailureHandler, mainThreadExecutor, jobManagerJobMetricGroup);
+                    globalFailureHandler,
+                    mainThreadExecutor,
+                    jobManagerJobMetricGroup,
+                    executionGraph.getCheckpointCoordinator());
         }
     }
 
@@ -160,7 +163,10 @@ public class DefaultOperatorCoordinatorHandler implements OperatorCoordinatorHan
         for (OperatorCoordinatorHolder coordinator : coordinators) {
             coordinatorMap.put(coordinator.operatorId(), coordinator);
             coordinator.lazyInitialize(
-                    globalFailureHandler, mainThreadExecutor, jobManagerJobMetricGroup);
+                    globalFailureHandler,
+                    mainThreadExecutor,
+                    jobManagerJobMetricGroup,
+                    executionGraph.getCheckpointCoordinator());
         }
         startOperatorCoordinators(coordinators);
     }
