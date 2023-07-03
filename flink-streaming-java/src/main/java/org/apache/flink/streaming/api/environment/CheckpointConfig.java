@@ -222,6 +222,25 @@ public class CheckpointConfig implements java.io.Serializable {
                 Duration.ofMillis(checkpointInterval));
     }
 
+    public long getCheckpointIntervalDuringBacklog() {
+        return configuration
+                .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL_DURING_BACKLOG)
+                .map(Duration::toMillis)
+                .orElse(-1L);
+    }
+
+    public void setCheckpointIntervalDuringBacklog(long checkpointInterval) {
+        if (checkpointInterval < MINIMAL_CHECKPOINT_TIME) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Checkpoint interval must be larger than or equal to %s ms",
+                            MINIMAL_CHECKPOINT_TIME));
+        }
+        configuration.set(
+                ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL_DURING_BACKLOG,
+                Duration.ofMillis(checkpointInterval));
+    }
+
     /**
      * Gets the maximum time that a checkpoint may take before being discarded.
      *
@@ -840,6 +859,9 @@ public class CheckpointConfig implements java.io.Serializable {
         configuration
                 .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL)
                 .ifPresent(i -> this.setCheckpointInterval(i.toMillis()));
+        configuration
+                .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL_DURING_BACKLOG)
+                .ifPresent(i -> this.setCheckpointIntervalDuringBacklog(i.toMillis()));
         configuration
                 .getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_TIMEOUT)
                 .ifPresent(t -> this.setCheckpointTimeout(t.toMillis()));

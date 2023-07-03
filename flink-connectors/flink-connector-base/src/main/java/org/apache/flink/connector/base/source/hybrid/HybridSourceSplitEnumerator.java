@@ -303,6 +303,8 @@ public class HybridSourceSplitEnumerator
         }
         LOG.info("Starting enumerator for sourceIndex={}", currentSourceIndex);
         currentEnumerator.start();
+
+        context.setIsProcessingBacklog(currentSourceIndex < sources.size() - 1);
     }
 
     /**

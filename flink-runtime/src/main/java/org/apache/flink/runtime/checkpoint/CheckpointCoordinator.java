@@ -149,11 +149,17 @@ public class CheckpointCoordinator {
      */
     private final CheckpointIDCounter checkpointIdCounter;
 
+    private final long checkpointInterval;
+
+    private final long checkpointIntervalDuringBacklog;
+
+    private long lastTriggeredCheckpointTimestamp = Long.MIN_VALUE;
+
     /**
      * The base checkpoint interval. Actual trigger time may be affected by the max concurrent
      * checkpoints and minimum-pause values
      */
-    private final long baseInterval;
+    private long baseInterval;
 
     /** The max time (in ms) that a checkpoint may take. */
     private final long checkpointTimeout;
@@ -223,6 +229,10 @@ public class CheckpointCoordinator {
     private final CheckpointPlanCalculator checkpointPlanCalculator;
 
     private final ExecutionAttemptMappingProvider attemptMappingProvider;
+
+    private final Set<OperatorID> backloggedOperators = new HashSet<>();
+
+    private boolean isBacklogged = false;
 
     private boolean baseLocationsForCheckpointInitialized = false;
 
@@ -296,13 +306,27 @@ public class CheckpointCoordinator {
 
         // it does not make sense to schedule checkpoints more often then the desired
         // time between checkpoints
-        long baseInterval = chkConfig.getCheckpointInterval();
-        if (baseInterval < minPauseBetweenCheckpoints) {
-            baseInterval = minPauseBetweenCheckpoints;
+        long checkpointInterval = chkConfig.getCheckpointInterval();
+        if (checkpointInterval < minPauseBetweenCheckpoints) {
+            checkpointInterval = minPauseBetweenCheckpoints;
+        }
+
+        long checkpointIntervalDuringBacklog = chkConfig.getCheckpointIntervalDuringBacklog();
+        if (checkpointIntervalDuringBacklog < minPauseBetweenCheckpoints) {
+            checkpointIntervalDuringBacklog = minPauseBetweenCheckpoints;
+        }
+
+        if (checkpointIntervalDuringBacklog < checkpointInterval) {
+            throw new IllegalArgumentException(
+                    "execution.checkpoint.interval-during-backlog must either be 0, "
+                            + "or be larger than or equal to execution.checkpoint.interval.");
         }
 
         this.job = checkNotNull(job);
-        this.baseInterval = baseInterval;
+        this.checkpointInterval = checkpointInterval;
+        this.checkpointIntervalDuringBacklog = checkpointIntervalDuringBacklog;
+        this.lastTriggeredCheckpointTimestamp = Long.MIN_VALUE;
+        this.baseInterval = checkpointInterval;
         this.checkpointTimeout = chkConfig.getCheckpointTimeout();
         this.minPauseBetweenCheckpoints = minPauseBetweenCheckpoints;
         this.coordinatorsToCheckpoint =
@@ -430,6 +454,28 @@ public class CheckpointCoordinator {
 
     public boolean isShutdown() {
         return shutdown;
+    }
+
+    public void setIsProcessingBacklog(OperatorID operatorID, boolean isProcessingBacklog) {
+        if (isProcessingBacklog) {
+            backloggedOperators.add(operatorID);
+        } else {
+            backloggedOperators.remove(operatorID);
+        }
+
+        if (isBacklogged && backloggedOperators.isEmpty()) {
+            isBacklogged = false;
+            baseInterval = checkpointInterval;
+        } else if (!isBacklogged && !backloggedOperators.isEmpty()) {
+            isBacklogged = true;
+            baseInterval = checkpointIntervalDuringBacklog;
+        } else {
+            return;
+        }
+
+        if (baseInterval != Long.MAX_VALUE) {
+            scheduleTriggerWithDelay(getRandomInitDelay());
+        }
     }
 
     // --------------------------------------------------------------------------------------------
@@ -2029,8 +2075,7 @@ public class CheckpointCoordinator {
     }
 
     private ScheduledFuture<?> scheduleTriggerWithDelay(long initDelay) {
-        return timer.scheduleAtFixedRate(
-                new ScheduledTrigger(), initDelay, baseInterval, TimeUnit.MILLISECONDS);
+        return timer.schedule(new ScheduledTrigger(), initDelay, TimeUnit.MILLISECONDS);
     }
 
     private void restoreStateToCoordinators(
@@ -2083,11 +2128,18 @@ public class CheckpointCoordinator {
 
         @Override
         public void run() {
+            if (lastTriggeredCheckpointTimestamp != Long.MIN_VALUE &&
+                    System.currentTimeMillis() - lastTriggeredCheckpointTimestamp < baseInterval) {
+                return;
+            }
+            lastTriggeredCheckpointTimestamp = System.currentTimeMillis();
+
             try {
                 triggerCheckpoint(checkpointProperties, null, true);
             } catch (Exception e) {
                 LOG.error("Exception while triggering checkpoint for job {}.", job, e);
             }
+            timer.schedule(this, baseInterval, TimeUnit.MILLISECONDS);
         }
     }
 

@@ -340,6 +340,11 @@ public class SourceCoordinatorContext<SplitT extends SourceSplit>
         shutdownExecutorForcefully(coordinatorExecutor, Duration.ofNanos(Long.MAX_VALUE));
     }
 
+    @Override
+    public void setIsProcessingBacklog(boolean isProcessingBacklog) {
+        getCoordinatorContext().setIsProcessingBacklog(isProcessingBacklog);
+    }
+
     // --------- Package private additional methods for the SourceCoordinator ------------
 
     void attemptReady(OperatorCoordinator.SubtaskGateway gateway) {

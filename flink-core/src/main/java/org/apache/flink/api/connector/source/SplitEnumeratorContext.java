@@ -181,4 +181,8 @@ public interface SplitEnumeratorContext<SplitT extends SourceSplit> {
      * @param runnable a runnable to execute
      */
     void runInCoordinatorThread(Runnable runnable);
+
+    default void setIsProcessingBacklog(boolean isProcessingBacklog) {
+        throw new UnsupportedOperationException();
+    }
 }

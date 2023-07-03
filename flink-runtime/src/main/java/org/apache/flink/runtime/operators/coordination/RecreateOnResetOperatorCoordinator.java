@@ -276,6 +276,11 @@ public class RecreateOnResetOperatorCoordinator implements OperatorCoordinator {
         private OperatorCoordinator.Context getContext() {
             return context;
         }
+
+        @Override
+        public void setIsProcessingBacklog(boolean isProcessingBacklog) {
+            context.setIsProcessingBacklog(isProcessingBacklog);
+        }
     }
 
     /**
