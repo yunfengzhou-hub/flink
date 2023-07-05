@@ -611,8 +611,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     }
 
     protected void endData(StopMode mode) throws Exception {
-
-        if (mode == StopMode.DRAIN) {
+        if (mode == StopMode.DRAIN && !getConfiguration().getIsTimestampOptimized()) {
             advanceToEndOfEventTime();
         }
         // finish all operators in a chain effect way

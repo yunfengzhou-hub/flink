@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
+import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
@@ -72,11 +73,37 @@ public abstract class AbstractStreamTaskNetworkInput<
             int inputIndex,
             Map<InputChannelInfo, R> recordDeserializers,
             CanEmitBatchOfRecordsChecker canEmitBatchOfRecords) {
+        this(
+                checkpointedInputGate,
+                inputSerializer,
+                statusWatermarkValve,
+                inputIndex,
+                recordDeserializers,
+                canEmitBatchOfRecords,
+                null);
+    }
+
+    public AbstractStreamTaskNetworkInput(
+            CheckpointedInputGate checkpointedInputGate,
+            TypeSerializer<T> inputSerializer,
+            StatusWatermarkValve statusWatermarkValve,
+            int inputIndex,
+            Map<InputChannelInfo, R> recordDeserializers,
+            CanEmitBatchOfRecordsChecker canEmitBatchOfRecords,
+            StreamConfig streamConfig) {
         super();
         this.checkpointedInputGate = checkpointedInputGate;
-        deserializationDelegate =
-                new NonReusingDeserializationDelegate<>(
-                        new StreamElementSerializer<>(inputSerializer));
+
+        if (streamConfig != null) {
+            deserializationDelegate =
+                    new NonReusingDeserializationDelegate<>(
+                            StreamElement.createSerializer(
+                                    inputSerializer, streamConfig.getIsTimestampOptimized()));
+        } else {
+            deserializationDelegate =
+                    new NonReusingDeserializationDelegate<>(
+                            new StreamElementSerializer<>(inputSerializer));
+        }
         this.inputSerializer = inputSerializer;
 
         for (InputChannelInfo i : checkpointedInputGate.getChannelInfos()) {
