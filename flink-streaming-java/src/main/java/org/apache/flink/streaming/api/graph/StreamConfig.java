@@ -146,6 +146,8 @@ public class StreamConfig implements Serializable {
     private final transient CompletableFuture<StreamConfig> serializationFuture =
             new CompletableFuture<>();
 
+    private boolean isTimestampOptimized = false;
+
     public StreamConfig(Configuration config) {
         this.config = config;
     }
@@ -878,5 +880,15 @@ public class StreamConfig implements Serializable {
         return inputConfig instanceof StreamConfig.NetworkInputConfig
                 && ((StreamConfig.NetworkInputConfig) inputConfig).getInputRequirement()
                         == StreamConfig.InputRequirement.SORTED;
+    }
+
+    public void setIsTimestampOptimized(boolean isTimestampOptimized) {
+        this.config.setString("isTimestampOptimized", Boolean.toString(isTimestampOptimized));
+        //        this.isTimestampOptimized = isTimestampOptimized;
+    }
+
+    public boolean getIsTimestampOptimized() {
+        //        return isTimestampOptimized;
+        return Boolean.parseBoolean(this.config.getString("isTimestampOptimized", "false"));
     }
 }

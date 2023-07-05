@@ -27,6 +27,7 @@ import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.network.api.serialization.SpillingAdaptiveSpanningRecordDeserializer;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
+import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
@@ -75,6 +76,24 @@ public final class StreamTaskNetworkInput<T>
                 inputIndex,
                 getRecordDeserializers(checkpointedInputGate, ioManager),
                 canEmitBatchOfRecords);
+    }
+
+    public StreamTaskNetworkInput(
+            CheckpointedInputGate checkpointedInputGate,
+            TypeSerializer<T> inputSerializer,
+            IOManager ioManager,
+            StatusWatermarkValve statusWatermarkValve,
+            int inputIndex,
+            CanEmitBatchOfRecordsChecker canEmitBatchOfRecords,
+            StreamConfig streamConfig) {
+        super(
+                checkpointedInputGate,
+                inputSerializer,
+                statusWatermarkValve,
+                inputIndex,
+                getRecordDeserializers(checkpointedInputGate, ioManager),
+                canEmitBatchOfRecords,
+                streamConfig);
     }
 
     // Initialize one deserializer per input channel

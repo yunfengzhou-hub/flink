@@ -228,8 +228,20 @@ public class StreamingJobGraphGenerator {
         this.serializationExecutor = Preconditions.checkNotNull(serializationExecutor);
         this.chainInfos = new HashMap<>();
         this.opNonChainableOutputsCache = new LinkedHashMap<>();
-
         jobGraph = new JobGraph(jobID, streamGraph.getJobName());
+    }
+
+    static boolean isTimestampOptimized(StreamGraph streamGraph) {
+        boolean isEmittingRecordsWithTimestamp =
+                streamGraph.getStreamNodes().stream()
+                        .anyMatch(
+                                x ->
+                                        x.getOperatorFactory()
+                                                .getOperatorAttributes()
+                                                .getIsEmittingRecordsWithTimestamp());
+        return streamGraph.getExecutionConfig().getAutoWatermarkInterval() == 0
+                && streamGraph.getExecutionConfig().getLatencyTrackingInterval() == 0
+                && !isEmittingRecordsWithTimestamp;
     }
 
     private JobGraph createJobGraph() {
@@ -281,6 +293,10 @@ public class StreamingJobGraphGenerator {
                 id -> streamGraph.getStreamNode(id).getManagedMemorySlotScopeUseCases());
 
         configureCheckpointing();
+
+        //        for (JobVertex jobVertex: jobVertices.values()) {
+        //            jobVertex.set
+        //        }
 
         jobGraph.setSavepointRestoreSettings(streamGraph.getSavepointRestoreSettings());
 
@@ -734,6 +750,7 @@ public class StreamingJobGraphGenerator {
                     currentNodeId.equals(startNodeId)
                             ? createJobVertex(startNodeId, chainInfo)
                             : new StreamConfig(new Configuration());
+            config.setIsTimestampOptimized(isTimestampOptimized(streamGraph));
 
             tryConvertPartitionerForDynamicGraph(chainableOutputs, nonChainableOutputs);
 
@@ -1391,6 +1408,7 @@ public class StreamingJobGraphGenerator {
         JobVertex downStreamVertex = jobVertices.get(downStreamVertexID);
 
         StreamConfig downStreamConfig = new StreamConfig(downStreamVertex.getConfiguration());
+        downStreamConfig.setIsTimestampOptimized(isTimestampOptimized(streamGraph));
 
         downStreamConfig.setNumberOfNetworkInputs(downStreamConfig.getNumberOfNetworkInputs() + 1);
 
