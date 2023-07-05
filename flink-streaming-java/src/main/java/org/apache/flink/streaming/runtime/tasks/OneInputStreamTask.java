@@ -207,7 +207,8 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
                                 .get(gateIndex)
                                 .getPartitioner(),
                 getEnvironment().getTaskInfo(),
-                getCanEmitBatchOfRecords());
+                getCanEmitBatchOfRecords(),
+                configuration);
     }
 
     /**

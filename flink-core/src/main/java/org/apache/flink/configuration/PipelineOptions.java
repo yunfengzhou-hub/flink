@@ -194,6 +194,12 @@ public class PipelineOptions {
                                     + " data to user-code functions will be reused. Keep in mind that this can lead to bugs when the"
                                     + " user-code function of an operation is not aware of this behaviour.");
 
+    public static final ConfigOption<Boolean> ENABLE_OPERATOR_TIMESTAMP =
+            key("pipeline.enable-operator-timestamp")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("foobar.");
+
     public static final ConfigOption<List<String>> KRYO_DEFAULT_SERIALIZERS =
             key("pipeline.default-kryo-serializers")
                     .stringType()

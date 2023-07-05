@@ -745,6 +745,16 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
         return configuration.get(PipelineOptions.OBJECT_REUSE);
     }
 
+    public ExecutionConfig setOperatorTimestamp(boolean operatorTimestamp) {
+        configuration.set(PipelineOptions.ENABLE_OPERATOR_TIMESTAMP, operatorTimestamp);
+        return this;
+    }
+
+    /** Returns whether object reuse has been enabled or disabled. @see #enableObjectReuse() */
+    public boolean isOperatorTimestampEnabled() {
+        return configuration.get(PipelineOptions.ENABLE_OPERATOR_TIMESTAMP);
+    }
+
     public GlobalJobParameters getGlobalJobParameters() {
         return globalJobParameters;
     }
@@ -1126,6 +1136,7 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
                 .ifPresent(this::setMaxParallelism);
         configuration.getOptional(CoreOptions.DEFAULT_PARALLELISM).ifPresent(this::setParallelism);
         configuration.getOptional(PipelineOptions.OBJECT_REUSE).ifPresent(this::setObjectReuse);
+        configuration.getOptional(PipelineOptions.ENABLE_OPERATOR_TIMESTAMP).ifPresent(this::setOperatorTimestamp);
         configuration
                 .getOptional(TaskManagerOptions.TASK_CANCELLATION_INTERVAL)
                 .ifPresent(this::setTaskCancellationInterval);

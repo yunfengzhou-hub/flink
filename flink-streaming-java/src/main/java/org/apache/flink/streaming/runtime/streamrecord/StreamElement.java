@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.runtime.streamrecord;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 
@@ -102,5 +103,14 @@ public abstract class StreamElement {
      */
     public final LatencyMarker asLatencyMarker() {
         return (LatencyMarker) this;
+    }
+
+    public static <T> TypeSerializer<StreamElement> createSerializer(
+            TypeSerializer<T> serializer, boolean isOptimized) {
+        if (!isOptimized) {
+            return new StreamElementSerializer<>(serializer);
+        } else {
+            return new StreamRecordWithoutTimestampSerializer<>(serializer);
+        }
     }
 }

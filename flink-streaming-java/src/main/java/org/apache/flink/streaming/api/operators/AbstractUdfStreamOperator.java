@@ -160,6 +160,13 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
         return new Configuration();
     }
 
+    @Override
+    public OperatorAttributes getOperatorAttributes() {
+        return new OperatorAttributes.Builder()
+                .setIsEmittingRecordsWithTimestamp(userFunction.isEmittingRecordWithTimestamp())
+                .build();
+    }
+
     private void checkUdfCheckpointingPreconditions() {
 
         if (userFunction instanceof CheckpointedFunction

@@ -21,6 +21,7 @@ import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.checkpoint.InflightDataRescalingDescriptor;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
+import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate;
 import org.apache.flink.streaming.runtime.io.recovery.RescalingStreamTaskNetworkInput;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
@@ -54,6 +55,39 @@ public class StreamTaskNetworkInputFactory {
                         statusWatermarkValve,
                         inputIndex,
                         canEmitBatchOfRecords)
+                : new RescalingStreamTaskNetworkInput<>(
+                        checkpointedInputGate,
+                        inputSerializer,
+                        ioManager,
+                        statusWatermarkValve,
+                        inputIndex,
+                        rescalingDescriptorinflightDataRescalingDescriptor,
+                        gatePartitioners,
+                        taskInfo,
+                        canEmitBatchOfRecords);
+    }
+
+    public static <T> StreamTaskInput<T> create(
+            CheckpointedInputGate checkpointedInputGate,
+            TypeSerializer<T> inputSerializer,
+            IOManager ioManager,
+            StatusWatermarkValve statusWatermarkValve,
+            int inputIndex,
+            InflightDataRescalingDescriptor rescalingDescriptorinflightDataRescalingDescriptor,
+            Function<Integer, StreamPartitioner<?>> gatePartitioners,
+            TaskInfo taskInfo,
+            CanEmitBatchOfRecordsChecker canEmitBatchOfRecords,
+            StreamConfig streamConfig) {
+        return rescalingDescriptorinflightDataRescalingDescriptor.equals(
+                        InflightDataRescalingDescriptor.NO_RESCALE)
+                ? new StreamTaskNetworkInput<>(
+                        checkpointedInputGate,
+                        inputSerializer,
+                        ioManager,
+                        statusWatermarkValve,
+                        inputIndex,
+                        canEmitBatchOfRecords,
+                        streamConfig)
                 : new RescalingStreamTaskNetworkInput<>(
                         checkpointedInputGate,
                         inputSerializer,

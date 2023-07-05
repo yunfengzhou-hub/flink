@@ -40,6 +40,10 @@ public interface Source<T, SplitT extends SourceSplit, EnumChkT>
      */
     Boundedness getBoundedness();
 
+    default boolean isEmittingRecordWithTimestamp() {
+        return false;
+    }
+
     /**
      * Creates a new SplitEnumerator for this source, starting a new input.
      *

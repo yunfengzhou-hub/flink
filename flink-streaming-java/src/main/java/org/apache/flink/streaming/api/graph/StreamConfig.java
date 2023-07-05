@@ -61,6 +61,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.PipelineOptions.ENABLE_OPERATOR_TIMESTAMP;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -145,6 +146,8 @@ public class StreamConfig implements Serializable {
             new HashMap<>();
     private final transient CompletableFuture<StreamConfig> serializationFuture =
             new CompletableFuture<>();
+
+    private boolean isTimestampOptimized = false;
 
     public StreamConfig(Configuration config) {
         this.config = config;
@@ -878,5 +881,13 @@ public class StreamConfig implements Serializable {
         return inputConfig instanceof StreamConfig.NetworkInputConfig
                 && ((StreamConfig.NetworkInputConfig) inputConfig).getInputRequirement()
                         == StreamConfig.InputRequirement.SORTED;
+    }
+
+    public void setIsTimestampOptimized(boolean isTimestampOptimized) {
+        this.config.set(ENABLE_OPERATOR_TIMESTAMP, isTimestampOptimized);
+    }
+
+    public boolean getIsTimestampOptimized() {
+        return this.config.get(ENABLE_OPERATOR_TIMESTAMP);
     }
 }
