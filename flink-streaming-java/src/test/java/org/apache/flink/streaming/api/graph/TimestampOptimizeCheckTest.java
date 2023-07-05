@@ -24,7 +24,7 @@ public class TimestampOptimizeCheckTest {
     public void setUp() {
         env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.getConfig().setAutoWatermarkInterval(0);
-
+        env.getConfig().setOperatorTimestamp(false);
     }
 
     @Test

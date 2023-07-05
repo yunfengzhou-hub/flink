@@ -241,6 +241,7 @@ public class StreamingJobGraphGenerator {
                                                 .getIsEmittingRecordsWithTimestamp());
         return streamGraph.getExecutionConfig().getAutoWatermarkInterval() == 0
                 && streamGraph.getExecutionConfig().getLatencyTrackingInterval() == 0
+                && !streamGraph.getExecutionConfig().isOperatorTimestampEnabled()
                 && !isEmittingRecordsWithTimestamp;
     }
 
