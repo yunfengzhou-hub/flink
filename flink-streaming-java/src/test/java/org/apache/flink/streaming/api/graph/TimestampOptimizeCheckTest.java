@@ -11,15 +11,24 @@ import org.apache.flink.streaming.api.windowing.assigners.EventTimeSessionWindow
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TimestampOptimizeCheckTest {
+    private StreamExecutionEnvironment env;
+
+    @Before
+    public void setUp() {
+        env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.getConfig().setAutoWatermarkInterval(0);
+
+    }
+
     @Test
     public void test() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStream<Long> stream = env.fromSequence(1, 5);
         stream = stream.map(x -> x);
         stream.addSink(new DiscardingSink<>());
@@ -28,19 +37,16 @@ public class TimestampOptimizeCheckTest {
 
     @Test
     public void testWindow() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStream<Long> stream = env.fromSequence(1, 5);
         stream =
                 stream.windowAll(EventTimeSessionWindows.withGap(Time.seconds(1)))
                         .reduce((ReduceFunction<Long>) (x, y) -> x + y);
         stream.addSink(new DiscardingSink<>());
-        assertFalse(StreamingJobGraphGenerator.isTimestampOptimized(env.getStreamGraph()));
+        assertTrue(StreamingJobGraphGenerator.isTimestampOptimized(env.getStreamGraph()));
     }
 
     @Test
     public void testIntervalJoin() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
         DataStream<Long> orangeStream = env.fromSequence(1, 5);
         DataStream<Long> greenStream = env.fromSequence(1, 5);
 
@@ -60,12 +66,11 @@ public class TimestampOptimizeCheckTest {
                                 });
 
         resultStream.addSink(new DiscardingSink<>());
-        assertFalse(StreamingJobGraphGenerator.isTimestampOptimized(env.getStreamGraph()));
+        assertTrue(StreamingJobGraphGenerator.isTimestampOptimized(env.getStreamGraph()));
     }
 
     @Test
     public void testCustomProcessWithoutTimestamp() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStream<Long> stream = env.fromSequence(1, 5);
         stream =
                 stream.process(
@@ -77,6 +82,7 @@ public class TimestampOptimizeCheckTest {
                                     Collector<Long> out) {
                                 out.collect(value);
                             }
+
                         });
         stream.addSink(new DiscardingSink<>());
         assertTrue(StreamingJobGraphGenerator.isTimestampOptimized(env.getStreamGraph()));
@@ -84,7 +90,6 @@ public class TimestampOptimizeCheckTest {
 
     @Test
     public void testCustomProcessWithTimestamp() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStream<Long> stream = env.fromSequence(1, 5);
         stream =
                 stream.process(
@@ -98,6 +103,11 @@ public class TimestampOptimizeCheckTest {
                                     out.collect(value);
                                 }
                             }
+
+                            @Override
+                            public boolean isEmittingRecordWithTimestamp() {
+                                return true;
+                            }
                         });
         stream.addSink(new DiscardingSink<>());
         assertFalse(StreamingJobGraphGenerator.isTimestampOptimized(env.getStreamGraph()));
@@ -105,7 +115,6 @@ public class TimestampOptimizeCheckTest {
 
     @Test
     public void testAssignTimestampsAndWatermarks() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStream<Long> stream = env.fromSequence(1, 5);
         stream = stream.assignTimestampsAndWatermarks(WatermarkStrategy.forMonotonousTimestamps());
         stream.addSink(new DiscardingSink<>());
@@ -114,7 +123,6 @@ public class TimestampOptimizeCheckTest {
 
     @Test
     public void testAssignNoWatermarks() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         DataStream<Long> stream = env.fromSequence(1, 5);
         stream = stream.assignTimestampsAndWatermarks(WatermarkStrategy.noWatermarks());
         stream.addSink(new DiscardingSink<>());

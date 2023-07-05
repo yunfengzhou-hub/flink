@@ -27,7 +27,7 @@ public class OperatorAttributes {
         private boolean isEmittingRecordsWithTimestamp;
 
         public Builder() {
-            this.isEmittingRecordsWithTimestamp = true;
+            this.isEmittingRecordsWithTimestamp = false;
         }
 
         public Builder setIsEmittingRecordsWithTimestamp(boolean isEmittingRecordsWithTimestamp) {
