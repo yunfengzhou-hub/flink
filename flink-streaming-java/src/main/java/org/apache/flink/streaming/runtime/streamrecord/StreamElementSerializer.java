@@ -23,7 +23,6 @@ import org.apache.flink.api.common.typeutils.CompositeTypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
-import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
 
@@ -48,7 +47,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
     private static final int TAG_REC_WITH_TIMESTAMP = 0;
     private static final int TAG_REC_WITHOUT_TIMESTAMP = 1;
     private static final int TAG_WATERMARK = 2;
-    private static final int TAG_LATENCY_MARKER = 3;
     private static final int TAG_STREAM_STATUS = 4;
 
     private final TypeSerializer<T> typeSerializer;
@@ -141,11 +139,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             target.writeLong(source.readLong());
         } else if (tag == TAG_STREAM_STATUS) {
             target.writeInt(source.readInt());
-        } else if (tag == TAG_LATENCY_MARKER) {
-            target.writeLong(source.readLong());
-            target.writeLong(source.readLong());
-            target.writeLong(source.readLong());
-            target.writeInt(source.readInt());
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
@@ -169,12 +162,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
         } else if (value.isWatermarkStatus()) {
             target.write(TAG_STREAM_STATUS);
             target.writeInt(value.asWatermarkStatus().getStatus());
-        } else if (value.isLatencyMarker()) {
-            target.write(TAG_LATENCY_MARKER);
-            target.writeLong(value.asLatencyMarker().getMarkedTime());
-            target.writeLong(value.asLatencyMarker().getOperatorId().getLowerPart());
-            target.writeLong(value.asLatencyMarker().getOperatorId().getUpperPart());
-            target.writeInt(value.asLatencyMarker().getSubtaskIndex());
         } else {
             throw new RuntimeException();
         }
@@ -192,11 +179,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             return new Watermark(source.readLong());
         } else if (tag == TAG_STREAM_STATUS) {
             return new WatermarkStatus(source.readInt());
-        } else if (tag == TAG_LATENCY_MARKER) {
-            return new LatencyMarker(
-                    source.readLong(),
-                    new OperatorID(source.readLong(), source.readLong()),
-                    source.readInt());
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }
@@ -218,11 +200,6 @@ public final class StreamElementSerializer<T> extends TypeSerializer<StreamEleme
             return reuseRecord;
         } else if (tag == TAG_WATERMARK) {
             return new Watermark(source.readLong());
-        } else if (tag == TAG_LATENCY_MARKER) {
-            return new LatencyMarker(
-                    source.readLong(),
-                    new OperatorID(source.readLong(), source.readLong()),
-                    source.readInt());
         } else {
             throw new IOException("Corrupt stream, found tag: " + tag);
         }

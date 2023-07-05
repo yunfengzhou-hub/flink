@@ -94,7 +94,8 @@ public class StreamTwoInputProcessorFactory {
                         inflightDataRescalingDescriptor,
                         gatePartitioners,
                         taskInfo,
-                        canEmitBatchOfRecords);
+                        canEmitBatchOfRecords,
+                        streamConfig);
         TypeSerializer<IN2> typeSerializer2 = streamConfig.getTypeSerializerIn(1, userClassloader);
         StreamTaskInput<IN2> input2 =
                 StreamTaskNetworkInputFactory.create(
@@ -107,7 +108,8 @@ public class StreamTwoInputProcessorFactory {
                         inflightDataRescalingDescriptor,
                         gatePartitioners,
                         taskInfo,
-                        canEmitBatchOfRecords);
+                        canEmitBatchOfRecords,
+                        streamConfig);
 
         InputSelectable inputSelectable =
                 streamOperator instanceof InputSelectable ? (InputSelectable) streamOperator : null;

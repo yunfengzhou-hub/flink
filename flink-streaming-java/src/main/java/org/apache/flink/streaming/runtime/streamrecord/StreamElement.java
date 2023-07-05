@@ -19,12 +19,17 @@
 package org.apache.flink.streaming.runtime.streamrecord;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** An element in a data stream. Can be a record or a Watermark. */
 @Internal
 public abstract class StreamElement {
+    private static final Logger LOG = LoggerFactory.getLogger(StreamElement.class);
 
     /**
      * Checks whether this element is a watermark.
@@ -102,5 +107,16 @@ public abstract class StreamElement {
      */
     public final LatencyMarker asLatencyMarker() {
         return (LatencyMarker) this;
+    }
+
+    public static <T> TypeSerializer<StreamElement> createSerializer(
+            TypeSerializer<T> serializer, boolean isOptimized) {
+        if (!isOptimized) {
+            LOG.info("creating normal stream element serializer");
+            return new StreamElementSerializer<>(serializer);
+        } else {
+            LOG.info("creating optimized stream element serializer");
+            return new StreamRecordWithoutTimestampSerializer<>(serializer);
+        }
     }
 }
