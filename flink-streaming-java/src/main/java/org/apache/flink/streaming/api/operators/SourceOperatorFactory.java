@@ -82,6 +82,13 @@ public class SourceOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
         this.numCoordinatorWorkerThread = numCoordinatorWorkerThread;
     }
 
+    @Override
+    public OperatorAttributes getOperatorAttributes() {
+        return new OperatorAttributes.Builder()
+                .setIsEmittingRecordsWithTimestamp(source.isEmittingRecordWithTimestamp())
+                .build();
+    }
+
     public Boundedness getBoundedness() {
         return source.getBoundedness();
     }
