@@ -68,7 +68,9 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.InputSelectable;
+import org.apache.flink.streaming.api.operators.SourceOperator;
 import org.apache.flink.streaming.api.operators.SourceOperatorFactory;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.UdfStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.YieldingOperatorFactory;
@@ -79,6 +81,7 @@ import org.apache.flink.streaming.runtime.partitioner.ForwardForUnspecifiedParti
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationHead;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationTail;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -87,6 +90,11 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import org.apache.flink.util.concurrent.FutureUtils;
+
+import org.apache.flink.shaded.asm9.org.objectweb.asm.ClassReader;
+import org.apache.flink.shaded.asm9.org.objectweb.asm.ClassVisitor;
+import org.apache.flink.shaded.asm9.org.objectweb.asm.MethodVisitor;
+import org.apache.flink.shaded.asm9.org.objectweb.asm.Opcodes;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -228,8 +236,18 @@ public class StreamingJobGraphGenerator {
         this.serializationExecutor = Preconditions.checkNotNull(serializationExecutor);
         this.chainInfos = new HashMap<>();
         this.opNonChainableOutputsCache = new LinkedHashMap<>();
-
         jobGraph = new JobGraph(jobID, streamGraph.getJobName());
+    }
+
+     static boolean isTimestampOptimized(StreamGraph streamGraph) {
+        boolean isEmittingRecordsWithTimestamp =
+                streamGraph.getStreamNodes().stream().anyMatch(x -> x
+                        .getOperatorFactory()
+                        .getOperatorAttributes()
+                        .getIsEmittingRecordsWithTimestamp());
+        return streamGraph.getExecutionConfig().getAutoWatermarkInterval() == 0
+                && streamGraph.getExecutionConfig().getLatencyTrackingInterval() == 0
+                && !isEmittingRecordsWithTimestamp;
     }
 
     private JobGraph createJobGraph() {
@@ -281,6 +299,10 @@ public class StreamingJobGraphGenerator {
                 id -> streamGraph.getStreamNode(id).getManagedMemorySlotScopeUseCases());
 
         configureCheckpointing();
+
+        //        for (JobVertex jobVertex: jobVertices.values()) {
+        //            jobVertex.set
+        //        }
 
         jobGraph.setSavepointRestoreSettings(streamGraph.getSavepointRestoreSettings());
 
@@ -734,6 +756,7 @@ public class StreamingJobGraphGenerator {
                     currentNodeId.equals(startNodeId)
                             ? createJobVertex(startNodeId, chainInfo)
                             : new StreamConfig(new Configuration());
+            config.setIsTimestampOptimized(isTimestampOptimized(streamGraph));
 
             tryConvertPartitionerForDynamicGraph(chainableOutputs, nonChainableOutputs);
 
@@ -1391,6 +1414,7 @@ public class StreamingJobGraphGenerator {
         JobVertex downStreamVertex = jobVertices.get(downStreamVertexID);
 
         StreamConfig downStreamConfig = new StreamConfig(downStreamVertex.getConfiguration());
+        downStreamConfig.setIsTimestampOptimized(isTimestampOptimized(streamGraph));
 
         downStreamConfig.setNumberOfNetworkInputs(downStreamConfig.getNumberOfNetworkInputs() + 1);
 

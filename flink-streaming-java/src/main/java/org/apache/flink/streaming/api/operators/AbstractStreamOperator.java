@@ -50,6 +50,7 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.CheckpointedStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
+import org.apache.flink.streaming.runtime.streamrecord.RecordAttributes;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
@@ -616,6 +617,18 @@ public abstract class AbstractStreamOperator<OUT>
 
     public void processWatermark2(Watermark mark) throws Exception {
         processWatermark(mark, 1);
+    }
+
+    public void processRecordAttributes(RecordAttributes attributes) {
+        output.emitRecordAttributes(attributes);
+    }
+
+    public void processRecordAttributes1(RecordAttributes attributes) {
+        output.emitRecordAttributes(attributes);
+    }
+
+    public void processRecordAttributes2(RecordAttributes attributes) {
+        output.emitRecordAttributes(attributes);
     }
 
     public void processWatermarkStatus(WatermarkStatus watermarkStatus) throws Exception {

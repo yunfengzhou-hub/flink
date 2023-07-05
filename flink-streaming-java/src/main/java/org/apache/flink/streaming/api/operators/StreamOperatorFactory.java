@@ -87,4 +87,12 @@ public interface StreamOperatorFactory<OUT> extends Serializable {
 
     /** Returns the runtime class of the stream operator. */
     Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader);
+
+    default boolean useTimestamp() {
+        return true;
+    }
+
+    default OperatorAttributes getOperatorAttributes() {
+        return new OperatorAttributes.Builder().build();
+    }
 }

@@ -32,7 +32,6 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.metrics.WatermarkGauge;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
-import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.OutputWithChainingCheck;
 import org.apache.flink.streaming.runtime.tasks.WatermarkGaugeExposingOutput;
@@ -71,7 +70,8 @@ public class RecordWriterOutput<OUT>
             RecordWriter<SerializationDelegate<StreamRecord<OUT>>> recordWriter,
             TypeSerializer<OUT> outSerializer,
             OutputTag outputTag,
-            boolean supportsUnalignedCheckpoints) {
+            boolean supportsUnalignedCheckpoints,
+            boolean isTimestampOptimized) {
 
         checkNotNull(recordWriter);
         this.outputTag = outputTag;
@@ -81,7 +81,8 @@ public class RecordWriterOutput<OUT>
                 (RecordWriter<SerializationDelegate<StreamElement>>) (RecordWriter<?>) recordWriter;
 
         TypeSerializer<StreamElement> outRecordSerializer =
-                new StreamElementSerializer<>(outSerializer);
+                StreamElement.createSerializer(outSerializer, isTimestampOptimized);
+        //                new StreamElementSerializer<>(outSerializer);
 
         if (outSerializer != null) {
             serializationDelegate = new SerializationDelegate<>(outRecordSerializer);

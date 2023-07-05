@@ -132,4 +132,9 @@ public class SimpleOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
     public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
         return operator.getClass();
     }
+
+    @Override
+    public boolean useTimestamp() {
+        return operator.useTimestamp();
+    }
 }
