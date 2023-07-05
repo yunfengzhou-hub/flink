@@ -27,4 +27,12 @@ import org.apache.flink.annotation.Public;
  * method) interfaces that can be implemented via Java 8 lambdas.
  */
 @Public
-public interface Function extends java.io.Serializable {}
+public interface Function extends java.io.Serializable {
+    /**
+     * Returns true if the function might assign additional timestamps to the output records. False
+     * if the function only forward timestamps of existing input records to the output.
+     */
+    default boolean isEmittingRecordWithTimestamp() {
+        return false;
+    }
+}

@@ -25,6 +25,7 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
+import org.apache.flink.runtime.io.network.api.LatencyMarkerEvent;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.api.operators.Output;
@@ -32,7 +33,6 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.metrics.WatermarkGauge;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
-import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.OutputWithChainingCheck;
 import org.apache.flink.streaming.runtime.tasks.WatermarkGaugeExposingOutput;
@@ -71,7 +71,8 @@ public class RecordWriterOutput<OUT>
             RecordWriter<SerializationDelegate<StreamRecord<OUT>>> recordWriter,
             TypeSerializer<OUT> outSerializer,
             OutputTag outputTag,
-            boolean supportsUnalignedCheckpoints) {
+            boolean supportsUnalignedCheckpoints,
+            boolean isTimestampOptimized) {
 
         checkNotNull(recordWriter);
         this.outputTag = outputTag;
@@ -81,7 +82,7 @@ public class RecordWriterOutput<OUT>
                 (RecordWriter<SerializationDelegate<StreamElement>>) (RecordWriter<?>) recordWriter;
 
         TypeSerializer<StreamElement> outRecordSerializer =
-                new StreamElementSerializer<>(outSerializer);
+                StreamElement.createSerializer(outSerializer, isTimestampOptimized);
 
         if (outSerializer != null) {
             serializationDelegate = new SerializationDelegate<>(outRecordSerializer);
@@ -168,10 +169,12 @@ public class RecordWriterOutput<OUT>
 
     @Override
     public void emitLatencyMarker(LatencyMarker latencyMarker) {
-        serializationDelegate.setInstance(latencyMarker);
-
         try {
-            recordWriter.randomEmit(serializationDelegate);
+            recordWriter.randomEmit(
+                    new LatencyMarkerEvent(
+                            latencyMarker.getMarkedTime(),
+                            latencyMarker.getOperatorId(),
+                            latencyMarker.getSubtaskIndex()));
         } catch (IOException e) {
             throw new UncheckedIOException(e.getMessage(), e);
         }

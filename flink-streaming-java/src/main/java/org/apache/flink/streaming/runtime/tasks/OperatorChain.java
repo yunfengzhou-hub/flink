@@ -559,7 +559,8 @@ public abstract class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                         recordWriter,
                         outSerializer,
                         sideOutputTag,
-                        streamOutput.supportsUnalignedCheckpoints()));
+                        streamOutput.supportsUnalignedCheckpoints(),
+                        upStreamConfig.getIsTimestampOptimized()));
     }
 
     @SuppressWarnings("rawtypes")
