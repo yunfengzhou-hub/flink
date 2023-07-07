@@ -81,17 +81,19 @@ public final class StreamRecordWithoutTimestampSerializer<T> extends TypeSeriali
 
     @Override
     public void serialize(StreamElement value, DataOutputView target) throws IOException {
-        StreamRecord<T> record = value.asRecord();
-        typeSerializer.serialize(record.getValue(), target);
+        typeSerializer.serialize((T) value.asRecord().getValue(), target);
     }
 
     @Override
     public StreamElement deserialize(DataInputView source) throws IOException {
-        return new StreamRecord<T>(typeSerializer.deserialize(source));
+        return new StreamRecord<>(typeSerializer.deserialize(source));
     }
 
     @Override
     public StreamElement deserialize(StreamElement reuse, DataInputView source) throws IOException {
-        throw new UnsupportedOperationException();
+        T value = typeSerializer.deserialize(source);
+        StreamRecord<T> reuseRecord = reuse.asRecord();
+        reuseRecord.replace(value);
+        return reuseRecord;
     }
 }

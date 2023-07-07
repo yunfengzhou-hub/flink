@@ -162,7 +162,9 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
 
     @Override
     public OperatorAttributes getOperatorAttributes() {
-        return new OperatorAttributes.Builder().setIsEmittingRecordsWithTimestamp(userFunction.isEmittingRecordWithTimestamp()).build();
+        return new OperatorAttributes.Builder()
+                .setIsEmittingRecordsWithTimestamp(userFunction.isEmittingRecordWithTimestamp())
+                .build();
     }
 
     private void checkUdfCheckpointingPreconditions() {

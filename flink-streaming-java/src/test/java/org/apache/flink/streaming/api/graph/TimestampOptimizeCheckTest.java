@@ -82,7 +82,6 @@ public class TimestampOptimizeCheckTest {
                                     Collector<Long> out) {
                                 out.collect(value);
                             }
-
                         });
         stream.addSink(new DiscardingSink<>());
         assertTrue(StreamingJobGraphGenerator.isTimestampOptimized(env.getStreamGraph()));

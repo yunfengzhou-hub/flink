@@ -84,7 +84,9 @@ public class SourceOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
 
     @Override
     public OperatorAttributes getOperatorAttributes() {
-        return new OperatorAttributes.Builder().setIsEmittingRecordsWithTimestamp(source.isEmittingRecordWithTimestamp()).build();
+        return new OperatorAttributes.Builder()
+                .setIsEmittingRecordsWithTimestamp(source.isEmittingRecordWithTimestamp())
+                .build();
     }
 
     public Boundedness getBoundedness() {
