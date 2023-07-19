@@ -28,6 +28,11 @@ import org.apache.flink.annotation.Public;
  */
 @Public
 public interface Function extends java.io.Serializable {
+    /**
+     * Returns true if the function might assign additional timestamps to the output
+     * records. False if the function only forward timestamps of existing input records
+     * to the output.
+     */
     default boolean isEmittingRecordWithTimestamp() {
         return false;
     }

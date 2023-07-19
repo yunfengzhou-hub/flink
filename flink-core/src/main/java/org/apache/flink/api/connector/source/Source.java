@@ -40,6 +40,7 @@ public interface Source<T, SplitT extends SourceSplit, EnumChkT>
      */
     Boundedness getBoundedness();
 
+    /** Returns true if this source might emit records containing timestamp. */
     default boolean isEmittingRecordWithTimestamp() {
         return false;
     }

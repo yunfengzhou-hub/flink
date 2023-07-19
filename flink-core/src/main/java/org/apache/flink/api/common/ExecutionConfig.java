@@ -745,14 +745,41 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
         return configuration.get(PipelineOptions.OBJECT_REUSE);
     }
 
+    /**
+     * Enables timestamp attribute on records. See
+     * {@link PipelineOptions#RECORD_TIMESTAMP} for more details.
+     */
+    public ExecutionConfig enableRecordTimestamp() {
+        configuration.set(PipelineOptions.RECORD_TIMESTAMP, true);
+        return this;
+    }
+
+    /**
+     * Disables timestamp attribute on records. See
+     * {@link PipelineOptions#RECORD_TIMESTAMP} for more details.
+     */
+    public ExecutionConfig disableRecordTimestamp() {
+        configuration.set(PipelineOptions.RECORD_TIMESTAMP, false);
+        return this;
+    }
+
+    /**
+     * Returns whether record timestamps has been enabled or disabled. See
+     * {@link PipelineOptions#RECORD_TIMESTAMP} for more details.
+     */
+    public boolean isRecordTimestampEnabled() {
+        return configuration.get(PipelineOptions.RECORD_TIMESTAMP);
+    }
+
+
     public ExecutionConfig setOperatorTimestamp(boolean operatorTimestamp) {
-        configuration.set(PipelineOptions.ENABLE_OPERATOR_TIMESTAMP, operatorTimestamp);
+        configuration.set(PipelineOptions.RECORD_TIMESTAMP, operatorTimestamp);
         return this;
     }
 
     /** Returns whether object reuse has been enabled or disabled. @see #enableObjectReuse() */
     public boolean isOperatorTimestampEnabled() {
-        return configuration.get(PipelineOptions.ENABLE_OPERATOR_TIMESTAMP);
+        return configuration.get(PipelineOptions.RECORD_TIMESTAMP);
     }
 
     public GlobalJobParameters getGlobalJobParameters() {
@@ -1136,7 +1163,7 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
                 .ifPresent(this::setMaxParallelism);
         configuration.getOptional(CoreOptions.DEFAULT_PARALLELISM).ifPresent(this::setParallelism);
         configuration.getOptional(PipelineOptions.OBJECT_REUSE).ifPresent(this::setObjectReuse);
-        configuration.getOptional(PipelineOptions.ENABLE_OPERATOR_TIMESTAMP).ifPresent(this::setOperatorTimestamp);
+        configuration.getOptional(PipelineOptions.RECORD_TIMESTAMP).ifPresent(this::setOperatorTimestamp);
         configuration
                 .getOptional(TaskManagerOptions.TASK_CANCELLATION_INTERVAL)
                 .ifPresent(this::setTaskCancellationInterval);
