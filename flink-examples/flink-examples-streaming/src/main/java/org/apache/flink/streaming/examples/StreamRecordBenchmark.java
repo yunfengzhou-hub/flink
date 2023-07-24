@@ -10,21 +10,17 @@ import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.util.Collector;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 public class StreamRecordBenchmark {
 
     public static void main(String[] args) throws Exception {
-        for (int i = 0; i < 5; i ++) {
+        for (int i = 0; i < 5; i++) {
             benchmark(false);
         }
-        for (int i = 0; i < 5; i ++) {
+        for (int i = 0; i < 5; i++) {
             benchmark(true);
         }
     }
-
 
     private static void poc() throws Exception {
         Configuration configuration = new Configuration();
@@ -57,9 +53,7 @@ public class StreamRecordBenchmark {
             long endTime = System.currentTimeMillis();
             System.out.printf(
                     "Record serialization enabled: %s\t Num records: %s execution time: %s\n",
-                    !isEmittingRecordWithTimestamp,
-                    NUM_RECORDS,
-                    endTime - startTime);
+                    !isEmittingRecordWithTimestamp, NUM_RECORDS, endTime - startTime);
         }
     }
 
@@ -71,10 +65,7 @@ public class StreamRecordBenchmark {
         }
 
         @Override
-        public void processElement(
-                T value,
-                ProcessFunction<T, T>.Context ctx,
-                Collector<T> out) {
+        public void processElement(T value, ProcessFunction<T, T>.Context ctx, Collector<T> out) {
             out.collect(value);
         }
 
