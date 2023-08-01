@@ -567,6 +567,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                 }
                 break;
             case NOTHING_AVAILABLE:
+                inputProcessor.flush();
                 break;
             case END_OF_RECOVERY:
                 throw new IllegalStateException("We should not receive this event here.");

@@ -69,4 +69,6 @@ public interface Input<IN> {
      * guaranteed to not be called concurrently with other methods of the operator.
      */
     void setKeyContextElement(StreamRecord<IN> record) throws Exception;
+
+    default void flush() throws Exception {}
 }

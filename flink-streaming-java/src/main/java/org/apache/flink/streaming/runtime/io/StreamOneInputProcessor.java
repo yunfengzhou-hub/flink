@@ -87,4 +87,9 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
     public void close() throws IOException {
         input.close();
     }
+
+    @Override
+    public void flush() throws Exception {
+        input.flush(output);
+    }
 }

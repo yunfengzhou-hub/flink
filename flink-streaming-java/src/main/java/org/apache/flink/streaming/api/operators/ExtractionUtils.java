@@ -11,7 +11,7 @@ public class ExtractionUtils {
     public static boolean useTimestamp(String className) {
         final AtomicBoolean useTimestamp = new AtomicBoolean(false);
 
-        ClassVisitor cv =new MyClassVisitor(useTimestamp);
+        ClassVisitor cv = new MyClassVisitor(useTimestamp);
 
         try {
             ClassReader classReader = new ClassReader(className);
@@ -29,29 +29,21 @@ public class ExtractionUtils {
 
         protected MyClassVisitor(AtomicBoolean useTimestamp) {
             super(Opcodes.ASM9);
-            this.className = "org.apache.flink.streaming.runtime.streamrecord.StreamRecord"
-                    .replace('.', '/');
+            this.className =
+                    "org.apache.flink.streaming.runtime.streamrecord.StreamRecord"
+                            .replace('.', '/');
             this.useTimestamp = useTimestamp;
         }
 
         @Override
         public MethodVisitor visitMethod(
-                int access,
-                String name,
-                String desc,
-                String signature,
-                String[] exceptions) {
+                int access, String name, String desc, String signature, String[] exceptions) {
             return new MethodVisitor(Opcodes.ASM9) {
                 @Override
                 public void visitMethodInsn(
-                        int opcode,
-                        String owner,
-                        String name,
-                        String desc,
-                        boolean arg4) {
+                        int opcode, String owner, String name, String desc, boolean arg4) {
                     if (owner.equals(className)
-                            && (name.equals("getTimestamp")
-                            || name.equals("hasTimestamp"))) {
+                            && (name.equals("getTimestamp") || name.equals("hasTimestamp"))) {
                         String operator =
                                 "--  opcode  --  "
                                         + opcode

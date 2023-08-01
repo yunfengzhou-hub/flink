@@ -61,6 +61,8 @@ public interface SinkFunction<IN> extends Function, Serializable {
      */
     default void writeWatermark(Watermark watermark) throws Exception {}
 
+    default void flush() throws Exception {}
+
     /**
      * This method is called at the end of data processing.
      *

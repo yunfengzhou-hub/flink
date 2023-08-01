@@ -253,5 +253,10 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         public void emitLatencyMarker(LatencyMarker latencyMarker) throws Exception {
             operator.processLatencyMarker(latencyMarker);
         }
+
+        @Override
+        public void flush() throws Exception {
+            operator.flush();
+        }
     }
 }
