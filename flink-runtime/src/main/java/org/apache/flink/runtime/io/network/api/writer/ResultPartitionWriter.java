@@ -71,6 +71,9 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
     /** Writes the given {@link AbstractEvent} to all channels. */
     void broadcastEvent(AbstractEvent event, boolean isPriorityEvent) throws IOException;
 
+    /** Emits an {@link AbstractEvent} to a randomly selected subpartition. */
+    default void randomEmit(AbstractEvent event, boolean isPriorityEvent) throws IOException {}
+
     /** Timeout the aligned barrier to unaligned barrier. */
     void alignedBarrierTimeout(long checkpointId) throws IOException;
 

@@ -25,6 +25,7 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
+import org.apache.flink.runtime.io.network.api.LatencyMarkerEvent;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.streaming.api.operators.Output;
@@ -168,10 +169,12 @@ public class RecordWriterOutput<OUT>
 
     @Override
     public void emitLatencyMarker(LatencyMarker latencyMarker) {
-        serializationDelegate.setInstance(latencyMarker);
-
         try {
-            recordWriter.randomEmit(serializationDelegate);
+            recordWriter.randomEmit(
+                    new LatencyMarkerEvent(
+                            latencyMarker.getMarkedTime(),
+                            latencyMarker.getOperatorId(),
+                            latencyMarker.getSubtaskIndex()));
         } catch (IOException e) {
             throw new UncheckedIOException(e.getMessage(), e);
         }

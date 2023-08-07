@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Random;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkElementIndex;
@@ -202,6 +203,22 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
                 // Retain the buffer so that it can be recycled by each channel of targetPartition
                 subpartition.add(eventBufferConsumer.copy(), 0);
             }
+        }
+    }
+
+    @Override
+    public void randomEmit(AbstractEvent event, boolean isPriorityEvent) throws IOException {
+        checkInProduceState();
+        finishBroadcastBufferBuilder();
+        finishUnicastBufferBuilders();
+
+        try (BufferConsumer eventBufferConsumer =
+                EventSerializer.toBufferConsumer(event, isPriorityEvent)) {
+            totalWrittenBytes += ((long) eventBufferConsumer.getWrittenBytes() * numSubpartitions);
+            ResultSubpartition subpartition =
+                    subpartitions[new Random().nextInt(subpartitions.length)];
+            // Retain the buffer so that it can be recycled by each channel of targetPartition
+            subpartition.add(eventBufferConsumer.copy(), 0);
         }
     }
 

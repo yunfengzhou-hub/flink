@@ -35,6 +35,7 @@ import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.EndOfSuperstepEvent;
 import org.apache.flink.runtime.io.network.api.EventAnnouncement;
+import org.apache.flink.runtime.io.network.api.LatencyMarkerEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
 import org.apache.flink.runtime.io.network.api.SubtaskConnectionDescriptor;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -42,6 +43,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
+import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.util.InstantiationUtil;
 
@@ -77,6 +79,8 @@ public class EventSerializer {
     private static final int END_OF_USER_RECORDS_EVENT = 8;
 
     private static final int END_OF_SEGMENT = 9;
+
+    private static final int LATENCY_MARKER_EVENT = 10;
 
     private static final byte CHECKPOINT_TYPE_CHECKPOINT = 0;
 
@@ -144,6 +148,16 @@ public class EventSerializer {
             return buf;
         } else if (eventClass == EndOfSegmentEvent.class) {
             return ByteBuffer.wrap(new byte[] {0, 0, 0, END_OF_SEGMENT});
+        } else if (eventClass == LatencyMarkerEvent.class) {
+            LatencyMarkerEvent markerEvent = (LatencyMarkerEvent) event;
+            ByteBuffer buf = ByteBuffer.allocate(32);
+            buf.putInt(LATENCY_MARKER_EVENT);
+            buf.putLong(markerEvent.getMarkedTime());
+            buf.putLong(markerEvent.getOperatorId().getLowerPart());
+            buf.putLong(markerEvent.getOperatorId().getUpperPart());
+            buf.putInt(markerEvent.getSubtaskIndex());
+            buf.flip();
+            return buf;
         } else {
             try {
                 final DataOutputSerializer serializer = new DataOutputSerializer(128);
@@ -190,6 +204,11 @@ public class EventSerializer {
                 return new SubtaskConnectionDescriptor(buffer.getInt(), buffer.getInt());
             } else if (type == END_OF_SEGMENT) {
                 return EndOfSegmentEvent.INSTANCE;
+            } else if (type == LATENCY_MARKER_EVENT) {
+                long markedTime = buffer.getLong();
+                OperatorID operatorID = new OperatorID(buffer.getLong(), buffer.getLong());
+                int subtaskIndex = buffer.getInt();
+                return new LatencyMarkerEvent(markedTime, operatorID, subtaskIndex);
             } else if (type == OTHER_EVENT) {
                 try {
                     final DataInputDeserializer deserializer = new DataInputDeserializer(buffer);

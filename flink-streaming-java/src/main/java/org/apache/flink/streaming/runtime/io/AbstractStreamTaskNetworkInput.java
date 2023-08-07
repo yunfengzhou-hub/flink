@@ -22,6 +22,7 @@ import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.LatencyMarkerEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
@@ -29,6 +30,7 @@ import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate;
+import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.tasks.StreamTask.CanEmitBatchOfRecordsChecker;
@@ -150,7 +152,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                 if (bufferOrEvent.get().isBuffer()) {
                     processBuffer(bufferOrEvent.get());
                 } else {
-                    DataInputStatus status = processEvent(bufferOrEvent.get());
+                    DataInputStatus status = processEvent(bufferOrEvent.get(), output);
                     if (status == DataInputStatus.MORE_AVAILABLE && canEmitBatchOfRecords.check()) {
                         continue;
                     }
@@ -186,7 +188,8 @@ public abstract class AbstractStreamTaskNetworkInput<
         }
     }
 
-    protected DataInputStatus processEvent(BufferOrEvent bufferOrEvent) {
+    protected DataInputStatus processEvent(BufferOrEvent bufferOrEvent, DataOutput<T> output)
+            throws Exception {
         // Event received
         final AbstractEvent event = bufferOrEvent.getEvent();
         if (event.getClass() == EndOfData.class) {
@@ -210,6 +213,14 @@ public abstract class AbstractStreamTaskNetworkInput<
             if (checkpointedInputGate.allChannelsRecovered()) {
                 return DataInputStatus.END_OF_RECOVERY;
             }
+        } else if (event.getClass() == LatencyMarkerEvent.class) {
+            LatencyMarkerEvent markerEvent = (LatencyMarkerEvent) event;
+            processElement(
+                    new LatencyMarker(
+                            markerEvent.getMarkedTime(),
+                            markerEvent.getOperatorId(),
+                            markerEvent.getSubtaskIndex()),
+                    output);
         }
         return DataInputStatus.MORE_AVAILABLE;
     }
