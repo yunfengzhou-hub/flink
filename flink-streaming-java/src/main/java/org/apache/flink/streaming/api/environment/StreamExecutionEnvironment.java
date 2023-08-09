@@ -76,6 +76,7 @@ import org.apache.flink.runtime.scheduler.ClusterDatasetCorruptedException;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
+import org.apache.flink.runtime.state.cache.StateBackendWithCache;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -198,6 +199,8 @@ public class StreamExecutionEnvironment implements AutoCloseable {
 
     /** The state backend used for storing k/v state and state snapshots. */
     private StateBackend defaultStateBackend;
+
+    private StateBackend defaultStateBackendForCache;
 
     /** Whether to enable ChangelogStateBackend, default value is unset. */
     private TernaryBoolean changelogStateBackendEnabled = TernaryBoolean.UNDEFINED;
@@ -664,6 +667,26 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         return this;
     }
 
+    private void setStateBackendForCache(StateBackend backend) {
+        this.defaultStateBackendForCache = backend;
+    }
+
+    private ReadableConfig getConfigurationForCache(ReadableConfig readableConfig) {
+        if (!(readableConfig instanceof Configuration)) {
+            return new Configuration();
+        }
+        Configuration configuration = ((Configuration) readableConfig);
+        Configuration configurationForCache = new Configuration();
+        for (String key : configuration.keySet()) {
+            if (!key.startsWith("state.cache-backend")) {
+                continue;
+            }
+            String newKey = key.replaceFirst("state.cache-backend", "state.backend");
+            configurationForCache.setString(newKey, configuration.getString(key, null));
+        }
+        return configurationForCache;
+    }
+
     /**
      * Gets the state backend that defines how to store and checkpoint state.
      *
@@ -987,6 +1010,8 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                 .ifPresent(this::enableChangelogStateBackend);
         Optional.ofNullable(loadStateBackend(configuration, classLoader))
                 .ifPresent(this::setStateBackend);
+        Optional.ofNullable(loadStateBackend(getConfigurationForCache(configuration), classLoader))
+                .ifPresent(this::setStateBackendForCache);
         configuration
                 .getOptional(PipelineOptions.OPERATOR_CHAINING)
                 .ifPresent(c -> this.isChainingEnabled = c);
@@ -2282,11 +2307,16 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                     "No operators defined in streaming topology. Cannot execute.");
         }
 
+        StateBackend stateBackend = defaultStateBackend;
+        if (defaultStateBackendForCache != null) {
+            stateBackend = new StateBackendWithCache(stateBackend, defaultStateBackendForCache);
+        }
+
         // We copy the transformation so that newly added transformations cannot intervene with the
         // stream graph generation.
         return new StreamGraphGenerator(
                         new ArrayList<>(transformations), config, checkpointCfg, configuration)
-                .setStateBackend(defaultStateBackend)
+                .setStateBackend(stateBackend)
                 .setChangelogStateBackendEnabled(changelogStateBackendEnabled)
                 .setSavepointDir(defaultSavepointDirectory)
                 .setChaining(isChainingEnabled)

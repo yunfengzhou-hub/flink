@@ -93,6 +93,7 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
 
     @Override
     public void endInput(int inputId) throws Exception {
+        flushOperators();
         if (mainOperatorWrapper != null) {
             mainOperatorWrapper.endOperatorInput(inputId);
         }
@@ -235,6 +236,15 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
                 LOG.info(ex.getMessage(), ex);
             }
             throw ex;
+        }
+    }
+
+    @Override
+    void flushOperators() throws Exception {
+        for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators()) {
+            if (!operatorWrapper.isClosed()) {
+                operatorWrapper.getStreamOperator().flush();
+            }
         }
     }
 }
