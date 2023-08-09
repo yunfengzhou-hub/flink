@@ -27,6 +27,7 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.AutoCloseableRegistry;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.core.security.FlinkSecurityManager;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
@@ -314,6 +315,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
     @Nullable private final AvailabilityProvider changelogWriterAvailabilityProvider;
 
+    private final Set<DataInputStatus> flushableInputStatus = new HashSet<>(Arrays.asList(DataInputStatus.NOTHING_AVAILABLE, DataInputStatus.END_OF_DATA));
+    private transient boolean isManualFlushJustTriggered = false;
+
+    private long flushInterval = 100;
+    private long lastFlushTime = 0;
+
     // ------------------------------------------------------------------------
 
     /**
@@ -560,6 +567,19 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
      */
     protected void processInput(MailboxDefaultAction.Controller controller) throws Exception {
         DataInputStatus status = inputProcessor.processInput();
+
+        long currentTime = System.currentTimeMillis();
+        if (flushableInputStatus.contains(status) && !isManualFlushJustTriggered) {
+            isManualFlushJustTriggered = true;
+            flush(currentTime, true);
+        } else {
+            isManualFlushJustTriggered = false;
+        }
+
+        if (currentTime - lastFlushTime > flushInterval) {
+            flush(currentTime, false);
+        }
+
         switch (status) {
             case MORE_AVAILABLE:
                 if (taskIsAvailable()) {
@@ -567,7 +587,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                 }
                 break;
             case NOTHING_AVAILABLE:
-                flush();
                 break;
             case END_OF_RECOVERY:
                 throw new IllegalStateException("We should not receive this event here.");
@@ -610,7 +629,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                         new ResumeWrapper(controller.suspendDefaultAction(timer), timer)));
     }
 
-    private void flush() throws Exception {
+    private void flush(long currentTime, boolean isEndOfDataFlush) throws Exception {
+        lastFlushTime = currentTime;
         operatorChain.flush();
     }
 
