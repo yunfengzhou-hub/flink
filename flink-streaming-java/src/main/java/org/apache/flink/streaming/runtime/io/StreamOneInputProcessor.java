@@ -83,10 +83,6 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
             status = DataInputStatus.MORE_AVAILABLE;
         }
 
-        if (status == DataInputStatus.NOTHING_AVAILABLE) {
-            flush();
-        }
-
         return status;
     }
 
@@ -99,9 +95,5 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
     @Override
     public void close() throws IOException {
         input.close();
-    }
-
-    public void flush() throws Exception {
-        input.flush(output);
     }
 }

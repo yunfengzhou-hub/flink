@@ -55,7 +55,5 @@ public interface PushingAsyncDataInput<T> extends AvailabilityProvider {
         void emitWatermarkStatus(WatermarkStatus watermarkStatus) throws Exception;
 
         void emitLatencyMarker(LatencyMarker latencyMarker) throws Exception;
-
-        default void flush() throws Exception {}
     }
 }

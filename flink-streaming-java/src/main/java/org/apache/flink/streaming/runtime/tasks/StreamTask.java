@@ -567,6 +567,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                 }
                 break;
             case NOTHING_AVAILABLE:
+                flush();
                 break;
             case END_OF_RECOVERY:
                 throw new IllegalStateException("We should not receive this event here.");
@@ -607,6 +608,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         assertNoException(
                 resumeFuture.thenRun(
                         new ResumeWrapper(controller.suspendDefaultAction(timer), timer)));
+    }
+
+    private void flush() throws Exception {
+        operatorChain.flush();
     }
 
     protected void endData(StopMode mode) throws Exception {

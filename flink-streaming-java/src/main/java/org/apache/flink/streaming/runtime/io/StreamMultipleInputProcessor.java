@@ -98,10 +98,6 @@ public final class StreamMultipleInputProcessor implements StreamInputProcessor 
             resultStatus = inputSelectionHandler.updateStatusAndSelection(inputStatus, readingInputIndex);
         }
 
-        if (!inputSelectionHandler.isAnyInputAvailable() && operator != null) {
-            inputProcessors[0].flush();
-        }
-
         return resultStatus;
     }
 

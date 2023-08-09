@@ -243,11 +243,6 @@ public abstract class AbstractStreamTaskNetworkInput<
     }
 
     @Override
-    public void flush(DataOutput<T> output) throws Exception {
-        output.flush();
-    }
-
-    @Override
     public void close() throws IOException {
         // release the deserializers . this part should not ever fail
         for (InputChannelInfo channelInfo : new ArrayList<>(recordDeserializers.keySet())) {

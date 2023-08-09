@@ -290,11 +290,6 @@ public class StreamTwoInputProcessorFactory {
                 operator.processLatencyMarker2(latencyMarker);
             }
         }
-
-        @Override
-        public void flush() throws Exception {
-            operator.flush();
-        }
     }
 
     private static class FinishedOnRestoreWatermarkBypass {
