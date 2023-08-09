@@ -20,6 +20,7 @@ public class FlushTest {
     public void test() throws Exception {
         StreamExecutionEnvironment env =
                 StreamExecutionEnvironment.getExecutionEnvironment();
+        env.getConfig().setMaxFlushInterval(100);
         env.setParallelism(1);
         env.disableOperatorChaining();
         int numSplits = 1;

@@ -318,7 +318,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     private final Set<DataInputStatus> flushableInputStatus = new HashSet<>(Arrays.asList(DataInputStatus.NOTHING_AVAILABLE, DataInputStatus.END_OF_DATA));
     private transient boolean isManualFlushJustTriggered = false;
 
-    private long flushInterval = 100;
+    private final long flushInterval;
     private long lastFlushTime = 0;
 
     // ------------------------------------------------------------------------
@@ -475,6 +475,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
             this.systemTimerService = createTimerService("System Time Trigger for " + getName());
 
+            this.flushInterval = environment.getExecutionConfig().getMaxFlushInterval();
+
             this.subtaskCheckpointCoordinator =
                     new SubtaskCheckpointCoordinatorImpl(
                             checkpointStorage,
@@ -568,16 +570,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     protected void processInput(MailboxDefaultAction.Controller controller) throws Exception {
         DataInputStatus status = inputProcessor.processInput();
 
-        long currentTime = System.currentTimeMillis();
-        if (flushableInputStatus.contains(status) && !isManualFlushJustTriggered) {
-            isManualFlushJustTriggered = true;
-            flush(currentTime, true);
-        } else {
-            isManualFlushJustTriggered = false;
-        }
+        if (flushInterval > 0) {
+            long currentTime = System.currentTimeMillis();
+            if (flushableInputStatus.contains(status) && !isManualFlushJustTriggered) {
+                isManualFlushJustTriggered = true;
+                flush(currentTime, true);
+            } else {
+                isManualFlushJustTriggered = false;
+            }
 
-        if (currentTime - lastFlushTime > flushInterval) {
-            flush(currentTime, false);
+            if (currentTime - lastFlushTime > flushInterval) {
+                flush(currentTime, false);
+            }
         }
 
         switch (status) {
