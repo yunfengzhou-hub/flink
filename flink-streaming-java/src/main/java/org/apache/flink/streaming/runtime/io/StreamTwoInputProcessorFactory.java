@@ -204,6 +204,7 @@ public class StreamTwoInputProcessorFactory {
                 new StreamOneInputProcessor<>(input2, output2, operatorChain);
 
         return new StreamMultipleInputProcessor(
+                streamOperator,
                 new MultipleInputSelectionHandler(inputSelectable, 2),
                 new StreamOneInputProcessor[] {processor1, processor2});
     }
@@ -288,6 +289,11 @@ public class StreamTwoInputProcessorFactory {
             } else {
                 operator.processLatencyMarker2(latencyMarker);
             }
+        }
+
+        @Override
+        public void flush() throws Exception {
+            operator.flush2();
         }
     }
 

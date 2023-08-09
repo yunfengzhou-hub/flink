@@ -119,7 +119,8 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
                     .getIOMetricGroup()
                     .reuseRecordsInputCounter(numRecordsIn);
 
-            inputProcessor = new StreamOneInputProcessor<>(input, output, operatorChain);
+
+            inputProcessor = new StreamOneInputProcessor<>(mainOperator, input, output, operatorChain);
         }
         mainOperator
                 .getMetricGroup()

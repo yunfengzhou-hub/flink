@@ -8,6 +8,7 @@ import org.apache.flink.connector.base.source.hybrid.HybridSource;
 import org.apache.flink.connector.base.source.reader.mocks.MockBaseSource;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.co.CoMapFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 
 import org.junit.jupiter.api.Test;
@@ -39,10 +40,25 @@ public class FlushTest {
                         .map(x -> x)
                         .disableChaining();
 
+        stream = stream.connect(stream).map(new MyCoMapFunction()).returns(Integer.class);
+
         stream.addSink(new MySinkFunction()).setParallelism(3);
 
         env.execute();
     }
+
+    private static class MyCoMapFunction implements CoMapFunction<Integer, Integer, Integer> {
+        @Override
+        public Integer map1(Integer value) throws Exception {
+            return value;
+        }
+
+        @Override
+        public Integer map2(Integer value) throws Exception {
+            return value;
+        }
+    }
+
 
     private static class MySinkFunction extends RichSinkFunction<Integer> {
         @Override

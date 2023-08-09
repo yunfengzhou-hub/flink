@@ -44,6 +44,4 @@ public interface StreamInputProcessor extends AvailabilityProvider, Closeable {
 
     CompletableFuture<Void> prepareSnapshot(
             ChannelStateWriter channelStateWriter, long checkpointId) throws CheckpointException;
-
-    default void flush() throws Exception {}
 }

@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.streaming.api.operators.BoundedMultiInput;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput;
 
 import org.slf4j.Logger;
@@ -46,10 +47,18 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
     private DataOutput<IN> output;
 
     private final BoundedMultiInput endOfInputAware;
+    
+    private final StreamOperator<?> operator;
 
     public StreamOneInputProcessor(
             StreamTaskInput<IN> input, DataOutput<IN> output, BoundedMultiInput endOfInputAware) {
+        this(null, input, output, endOfInputAware);
+    }
 
+    public StreamOneInputProcessor(
+            StreamOperator<?> operator,
+            StreamTaskInput<IN> input, DataOutput<IN> output, BoundedMultiInput endOfInputAware) {
+        this.operator = operator;
         this.input = checkNotNull(input);
         this.output = checkNotNull(output);
         this.endOfInputAware = checkNotNull(endOfInputAware);
@@ -71,7 +80,11 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
             if (input instanceof RecoverableStreamTaskInput) {
                 input = ((RecoverableStreamTaskInput<IN>) input).finishRecovery();
             }
-            return DataInputStatus.MORE_AVAILABLE;
+            status = DataInputStatus.MORE_AVAILABLE;
+        }
+
+        if (status == DataInputStatus.NOTHING_AVAILABLE) {
+            flush();
         }
 
         return status;
@@ -88,7 +101,6 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
         input.close();
     }
 
-    @Override
     public void flush() throws Exception {
         input.flush(output);
     }

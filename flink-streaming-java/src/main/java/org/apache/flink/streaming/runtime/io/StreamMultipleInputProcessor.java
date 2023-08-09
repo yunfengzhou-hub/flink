@@ -23,6 +23,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.streaming.api.operators.InputSelection;
 import org.apache.flink.streaming.api.operators.MultipleInputStreamOperator;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -37,6 +38,9 @@ public final class StreamMultipleInputProcessor implements StreamInputProcessor 
     private final StreamOneInputProcessor<?>[] inputProcessors;
 
     private final MultipleFuturesAvailabilityHelper availabilityHelper;
+
+    private final StreamOperator<?> operator;
+
     /** Always try to read from the first input. */
     private int lastReadInputIndex = 1;
 
@@ -45,6 +49,14 @@ public final class StreamMultipleInputProcessor implements StreamInputProcessor 
     public StreamMultipleInputProcessor(
             MultipleInputSelectionHandler inputSelectionHandler,
             StreamOneInputProcessor<?>[] inputProcessors) {
+        this(null, inputSelectionHandler, inputProcessors);
+    }
+
+    public StreamMultipleInputProcessor(
+            StreamOperator<?> operator,
+            MultipleInputSelectionHandler inputSelectionHandler,
+            StreamOneInputProcessor<?>[] inputProcessors) {
+        this.operator = operator;
         this.inputSelectionHandler = inputSelectionHandler;
         this.inputProcessors = inputProcessors;
         this.availabilityHelper = new MultipleFuturesAvailabilityHelper(inputProcessors.length);
@@ -69,6 +81,7 @@ public final class StreamMultipleInputProcessor implements StreamInputProcessor 
 
     @Override
     public DataInputStatus processInput() throws Exception {
+        DataInputStatus resultStatus;
         int readingInputIndex;
         if (isPrepared) {
             readingInputIndex = selectNextReadingInputIndex();
@@ -78,12 +91,18 @@ public final class StreamMultipleInputProcessor implements StreamInputProcessor 
             readingInputIndex = selectFirstReadingInputIndex();
         }
         if (readingInputIndex == InputSelection.NONE_AVAILABLE) {
-            return DataInputStatus.NOTHING_AVAILABLE;
+            resultStatus = DataInputStatus.NOTHING_AVAILABLE;
+        } else {
+            lastReadInputIndex = readingInputIndex;
+            DataInputStatus inputStatus = inputProcessors[readingInputIndex].processInput();
+            resultStatus = inputSelectionHandler.updateStatusAndSelection(inputStatus, readingInputIndex);
         }
 
-        lastReadInputIndex = readingInputIndex;
-        DataInputStatus inputStatus = inputProcessors[readingInputIndex].processInput();
-        return inputSelectionHandler.updateStatusAndSelection(inputStatus, readingInputIndex);
+        if (!inputSelectionHandler.isAnyInputAvailable() && operator != null) {
+            inputProcessors[0].flush();
+        }
+
+        return resultStatus;
     }
 
     private int selectFirstReadingInputIndex() {
