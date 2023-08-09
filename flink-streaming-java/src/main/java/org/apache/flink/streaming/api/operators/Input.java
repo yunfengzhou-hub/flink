@@ -70,5 +70,5 @@ public interface Input<IN> {
      */
     void setKeyContextElement(StreamRecord<IN> record) throws Exception;
 
-    default void flush() throws Exception {}
+//    default void flush() throws Exception {}
 }

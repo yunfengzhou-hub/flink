@@ -98,6 +98,6 @@ public interface TwoInputStreamOperator<IN1, IN2, OUT> extends StreamOperator<OU
      * @see org.apache.flink.streaming.runtime.watermarkstatus.WatermarkStatus
      */
     void processWatermarkStatus2(WatermarkStatus watermarkStatus) throws Exception;
-
-    default void flush2() throws Exception {}
+//
+//    default void flush2() throws Exception {}
 }

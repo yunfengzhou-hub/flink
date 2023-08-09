@@ -157,17 +157,17 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Ser
         return new OperatorAttributes.Builder().build();
     }
 
-//    /**
-//     * The method is expected to emit all buffered records.
-//     *
-//     * <p>When execution.max-flush-interval is not null, an operator can optionally delay emitting
-//     * the results until the next invocation of flush(). An operator should only delay emitting the
-//     * results if doing so helps increase its throughput.
-//     *
-//     * <p>This method is invoked only when all inputs have isBacklog=false AND any of the following
-//     * conditions happen: - Any input channel is full and out of free buffer. - All input channels
-//     * are empty and there have been records given to the operator since the last invocation of
-//     * flush(). - execution.max-flush-interval has passed since the last invocation of flush().
-//     */
-//    default void flush() throws Exception {}
+    /**
+     * The method is expected to emit all buffered records.
+     *
+     * <p>When execution.max-flush-interval is not null, an operator can optionally delay emitting
+     * the results until the next invocation of flush(). An operator should only delay emitting the
+     * results if doing so helps increase its throughput.
+     *
+     * <p>This method is invoked only when all inputs have isBacklog=false AND any of the following
+     * conditions happen: - Any input channel is full and out of free buffer. - All input channels
+     * are empty and there have been records given to the operator since the last invocation of
+     * flush(). - execution.max-flush-interval has passed since the last invocation of flush().
+     */
+    default void flush() throws Exception {}
 }

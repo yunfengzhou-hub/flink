@@ -29,6 +29,7 @@ import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.sort.SortingDataInput;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput;
@@ -183,6 +184,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 
     private DataOutput<IN> createDataOutput(Counter numRecordsIn) {
         return new StreamTaskNetworkOutput<>(
+                mainOperator,
                 operatorChain.getFinishedOnRestoreInputOrDefault(mainOperator),
                 inputWatermarkGauge,
                 numRecordsIn);
@@ -217,6 +219,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
      * StreamTaskNetworkInput} in one input processor.
      */
     private static class StreamTaskNetworkOutput<IN> implements DataOutput<IN> {
+        private final StreamOperator<?> mainOperator;
 
         private final Input<IN> operator;
 
@@ -225,8 +228,9 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         private final ThrowingConsumer<StreamRecord<IN>, Exception> recordProcessor;
 
         private StreamTaskNetworkOutput(
+                StreamOperator<?> mainOperator,
                 Input<IN> operator, WatermarkGauge watermarkGauge, Counter numRecordsIn) {
-
+            this.mainOperator = mainOperator;
             this.operator = checkNotNull(operator);
             this.watermarkGauge = checkNotNull(watermarkGauge);
             this.numRecordsIn = checkNotNull(numRecordsIn);
@@ -257,7 +261,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
 
         @Override
         public void flush() throws Exception {
-            operator.flush();
+            mainOperator.flush();
         }
     }
 }

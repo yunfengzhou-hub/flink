@@ -293,7 +293,7 @@ public class StreamTwoInputProcessorFactory {
 
         @Override
         public void flush() throws Exception {
-            operator.flush2();
+            operator.flush();
         }
     }
 
