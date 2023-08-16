@@ -10,7 +10,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.VoidNamespace;
-import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
@@ -21,11 +20,12 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.stream.Stream;
 
 import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND;
 
 public class FlushAndCacheBenchmarkTest {
-    private static final long NUM_RECORDS = (long)1e7;
+    private static final long NUM_RECORDS = (long)1e3;
 
     private static final long CHECKPOINT_INTERVAL = 1000;
 
@@ -158,12 +158,20 @@ public class FlushAndCacheBenchmarkTest {
         }
 
         @Override
-        public void flush() throws Exception {
-            getKeyedStateBackend().applyToAllKeysSinceLastFlush(
-                    VoidNamespace.INSTANCE,
-                    VoidNamespaceSerializer.INSTANCE,
-                    descriptor,
-                    (key, state) -> output.collect(new StreamRecord<>(new Tuple2<>((Long) key, state.value())))
+        public void flush(FlushContext context) {
+            Stream<Long> keys = context.getKeysSinceLastFlush(
+                    descriptor.getName(),
+                    VoidNamespace.INSTANCE
+            );
+            keys.forEach(
+                    key -> {
+                        setCurrentKey(key);
+                        try {
+                            output.collect(new StreamRecord<>(new Tuple2<>(key, state.value())));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
             );
         }
     }

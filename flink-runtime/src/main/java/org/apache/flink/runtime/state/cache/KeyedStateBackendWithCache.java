@@ -12,6 +12,7 @@ import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupedInternalPriorityQueue;
 import org.apache.flink.runtime.state.Keyed;
+import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.KeyedStateFunction;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.PriorityComparable;
@@ -45,6 +46,10 @@ public class KeyedStateBackendWithCache<K>
         this.backend = Preconditions.checkNotNull(backend);
         this.backendForCache = Preconditions.checkNotNull(backendForCache);
         this.states = new HashMap<>();
+    }
+
+    public KeyedStateBackend<K> getBackendForCache(){
+        return backendForCache;
     }
 
     @Override
