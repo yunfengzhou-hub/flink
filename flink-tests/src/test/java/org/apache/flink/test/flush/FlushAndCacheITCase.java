@@ -26,7 +26,7 @@ public class FlushAndCacheITCase {
         config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         env.getConfig().setMaxFlushInterval(10);
-        //        env.getCheckpointConfig().setCheckpointInterval(10);
+        env.getCheckpointConfig().setCheckpointInterval(10);
         env.setParallelism(1);
         env.setStateBackend(new EmbeddedRocksDBStateBackend());
 
@@ -48,7 +48,6 @@ public class FlushAndCacheITCase {
             ValueStateDescriptor<Long> descriptor =
                     new ValueStateDescriptor<>("valueState", Types.LONG);
             ValueState<Long> state = context.getKeyedStateStore().getState(descriptor);
-            System.out.println(state.getClass());
             Preconditions.checkState(state instanceof ValueStateWithCache);
         }
 

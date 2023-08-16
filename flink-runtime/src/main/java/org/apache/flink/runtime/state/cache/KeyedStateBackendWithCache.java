@@ -27,7 +27,9 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.RunnableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class KeyedStateBackendWithCache<K>
@@ -68,20 +70,32 @@ public class KeyedStateBackendWithCache<K>
             StateDescriptor<S, T> stateDescriptor,
             KeyedStateFunction<K, S> function)
             throws Exception {
+        sync();
         backendForCache.applyToAllKeys(namespace, namespaceSerializer, stateDescriptor, function);
         backend.applyToAllKeys(namespace, namespaceSerializer, stateDescriptor, function);
     }
 
     @Override
+    public <N, S extends State, T> void applyToAllKeysSinceLastFlush(
+            N namespace,
+            TypeSerializer<N> namespaceSerializer,
+            StateDescriptor<S, T> stateDescriptor,
+            KeyedStateFunction<K, S> function) throws Exception {
+        backendForCache.applyToAllKeys(namespace, namespaceSerializer, stateDescriptor, function);
+    }
+
+    @Override
     public <N> Stream<K> getKeys(String state, N namespace) {
-        return Stream.concat(
-                backendForCache.getKeys(state, namespace), backend.getKeys(state, namespace));
+        Set<K> keysInCache = backendForCache.getKeys(state, namespace).collect(Collectors.toSet());
+        return Stream.concat(keysInCache.stream(), backend.getKeys(state, namespace).filter(k -> !keysInCache.contains(k)));
     }
 
     @Override
     public <N> Stream<Tuple2<K, N>> getKeysAndNamespaces(String state) {
+        Set<K> keysInCache = backendForCache.getKeysAndNamespaces(state).map(x -> x.f0).collect(Collectors.toSet());
         return Stream.concat(
-                backendForCache.getKeysAndNamespaces(state), backend.getKeysAndNamespaces(state));
+                backendForCache.getKeysAndNamespaces(state),
+                backend.getKeysAndNamespaces(state).filter(x -> !keysInCache.contains(x.f0)).map(x -> (Tuple2<K, N>) x));
     }
 
     @Override
