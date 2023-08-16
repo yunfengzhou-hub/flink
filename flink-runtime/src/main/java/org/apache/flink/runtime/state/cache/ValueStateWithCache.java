@@ -4,7 +4,6 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.KeyedStateBackend;
-import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -58,16 +57,15 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
 
     @Override
     public void sync() throws Exception {
-        Preconditions.checkState(keyedStateBackend.getCurrentKey() == null);
-        Preconditions.checkState(keyedStateBackendForCache.getCurrentKey() == null);
+        K currentKey = keyedStateBackend.getCurrentKey();
         for (K key : keysInCache) {
             keyedStateBackend.setCurrentKey(key);
             keyedStateBackendForCache.setCurrentKey(key);
             state.update(stateForCache.value());
             stateForCache.clear();
         }
-        keyedStateBackend.setCurrentKey(null);
-        keyedStateBackendForCache.setCurrentKey(null);
+        keyedStateBackend.setCurrentKey(currentKey);
+        keyedStateBackendForCache.setCurrentKey(currentKey);
         keysInCache.clear();
     }
 

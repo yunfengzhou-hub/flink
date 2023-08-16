@@ -317,7 +317,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     private final Set<DataInputStatus> flushableInputStatus =
             new HashSet<>(
                     Arrays.asList(DataInputStatus.NOTHING_AVAILABLE, DataInputStatus.END_OF_DATA));
-    private transient boolean isRecordProcessedSinceLastFlush = false;
+    private transient long numRecordsProcessedBeforeLastFlush = 0;
 
     private final long flushInterval;
     private long lastFlushTime = 0;
@@ -573,14 +573,20 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
         if (flushInterval > 0) {
             long currentTime = System.currentTimeMillis();
-            if (flushableInputStatus.contains(status) && isRecordProcessedSinceLastFlush) {
-                flush(currentTime);
+            long numRecordsProcessed =
+                    mainOperator
+                            .getMetricGroup()
+                            .getIOMetricGroup()
+                            .getNumRecordsInCounter()
+                            .getCount();
+            if (flushableInputStatus.contains(status)
+                    && numRecordsProcessedBeforeLastFlush < numRecordsProcessed) {
+                flush(currentTime, numRecordsProcessed);
             }
 
-            isRecordProcessedSinceLastFlush = !flushableInputStatus.contains(status);
-
-            if (currentTime - lastFlushTime > flushInterval && isRecordProcessedSinceLastFlush) {
-                flush(currentTime);
+            if (currentTime - lastFlushTime > flushInterval
+                    && numRecordsProcessedBeforeLastFlush < numRecordsProcessed) {
+                flush(currentTime, numRecordsProcessed);
             }
         }
 
@@ -633,10 +639,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                         new ResumeWrapper(controller.suspendDefaultAction(timer), timer)));
     }
 
-    private void flush(long currentTime) throws Exception {
+    private void flush(long currentTime, long numRecordsProcessed) throws Exception {
         lastFlushTime = currentTime;
+        numRecordsProcessedBeforeLastFlush = numRecordsProcessed;
         operatorChain.flushOperators();
-        isRecordProcessedSinceLastFlush = false;
     }
 
     protected void endData(StopMode mode) throws Exception {
