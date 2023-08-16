@@ -4,12 +4,10 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 import org.apache.flink.runtime.state.StateInitializationContext;
-import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
@@ -20,27 +18,18 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.stream.Stream;
 
 import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND;
 
 public class FlushAndCacheBenchmarkTest {
-    private static final long NUM_RECORDS = (long)1e3;
+    private static final long NUM_RECORDS = (long) 1e7;
 
     private static final long CHECKPOINT_INTERVAL = 1000;
 
-    private static final long FLUSH_INTERVAL = 1000;
-
-    private static final KeySelector<Long, Long> keySelector0 = x -> System.currentTimeMillis();
-
-    private static final KeySelector<Long, Long> keySelector1 = x -> 1L;
-
-    private static final KeySelector<Long, Long> keySelector2 = x -> x / 500000;
-
-    private static final KeySelector<Long, Long> keySelector3 = x -> x / 5000;
+    private static final long FLUSH_INTERVAL = 100;
 
     @Test
-    public void testBaseline() throws Exception {
+    public void testRocksDB() throws Exception {
         Configuration config = new Configuration();
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         env.getConfig().enableObjectReuse();
@@ -51,63 +40,31 @@ public class FlushAndCacheBenchmarkTest {
     }
 
     @Test
-    public void testBaselineWithHashMapStateBackend() throws Exception {
+    public void testHashMap() throws Exception {
         Configuration config = new Configuration();
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         env.getConfig().enableObjectReuse();
         env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
         env.setParallelism(1);
         env.setStateBackend(new HashMapStateBackend());
-        test(env, keySelector0);
+        test(env);
     }
 
     @Test
-    public void testBaselineWithHashMapStateBackend2() throws Exception {
+    public void testHashMapAndHashMapCache() throws Exception {
         Configuration config = new Configuration();
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        env.getConfig().enableObjectReuse();
-        env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
-        env.setParallelism(1);
-        env.setStateBackend(new HashMapStateBackend());
-        test(env, keySelector2);
-    }
-
-    @Test
-    public void testBaselineWithHashMapStateBackend3() throws Exception {
-        Configuration config = new Configuration();
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        env.getConfig().enableObjectReuse();
-        env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
-        env.setParallelism(1);
-        env.setStateBackend(new HashMapStateBackend());
-        test(env, keySelector3);
-    }
-
-    @Test
-    public void testBaselineWithHashMapStateBackend1() throws Exception {
-        Configuration config = new Configuration();
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        env.getConfig().enableObjectReuse();
-        env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
-        env.setParallelism(1);
-        env.setStateBackend(new HashMapStateBackend());
-        test(env, keySelector1);
-    }
-
-    @Test
-    public void testBaselineWithFlushEnabled() throws Exception {
-        Configuration config = new Configuration();
+        config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         env.getConfig().enableObjectReuse();
         env.getConfig().setMaxFlushInterval(FLUSH_INTERVAL);
         env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
         env.setParallelism(1);
-        env.setStateBackend(new EmbeddedRocksDBStateBackend());
+        env.setStateBackend(new HashMapStateBackend());
         test(env);
     }
 
     @Test
-    public void testBaselineWithFlushAndInMemoryCacheEnabled() throws Exception {
+    public void testRocksDBAndHashMapCache() throws Exception {
         Configuration config = new Configuration();
         config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
@@ -116,16 +73,26 @@ public class FlushAndCacheBenchmarkTest {
         env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
         env.setParallelism(1);
         env.setStateBackend(new EmbeddedRocksDBStateBackend());
-        test(env, keySelector0);
+        test(env);
+    }
+
+    @Test
+    public void testRocksDBAndRocksDBCache() throws Exception {
+        Configuration config = new Configuration();
+        config.set(STATE_CACHE_BACKEND, "rocksdb");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        env.getConfig().enableObjectReuse();
+        env.getConfig().setMaxFlushInterval(FLUSH_INTERVAL);
+        env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
+        env.setParallelism(1);
+        env.setStateBackend(new EmbeddedRocksDBStateBackend());
+        test(env);
     }
 
     private void test(StreamExecutionEnvironment env) throws Exception {
-        test(env, keySelector2);
-    }
-
-    private void test(StreamExecutionEnvironment env, KeySelector<Long, Long> keySelector) throws Exception {
         env.fromSequence(0L, NUM_RECORDS)
-                .keyBy(keySelector)
+                // mock real workloads where records with the same key tend to appear adjacently.
+                .keyBy(x -> System.currentTimeMillis())
                 .transform("myOperator", Types.TUPLE(Types.LONG, Types.LONG), new MyOperator())
                 .addSink(new DiscardingSink<>());
         JobExecutionResult executionResult = env.execute();
@@ -135,13 +102,13 @@ public class FlushAndCacheBenchmarkTest {
     private static class MyOperator extends AbstractStreamOperator<Tuple2<Long, Long>>
             implements OneInputStreamOperator<Long, Tuple2<Long, Long>> {
         private ValueState<Long> state;
-        private ValueStateDescriptor<Long> descriptor;
 
         @Override
         public void initializeState(StateInitializationContext context) throws Exception {
             super.initializeState(context);
 
-            descriptor = new ValueStateDescriptor<>("valueState", Types.LONG);
+            ValueStateDescriptor<Long> descriptor =
+                    new ValueStateDescriptor<>("valueState", Types.LONG);
             state = context.getKeyedStateStore().getState(descriptor);
         }
 
@@ -152,27 +119,7 @@ public class FlushAndCacheBenchmarkTest {
             } else {
                 state.update(state.value() + 1);
             }
-            if (getExecutionConfig().getMaxFlushInterval() <= 0) {
-                output.collect(new  StreamRecord<>(new Tuple2<>((Long) getCurrentKey(), state.value())));
-            }
-        }
-
-        @Override
-        public void flush(FlushContext context) {
-            Stream<Long> keys = context.getKeysSinceLastFlush(
-                    descriptor.getName(),
-                    VoidNamespace.INSTANCE
-            );
-            keys.forEach(
-                    key -> {
-                        setCurrentKey(key);
-                        try {
-                            output.collect(new StreamRecord<>(new Tuple2<>(key, state.value())));
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-            );
+            output.collect(new StreamRecord<>(new Tuple2<>((Long) getCurrentKey(), state.value())));
         }
     }
 }

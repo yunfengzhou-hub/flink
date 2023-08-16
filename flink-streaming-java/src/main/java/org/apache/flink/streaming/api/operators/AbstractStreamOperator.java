@@ -46,8 +46,6 @@ import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
-import org.apache.flink.runtime.state.cache.KeyedStateBackendWithCache;
-import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.CheckpointedStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -65,7 +63,6 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -150,8 +147,6 @@ public abstract class AbstractStreamOperator<OUT>
     // ---------------- time handler ------------------
 
     protected transient ProcessingTimeService processingTimeService;
-
-    private final FlushContext context = new FlushContext();
 
     // ------------------------------------------------------------------------
     //  Life Cycle
@@ -653,30 +648,5 @@ public abstract class AbstractStreamOperator<OUT>
 
     protected Optional<InternalTimeServiceManager<?>> getTimeServiceManager() {
         return Optional.ofNullable(timeServiceManager);
-    }
-
-    @Override
-    public final void flush() throws Exception {
-        flush(context);
-    }
-
-    protected void flush(FlushContext context) throws Exception {}
-
-    /**
-     * Context that {@link #flush(FlushContext)} can use for getting additional data.
-     */
-    public class FlushContext implements Serializable {
-        /**
-         * Gets a stream containing the keys active since last flush.
-         *
-         * @see KeyedStateBackend#getKeys(String, Object)
-         */
-        public <N, K> Stream<K> getKeysSinceLastFlush(String state, N namespace) {
-            KeyedStateBackend<K> backend = getKeyedStateBackend();
-            if (backend instanceof KeyedStateBackendWithCache) {
-                return ((KeyedStateBackendWithCache<K>) backend).getBackendForCache().getKeys(state, namespace);
-            }
-            return backend.getKeys(state, namespace);
-        }
     }
 }

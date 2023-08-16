@@ -58,7 +58,7 @@ public class FlushAndCacheITCase {
         }
 
         @Override
-        public void flush(FlushContext context) {
+        public void flush() {
             Preconditions.checkState(isRecordProcessedBeforeFlush);
             isRecordProcessedBeforeFlush = false;
         }

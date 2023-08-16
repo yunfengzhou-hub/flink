@@ -68,26 +68,6 @@ public interface KeyedStateBackend<K>
             throws Exception;
 
     /**
-     * Applies the provided {@link KeyedStateFunction} to the state with the provided {@link
-     * StateDescriptor} of all the keys active since last flush.
-     *
-     * @see #applyToAllKeys(Object, TypeSerializer, StateDescriptor, KeyedStateFunction)
-     */
-    default <N, S extends State, T> void applyToAllKeysSinceLastFlush(
-            final N namespace,
-            final TypeSerializer<N> namespaceSerializer,
-            final StateDescriptor<S, T> stateDescriptor,
-            final KeyedStateFunction<K, S> function)
-            throws Exception {
-        applyToAllKeys(
-                namespace,
-                namespaceSerializer,
-                stateDescriptor,
-                function
-        );
-    }
-
-    /**
      * @return A stream of all keys for the given state and namespace. Modifications to the state
      *     during iterating over it keys are not supported.
      * @param state State variable for which existing keys will be returned.

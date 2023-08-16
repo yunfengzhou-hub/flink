@@ -48,7 +48,7 @@ public class KeyedStateBackendWithCache<K>
         this.states = new HashMap<>();
     }
 
-    public KeyedStateBackend<K> getBackendForCache(){
+    public KeyedStateBackend<K> getBackendForCache() {
         return backendForCache;
     }
 
@@ -81,26 +81,25 @@ public class KeyedStateBackendWithCache<K>
     }
 
     @Override
-    public <N, S extends State, T> void applyToAllKeysSinceLastFlush(
-            N namespace,
-            TypeSerializer<N> namespaceSerializer,
-            StateDescriptor<S, T> stateDescriptor,
-            KeyedStateFunction<K, S> function) throws Exception {
-        backendForCache.applyToAllKeys(namespace, namespaceSerializer, stateDescriptor, function);
-    }
-
-    @Override
     public <N> Stream<K> getKeys(String state, N namespace) {
         Set<K> keysInCache = backendForCache.getKeys(state, namespace).collect(Collectors.toSet());
-        return Stream.concat(keysInCache.stream(), backend.getKeys(state, namespace).filter(k -> !keysInCache.contains(k)));
+        return Stream.concat(
+                keysInCache.stream(),
+                backend.getKeys(state, namespace).filter(k -> !keysInCache.contains(k)));
     }
 
     @Override
     public <N> Stream<Tuple2<K, N>> getKeysAndNamespaces(String state) {
-        Set<K> keysInCache = backendForCache.getKeysAndNamespaces(state).map(x -> x.f0).collect(Collectors.toSet());
+        Set<K> keysInCache =
+                backendForCache
+                        .getKeysAndNamespaces(state)
+                        .map(x -> x.f0)
+                        .collect(Collectors.toSet());
         return Stream.concat(
                 backendForCache.getKeysAndNamespaces(state),
-                backend.getKeysAndNamespaces(state).filter(x -> !keysInCache.contains(x.f0)).map(x -> (Tuple2<K, N>) x));
+                backend.getKeysAndNamespaces(state)
+                        .filter(x -> !keysInCache.contains(x.f0))
+                        .map(x -> (Tuple2<K, N>) x));
     }
 
     @Override
