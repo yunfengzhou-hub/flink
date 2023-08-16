@@ -24,15 +24,11 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.InflightDataRescalingDescriptor;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
-import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
-import org.apache.flink.runtime.io.network.api.SubtaskConnectionDescriptor;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
 import org.apache.flink.runtime.io.network.api.serialization.SpillingAdaptiveSpanningRecordDeserializer;
-import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.streaming.runtime.io.AbstractStreamTaskNetworkInput;
-import org.apache.flink.streaming.runtime.io.DataInputStatus;
 import org.apache.flink.streaming.runtime.io.RecoverableStreamTaskInput;
 import org.apache.flink.streaming.runtime.io.StreamTaskInput;
 import org.apache.flink.streaming.runtime.io.StreamTaskNetworkInput;
@@ -175,17 +171,6 @@ public final class RescalingStreamTaskNetworkInput<T>
                     "Channel " + channelInfo + " should not receive data during recovery.");
         }
         return deserialier;
-    }
-
-    protected DataInputStatus processEvent(BufferOrEvent bufferOrEvent) {
-        // Event received
-        final AbstractEvent event = bufferOrEvent.getEvent();
-        if (event instanceof SubtaskConnectionDescriptor) {
-            getActiveSerializer(bufferOrEvent.getChannelInfo())
-                    .select((SubtaskConnectionDescriptor) event);
-            return DataInputStatus.MORE_AVAILABLE;
-        }
-        return super.processEvent(bufferOrEvent);
     }
 
     @Override

@@ -26,7 +26,6 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
-import org.apache.flink.util.XORShiftRandom;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +34,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -61,8 +59,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     protected final int numberOfChannels;
 
     protected final DataOutputSerializer serializer;
-
-    protected final Random rng = new XORShiftRandom();
 
     protected final boolean flushAlways;
 
@@ -163,12 +159,14 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     /** This is used to send regular records. */
     public abstract void emit(T record) throws IOException;
 
-    /** This is used to send LatencyMarks to a random target channel. */
-    public void randomEmit(T record) throws IOException {
+    /** This is used to send latency markers to a random target channel. */
+    public void randomEmit(AbstractEvent event) throws IOException {
         checkErroneous();
+        targetPartition.randomEmit(event, false);
 
-        int targetSubpartition = rng.nextInt(numberOfChannels);
-        emit(record, targetSubpartition);
+        if (flushAlways) {
+            flushAll();
+        }
     }
 
     /** This is used to broadcast streaming Watermarks in-band with records. */
