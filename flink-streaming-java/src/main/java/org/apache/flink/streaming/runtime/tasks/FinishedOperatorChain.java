@@ -115,7 +115,4 @@ public class FinishedOperatorChain<OUT, OP extends StreamOperator<OUT>>
         }
         sendAcknowledgeCheckpointEvent(checkpointMetaData.getCheckpointId());
     }
-
-    @Override
-    void flushOperators() {}
 }

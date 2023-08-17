@@ -12,7 +12,6 @@ import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupedInternalPriorityQueue;
 import org.apache.flink.runtime.state.Keyed;
-import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.KeyedStateFunction;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.PriorityComparable;
@@ -37,19 +36,17 @@ public class KeyedStateBackendWithCache<K>
         implements CheckpointableKeyedStateBackend<K>, TestableKeyedStateBackend<K> {
     private final CheckpointableKeyedStateBackend<K> backend;
     private final CheckpointableKeyedStateBackend<K> backendForCache;
-
+    private final int keySize;
     private final Map<String, StateWithCache> states;
 
     public KeyedStateBackendWithCache(
             CheckpointableKeyedStateBackend<K> backend,
-            CheckpointableKeyedStateBackend<K> backendForCache) {
+            CheckpointableKeyedStateBackend<K> backendForCache,
+            int keySize) {
         this.backend = Preconditions.checkNotNull(backend);
         this.backendForCache = Preconditions.checkNotNull(backendForCache);
+        this.keySize = keySize;
         this.states = new HashMap<>();
-    }
-
-    public KeyedStateBackend<K> getBackendForCache() {
-        return backendForCache;
     }
 
     @Override
@@ -75,9 +72,13 @@ public class KeyedStateBackendWithCache<K>
             StateDescriptor<S, T> stateDescriptor,
             KeyedStateFunction<K, S> function)
             throws Exception {
-        sync();
-        backendForCache.applyToAllKeys(namespace, namespaceSerializer, stateDescriptor, function);
-        backend.applyToAllKeys(namespace, namespaceSerializer, stateDescriptor, function);
+        for (StateWithCache state : states.values()) {
+            state.removeOutdatedState();
+        }
+        backendForCache.applyToAllKeys(
+                namespace, namespaceSerializer, stateDescriptor, function);
+        backend.applyToAllKeys(
+                namespace, namespaceSerializer, stateDescriptor, function);
     }
 
     @Override
@@ -131,16 +132,11 @@ public class KeyedStateBackendWithCache<K>
                         (ValueState) state,
                         (ValueState) stateForCache,
                         backend,
-                        backendForCache);
+                        backendForCache,
+                        keySize);
         // TODO: avoid recreating state with cache.
         states.put(stateDescriptor.getName(), result);
         return (S) result;
-    }
-
-    public void sync() throws Exception {
-        for (StateWithCache state : states.values()) {
-            state.sync();
-        }
     }
 
     @Override

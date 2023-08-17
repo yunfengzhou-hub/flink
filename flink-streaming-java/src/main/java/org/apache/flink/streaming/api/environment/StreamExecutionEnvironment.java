@@ -133,6 +133,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND_KEY_SIZE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -2309,7 +2310,10 @@ public class StreamExecutionEnvironment implements AutoCloseable {
 
         StateBackend stateBackend = defaultStateBackend;
         if (defaultStateBackendForCache != null) {
-            stateBackend = new StateBackendWithCache(stateBackend, defaultStateBackendForCache);
+            int keySize = this.configuration.get(STATE_CACHE_BACKEND_KEY_SIZE);
+            Preconditions.checkArgument(keySize > 0);
+            stateBackend =
+                    new StateBackendWithCache(stateBackend, defaultStateBackendForCache, keySize);
         }
 
         // We copy the transformation so that newly added transformations cannot intervene with the

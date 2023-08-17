@@ -27,10 +27,13 @@ import java.util.stream.Collectors;
 public class StateBackendWithCache implements ConfigurableStateBackend {
     private final StateBackend stateBackend;
     private final StateBackend stateBackendForCache;
+    private final int keySize;
 
-    public StateBackendWithCache(StateBackend stateBackend, StateBackend stateBackendForCache) {
+    public StateBackendWithCache(
+            StateBackend stateBackend, StateBackend stateBackendForCache, int keySize) {
         this.stateBackend = stateBackend;
         this.stateBackendForCache = stateBackendForCache;
+        this.keySize = keySize;
     }
 
     @Override
@@ -89,7 +92,8 @@ public class StateBackendWithCache implements ConfigurableStateBackend {
                                 .map(KeyedStateHandleWithCache::getHandleForCache)
                                 .filter(Objects::nonNull)
                                 .collect(Collectors.toList()),
-                        cancelStreamRegistry));
+                        cancelStreamRegistry),
+                keySize);
     }
 
     @Override
@@ -117,6 +121,7 @@ public class StateBackendWithCache implements ConfigurableStateBackend {
         }
         return new StateBackendWithCache(
                 ((ConfigurableStateBackend) stateBackend).configure(config, classLoader),
-                ((ConfigurableStateBackend) stateBackendForCache).configure(config, classLoader));
+                ((ConfigurableStateBackend) stateBackendForCache).configure(config, classLoader),
+                keySize);
     }
 }

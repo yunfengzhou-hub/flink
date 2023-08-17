@@ -20,13 +20,16 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND;
+import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND_KEY_SIZE;
 
 public class FlushAndCacheBenchmarkTest {
     private static final long NUM_RECORDS = (long) 1e7;
 
     private static final long CHECKPOINT_INTERVAL = 1000;
 
-    private static final long FLUSH_INTERVAL = 100;
+    private static final int CACHE_KEY_SIZE = 100;
+
+    private static final int NUM_KEYS = (int) 1e4;
 
     @Test
     public void testRocksDB() throws Exception {
@@ -54,9 +57,9 @@ public class FlushAndCacheBenchmarkTest {
     public void testHashMapAndHashMapCache() throws Exception {
         Configuration config = new Configuration();
         config.set(STATE_CACHE_BACKEND, "hashmap");
+        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         env.getConfig().enableObjectReuse();
-        env.getConfig().setMaxFlushInterval(FLUSH_INTERVAL);
         env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
         env.setParallelism(1);
         env.setStateBackend(new HashMapStateBackend());
@@ -67,9 +70,9 @@ public class FlushAndCacheBenchmarkTest {
     public void testRocksDBAndHashMapCache() throws Exception {
         Configuration config = new Configuration();
         config.set(STATE_CACHE_BACKEND, "hashmap");
+        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         env.getConfig().enableObjectReuse();
-        env.getConfig().setMaxFlushInterval(FLUSH_INTERVAL);
         env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
         env.setParallelism(1);
         env.setStateBackend(new EmbeddedRocksDBStateBackend());
@@ -80,9 +83,9 @@ public class FlushAndCacheBenchmarkTest {
     public void testRocksDBAndRocksDBCache() throws Exception {
         Configuration config = new Configuration();
         config.set(STATE_CACHE_BACKEND, "rocksdb");
+        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         env.getConfig().enableObjectReuse();
-        env.getConfig().setMaxFlushInterval(FLUSH_INTERVAL);
         env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
         env.setParallelism(1);
         env.setStateBackend(new EmbeddedRocksDBStateBackend());
@@ -92,7 +95,7 @@ public class FlushAndCacheBenchmarkTest {
     private void test(StreamExecutionEnvironment env) throws Exception {
         env.fromSequence(0L, NUM_RECORDS)
                 // mock real workloads where records with the same key tend to appear adjacently.
-                .keyBy(x -> System.currentTimeMillis())
+                .keyBy(x -> x % NUM_KEYS)
                 .transform("myOperator", Types.TUPLE(Types.LONG, Types.LONG), new MyOperator())
                 .addSink(new DiscardingSink<>());
         JobExecutionResult executionResult = env.execute();

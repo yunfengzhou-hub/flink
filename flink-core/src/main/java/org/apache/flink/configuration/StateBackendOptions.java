@@ -85,6 +85,12 @@ public class StateBackendOptions {
                                     .text("Recognized shortcut names are 'hashmap' and 'rocksdb'.")
                                     .build());
 
+    public static final ConfigOption<Integer> STATE_CACHE_BACKEND_KEY_SIZE =
+            ConfigOptions.key("state.cache-backend.key-size")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(Description.builder().text("").build());
+
     @Documentation.Section(Documentation.Sections.STATE_BACKEND_LATENCY_TRACKING)
     public static final ConfigOption<Boolean> LATENCY_TRACK_ENABLED =
             ConfigOptions.key("state.backend.latency-track.keyed-state-enabled")

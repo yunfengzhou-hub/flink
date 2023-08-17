@@ -17,6 +17,8 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
 
     private final KeyedStateBackend<K> keyedStateBackendForCache;
 
+    private final int keySize;
+
     private final Set<K> keysInCache;
 
     public ValueStateWithCache(
@@ -26,13 +28,15 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
             ValueState<V> state,
             ValueState<V> stateForCache,
             KeyedStateBackend<K> keyedStateBackend,
-            KeyedStateBackend<K> keyedStateBackendForCache)
+            KeyedStateBackend<K> keyedStateBackendForCache,
+            int keySize)
             throws Exception {
         this.state = state;
         this.stateForCache = stateForCache;
         this.keyedStateBackend = keyedStateBackend;
         this.keyedStateBackendForCache = keyedStateBackendForCache;
         this.keysInCache = new HashSet<>();
+        this.keySize = keySize;
         keyedStateBackendForCache.applyToAllKeys(
                 namespace,
                 namespaceSerializer,
@@ -43,30 +47,16 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
     @Override
     public V value() throws IOException {
         if (!keysInCache.contains(keyedStateBackend.getCurrentKey())) {
+            addKeyToCache(keyedStateBackend.getCurrentKey());
             stateForCache.update(state.value());
-            keysInCache.add(keyedStateBackend.getCurrentKey());
         }
         return stateForCache.value();
     }
 
     @Override
     public void update(V value) throws IOException {
+        addKeyToCache(keyedStateBackend.getCurrentKey());
         stateForCache.update(value);
-        keysInCache.add(keyedStateBackend.getCurrentKey());
-    }
-
-    @Override
-    public void sync() throws Exception {
-        K currentKey = keyedStateBackend.getCurrentKey();
-        for (K key : keysInCache) {
-            keyedStateBackend.setCurrentKey(key);
-            keyedStateBackendForCache.setCurrentKey(key);
-            state.update(stateForCache.value());
-            stateForCache.clear();
-        }
-        keyedStateBackend.setCurrentKey(currentKey);
-        keyedStateBackendForCache.setCurrentKey(currentKey);
-        keysInCache.clear();
     }
 
     @Override
@@ -82,6 +72,25 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
     @Override
     public void clear() {
         stateForCache.clear();
-        keysInCache.add(keyedStateBackend.getCurrentKey());
+        state.clear();
+        keysInCache.remove(keyedStateBackend.getCurrentKey());
+    }
+
+    private void addKeyToCache(K newKey) throws IOException {
+        keysInCache.add(newKey);
+        if (keysInCache.size() <= keySize) {
+            return;
+        }
+        K currentKey = keyedStateBackend.getCurrentKey();
+        for (K key : keysInCache) {
+            keyedStateBackend.setCurrentKey(key);
+            keyedStateBackendForCache.setCurrentKey(key);
+            state.update(stateForCache.value());
+            stateForCache.clear();
+        }
+        keyedStateBackend.setCurrentKey(currentKey);
+        keyedStateBackendForCache.setCurrentKey(currentKey);
+        keysInCache.clear();
+        keysInCache.add(newKey);
     }
 }

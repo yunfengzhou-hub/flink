@@ -28,10 +28,6 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
-import org.apache.flink.runtime.state.KeyedStateBackend;
-import org.apache.flink.runtime.state.cache.KeyedStateBackendWithCache;
-import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
-import org.apache.flink.streaming.api.operators.AbstractStreamOperatorV2;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
@@ -239,28 +235,6 @@ public class RegularOperatorChain<OUT, OP extends StreamOperator<OUT>>
                 LOG.info(ex.getMessage(), ex);
             }
             throw ex;
-        }
-    }
-
-    @Override
-    void flushOperators() throws Exception {
-        for (StreamOperatorWrapper<?, ?> operatorWrapper : getAllOperators()) {
-            if (!operatorWrapper.isClosed()) {
-                StreamOperator<?> operator = operatorWrapper.getStreamOperator();
-                operator.flush();
-
-                KeyedStateBackend<?> keyedStateBackend = null;
-                if (operator instanceof AbstractStreamOperator) {
-                    keyedStateBackend =
-                            ((AbstractStreamOperator<?>) operator).getKeyedStateBackend();
-                } else if (operator instanceof AbstractStreamOperatorV2) {
-                    keyedStateBackend =
-                            ((AbstractStreamOperatorV2<?>) operator).getKeyedStateBackend();
-                }
-                if (keyedStateBackend instanceof KeyedStateBackendWithCache) {
-                    ((KeyedStateBackendWithCache<?>) keyedStateBackend).sync();
-                }
-            }
         }
     }
 }
