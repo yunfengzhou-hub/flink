@@ -28,6 +28,7 @@ import static org.apache.flink.configuration.CheckpointingOptions.CHECKPOINT_STO
 import static org.apache.flink.configuration.CheckpointingOptions.INCREMENTAL_CHECKPOINTS;
 import static org.apache.flink.configuration.CoreOptions.DEFAULT_PARALLELISM;
 import static org.apache.flink.configuration.PipelineOptions.OBJECT_REUSE;
+import static org.apache.flink.configuration.RestartStrategyOptions.RESTART_STRATEGY;
 import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND;
 import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND;
 import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND_KEY_SIZE;
@@ -40,9 +41,9 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
 
     private static final Duration CHECKPOINT_INTERVAL = Duration.ofMillis(1000);
 
-    private static final int CACHE_KEY_SIZE = (int) 100;
+    private static final int CACHE_KEY_SIZE = (int) 1000;
 
-    private static final int NUM_KEYS = (int) 1e4;
+    private static final int NUM_KEYS = (int) 1e5;
 
     private Configuration config;
 
@@ -50,12 +51,14 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     public void before() throws IOException {
         String checkpointDir = "file://" + Files.createTempDirectory(tmp, "test").toString();
         config = new Configuration();
+        config.set(RESTART_STRATEGY, "none");
         config.set(CHECKPOINT_STORAGE, "filesystem");
         config.set(CHECKPOINTS_DIRECTORY, checkpointDir);
         config.set(OBJECT_REUSE, true);
         config.set(CHECKPOINTING_INTERVAL, CHECKPOINT_INTERVAL);
         config.set(DEFAULT_PARALLELISM, 1);
         config.set(STATE_BACKEND, "rocksdb");
+        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
         config.set(INCREMENTAL_CHECKPOINTS, true);
     }
 
@@ -65,28 +68,21 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
         test(env);
     }
 
-//    @Test
-//    public void testHashMap() throws Exception {
-//        config.set(STATE_BACKEND, "hashmap");
-//        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-//        test(env);
-//    }
+    @Test
+    public void testHashMap() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env);
+    }
 
-//    @Test
-//    public void testHashMapAndHashMapCache() throws Exception {
-//        Configuration config = new Configuration();
-//        config.set(CHECKPOINT_STORAGE, "filesystem");
-//        config.set(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointDir);
-//        config.set(STATE_CACHE_BACKEND, "hashmap");
-//        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
-//        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-//        env.getConfig().enableObjectReuse();
-//        env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
-//        env.setParallelism(1);
-//        env.setStateBackend(new HashMapStateBackend());
-//        test(env);
-//    }
-//
+    @Test
+    public void testHashMapAndHashMapCache() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env);
+    }
+
 //    @Test
 //    public void testRocksDBAndHashMapCache() throws Exception {
 //        Configuration config = new Configuration();
