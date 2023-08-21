@@ -81,6 +81,7 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
         if (keysInCache.size() <= keySize) {
             return;
         }
+        keysInCache.remove(newKey);
         K currentKey = keyedStateBackend.getCurrentKey();
         for (K key : keysInCache) {
             keyedStateBackend.setCurrentKey(key);
