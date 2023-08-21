@@ -5,9 +5,11 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.KeyedStateBackend;
 
+import org.apache.flink.shaded.guava30.com.google.common.cache.Cache;
+import org.apache.flink.shaded.guava30.com.google.common.cache.CacheBuilder;
+import org.apache.flink.shaded.guava30.com.google.common.cache.RemovalNotification;
+
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCache {
     private final ValueState<V> state;
@@ -17,9 +19,7 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
 
     private final KeyedStateBackend<K> keyedStateBackendForCache;
 
-    private final int keySize;
-
-    private final Set<K> keysInCache;
+    private final Cache<K, Boolean> keysCache;
 
     public ValueStateWithCache(
             N namespace,
@@ -35,34 +35,39 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
         this.stateForCache = stateForCache;
         this.keyedStateBackend = keyedStateBackend;
         this.keyedStateBackendForCache = keyedStateBackendForCache;
-        this.keysInCache = new HashSet<>();
-        this.keySize = keySize;
+        this.keysCache =
+                CacheBuilder.newBuilder()
+                        .maximumSize(keySize)
+                        .removalListener(this::removalCallback)
+                        .build();
+
         keyedStateBackendForCache.applyToAllKeys(
                 namespace,
                 namespaceSerializer,
                 stateDescriptor,
-                (key, ignoredState) -> keysInCache.add(key));
+                (key, ignoredState) -> keysCache.put(key, true));
     }
 
     @Override
     public V value() throws IOException {
-        if (!keysInCache.contains(keyedStateBackend.getCurrentKey())) {
-            addKeyToCache(keyedStateBackend.getCurrentKey());
+        K currentKey = keyedStateBackend.getCurrentKey();
+        if (keysCache.getIfPresent(currentKey) == null) {
             stateForCache.update(state.value());
         }
+        keysCache.put(currentKey, true);
         return stateForCache.value();
     }
 
     @Override
     public void update(V value) throws IOException {
-        addKeyToCache(keyedStateBackend.getCurrentKey());
+        keysCache.put(keyedStateBackendForCache.getCurrentKey(), true);
         stateForCache.update(value);
     }
 
     @Override
     public void removeOutdatedState() {
         K currentKey = keyedStateBackend.getCurrentKey();
-        for (K key : keysInCache) {
+        for (K key : keysCache.asMap().keySet()) {
             keyedStateBackend.setCurrentKey(key);
             state.clear();
         }
@@ -71,27 +76,30 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
 
     @Override
     public void clear() {
+        keysCache.put(keyedStateBackend.getCurrentKey(), true);
         stateForCache.clear();
-        state.clear();
-        keysInCache.remove(keyedStateBackend.getCurrentKey());
     }
 
-    private void addKeyToCache(K newKey) throws IOException {
-        keysInCache.add(newKey);
-        if (keysInCache.size() <= keySize) {
-            return;
+    private void removalCallback(RemovalNotification<K, Boolean> notification) {
+        switch (notification.getCause()) {
+            case REPLACED:
+                return;
+            case SIZE:
+                K currentKey = keyedStateBackend.getCurrentKey();
+                K keyToRemove = notification.getKey();
+                keyedStateBackend.setCurrentKey(keyToRemove);
+                keyedStateBackendForCache.setCurrentKey(keyToRemove);
+                try {
+                    state.update(stateForCache.value());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                stateForCache.clear();
+                keyedStateBackend.setCurrentKey(currentKey);
+                keyedStateBackendForCache.setCurrentKey(currentKey);
+                return;
+            default:
+                throw new UnsupportedOperationException(notification.getCause().toString());
         }
-        keysInCache.remove(newKey);
-        K currentKey = keyedStateBackend.getCurrentKey();
-        for (K key : keysInCache) {
-            keyedStateBackend.setCurrentKey(key);
-            keyedStateBackendForCache.setCurrentKey(key);
-            state.update(stateForCache.value());
-            stateForCache.clear();
-        }
-        keyedStateBackend.setCurrentKey(currentKey);
-        keyedStateBackendForCache.setCurrentKey(currentKey);
-        keysInCache.clear();
-        keysInCache.add(newKey);
     }
 }

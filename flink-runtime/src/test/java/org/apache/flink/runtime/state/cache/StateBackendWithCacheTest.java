@@ -68,6 +68,8 @@ public class StateBackendWithCacheTest extends StateBackendTestBase<StateBackend
         return false;
     }
 
+    // TODO: test LRU eviction policy
+
     @Override
     @Ignore
     @Test
