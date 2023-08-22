@@ -41,9 +41,7 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
 
     private static final Duration CHECKPOINT_INTERVAL = Duration.ofMillis(1000);
 
-    private static final int CACHE_KEY_SIZE = (int) 1000;
-
-    private static final int NUM_KEYS = (int) 1e5;
+    private static final int CACHE_KEY_SIZE = 1000;
 
     private Configuration config;
 
@@ -63,84 +61,150 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     }
 
     @Test
-    public void testRocksDB() throws Exception {
+    public void testRocksDB1() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env);
+        test(env, 1);
     }
 
     @Test
-    public void testHashMap() throws Exception {
+    public void testRocksDB2() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 2);
+    }
+
+    @Test
+    public void testRocksDB5() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 5);
+    }
+
+    @Test
+    public void testRocksDB10() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 10);
+    }
+
+    @Test
+    public void testRocksDB100() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 100);
+    }
+
+    @Test
+    public void testHashMap1() throws Exception {
         config.set(STATE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env);
+        test(env, 1);
     }
 
     @Test
-    public void testHashMapAndHashMapCache() throws Exception {
+    public void testHashMap2() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 2);
+    }
+
+    @Test
+    public void testHashMap5() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 5);
+    }
+
+    @Test
+    public void testHashMap10() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 10);
+    }
+
+    @Test
+    public void testHashMap100() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 10);
+    }
+
+    @Test
+    public void testHashMapAndHashMapCache1() throws Exception {
         config.set(STATE_BACKEND, "hashmap");
         config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env);
+        test(env, 1);
     }
 
-//    @Test
-//    public void testRocksDBAndHashMapCache() throws Exception {
-//        Configuration config = new Configuration();
-//        config.set(CHECKPOINT_STORAGE, "filesystem");
-//        config.set(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointDir);
-//        config.set(STATE_CACHE_BACKEND, "hashmap");
-//        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
-//        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-//        env.getConfig().enableObjectReuse();
-//        env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
-//        env.setParallelism(1);
-//        env.setStateBackend(new EmbeddedRocksDBStateBackend());
-//        test(env);
-//    }
-//
+    @Test
+    public void testHashMapAndHashMapCache2() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 2);
+    }
+
+    @Test
+    public void testHashMapAndHashMapCache5() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 5);
+    }
+
+    @Test
+    public void testHashMapAndHashMapCache10() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 10);
+    }
+
+    @Test
+    public void testHashMapAndHashMapCache100() throws Exception {
+        config.set(STATE_BACKEND, "hashmap");
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 100);
+    }
+
     @Test
     public void testRocksDBAndHashMapCache1() throws Exception {
         config.set(STATE_CACHE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND_KEY_SIZE, 1);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env);
+        test(env, 1);
     }
 
     @Test
-    public void testRocksDBAndHashMapCache1000() throws Exception {
+    public void testRocksDBAndHashMapCache2() throws Exception {
         config.set(STATE_CACHE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND_KEY_SIZE, 1000);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env);
+        test(env, 2);
     }
 
     @Test
-    public void testRocksDBAndHashMapCache10002() throws Exception {
+    public void testRocksDBAndHashMapCache5() throws Exception {
         config.set(STATE_CACHE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND_KEY_SIZE, 1000);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env);
+        test(env, 5);
     }
 
-//    @Test
-//    public void testRocksDBAndRocksDBCache() throws Exception {
-//        Configuration config = new Configuration();
-//        config.set(CHECKPOINT_STORAGE, "filesystem");
-//        config.set(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointDir);
-//        config.set(STATE_CACHE_BACKEND, "rocksdb");
-//        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
-//        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-//        env.getConfig().enableObjectReuse();
-//        env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
-//        env.setParallelism(1);
-//        env.setStateBackend(new EmbeddedRocksDBStateBackend());
-//        test(env);
-//    }
+    @Test
+    public void testRocksDBAndHashMapCache10() throws Exception {
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 10);
+    }
 
-    private void test(StreamExecutionEnvironment env) throws Exception {
+    @Test
+    public void testRocksDBAndHashMapCache100() throws Exception {
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 100);
+    }
+
+    private void test(StreamExecutionEnvironment env, long numRecordsWithSameKeyInCache) throws Exception {
+        long mod = 2 * CACHE_KEY_SIZE;
         env.fromSequence(0L, NUM_RECORDS)
                 // mock real workloads where records with the same key tend to appear adjacently.
-                .keyBy(x -> x % NUM_KEYS)
+                .keyBy(x -> (x / numRecordsWithSameKeyInCache)  % mod)
                 .transform("myOperator", Types.TUPLE(Types.LONG, Types.LONG), new MyOperator())
                 .addSink(new DiscardingSink<>());
         JobExecutionResult executionResult = env.execute();

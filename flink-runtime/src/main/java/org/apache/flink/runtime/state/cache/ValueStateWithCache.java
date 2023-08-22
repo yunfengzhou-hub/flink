@@ -85,7 +85,7 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
             case REPLACED:
                 return;
             case SIZE:
-                K currentKey = keyedStateBackend.getCurrentKey();
+                K currentKey = keyedStateBackendForCache.getCurrentKey();
                 K keyToRemove = notification.getKey();
                 keyedStateBackend.setCurrentKey(keyToRemove);
                 keyedStateBackendForCache.setCurrentKey(keyToRemove);
