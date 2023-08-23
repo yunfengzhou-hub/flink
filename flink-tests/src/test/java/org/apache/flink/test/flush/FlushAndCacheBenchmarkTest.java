@@ -37,7 +37,7 @@ import static org.apache.flink.streaming.api.environment.ExecutionCheckpointingO
 public class FlushAndCacheBenchmarkTest extends TestLogger {
     @TempDir Path tmp;
 
-    private static final long NUM_RECORDS = (long) 1e7;
+    private static final long NUM_RECORDS = (long) 2e7;
 
     private static final Duration CHECKPOINT_INTERVAL = Duration.ofMillis(1000);
 
@@ -73,18 +73,6 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     }
 
     @Test
-    public void testRocksDB5() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 5);
-    }
-
-    @Test
-    public void testRocksDB10() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 10);
-    }
-
-    @Test
     public void testRocksDB100() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 100);
@@ -102,20 +90,6 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
         config.set(STATE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 2);
-    }
-
-    @Test
-    public void testHashMap5() throws Exception {
-        config.set(STATE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 5);
-    }
-
-    @Test
-    public void testHashMap10() throws Exception {
-        config.set(STATE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 10);
     }
 
     @Test
@@ -142,22 +116,6 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     }
 
     @Test
-    public void testHashMapAndHashMapCache5() throws Exception {
-        config.set(STATE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 5);
-    }
-
-    @Test
-    public void testHashMapAndHashMapCache10() throws Exception {
-        config.set(STATE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 10);
-    }
-
-    @Test
     public void testHashMapAndHashMapCache100() throws Exception {
         config.set(STATE_BACKEND, "hashmap");
         config.set(STATE_CACHE_BACKEND, "hashmap");
@@ -173,24 +131,17 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     }
 
     @Test
+    public void testRocksDBAndHashMapCache12() throws Exception {
+        config.set(STATE_CACHE_BACKEND, "hashmap");
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
+        test(env, 1);
+    }
+
+    @Test
     public void testRocksDBAndHashMapCache2() throws Exception {
         config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 2);
-    }
-
-    @Test
-    public void testRocksDBAndHashMapCache5() throws Exception {
-        config.set(STATE_CACHE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 5);
-    }
-
-    @Test
-    public void testRocksDBAndHashMapCache10() throws Exception {
-        config.set(STATE_CACHE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 10);
     }
 
     @Test

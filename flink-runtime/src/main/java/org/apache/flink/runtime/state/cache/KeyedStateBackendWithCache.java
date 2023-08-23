@@ -37,7 +37,7 @@ public class KeyedStateBackendWithCache<K>
     private final CheckpointableKeyedStateBackend<K> backend;
     private final CheckpointableKeyedStateBackend<K> backendForCache;
     private final int keySize;
-    private final Map<String, StateWithCache> states;
+    private final Map<String, StateWithCache<K>> states;
 
     public KeyedStateBackendWithCache(
             CheckpointableKeyedStateBackend<K> backend,
@@ -51,8 +51,9 @@ public class KeyedStateBackendWithCache<K>
 
     @Override
     public void setCurrentKey(K newKey) {
-        backend.setCurrentKey(newKey);
-        backendForCache.setCurrentKey(newKey);
+        for (StateWithCache<K> state: states.values()) {
+            state.setCurrentKey(newKey);
+        }
     }
 
     @Override
@@ -124,8 +125,8 @@ public class KeyedStateBackendWithCache<K>
         S stateForCache =
                 backendForCache.getPartitionedState(
                         namespace, namespaceSerializer, stateDescriptor);
-        ValueStateWithCache result =
-                new ValueStateWithCache(
+        StateWithCache<K> result =
+                new ValueStateWithCache<>(
                         namespace,
                         namespaceSerializer,
                         (ValueStateDescriptor) stateDescriptor,
