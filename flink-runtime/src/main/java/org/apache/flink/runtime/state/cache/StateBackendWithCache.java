@@ -15,6 +15,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 
 import javax.annotation.Nonnull;
@@ -30,9 +31,9 @@ public class StateBackendWithCache implements ConfigurableStateBackend {
     private final int keySize;
 
     public StateBackendWithCache(
-            StateBackend stateBackend, StateBackend stateBackendForCache, int keySize) {
+            StateBackend stateBackend, int keySize) {
         this.stateBackend = stateBackend;
-        this.stateBackendForCache = stateBackendForCache;
+        this.stateBackendForCache = new HashMapStateBackend();
         this.keySize = keySize;
     }
 
@@ -121,7 +122,6 @@ public class StateBackendWithCache implements ConfigurableStateBackend {
         }
         return new StateBackendWithCache(
                 ((ConfigurableStateBackend) stateBackend).configure(config, classLoader),
-                ((ConfigurableStateBackend) stateBackendForCache).configure(config, classLoader),
                 keySize);
     }
 }

@@ -17,15 +17,13 @@ import org.apache.flink.util.Preconditions;
 
 import org.junit.jupiter.api.Test;
 
-import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND;
-import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND_KEY_SIZE;
+import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND_CACHE_SIZE;
 
 public class FlushAndCacheITCase {
     @Test
     public void test() throws Exception {
         Configuration config = new Configuration();
-        config.set(STATE_CACHE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND_KEY_SIZE, 100);
+        config.set(STATE_BACKEND_CACHE_SIZE, 100);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         //        env.getConfig().setCacheBackendKeySize(10);
         env.setRestartStrategy(RestartStrategies.noRestart());

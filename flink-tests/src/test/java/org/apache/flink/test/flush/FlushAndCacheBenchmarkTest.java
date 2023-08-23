@@ -30,8 +30,7 @@ import static org.apache.flink.configuration.CoreOptions.DEFAULT_PARALLELISM;
 import static org.apache.flink.configuration.PipelineOptions.OBJECT_REUSE;
 import static org.apache.flink.configuration.RestartStrategyOptions.RESTART_STRATEGY;
 import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND;
-import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND;
-import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND_KEY_SIZE;
+import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND_CACHE_SIZE;
 import static org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL;
 
 public class FlushAndCacheBenchmarkTest extends TestLogger {
@@ -56,7 +55,7 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
         config.set(CHECKPOINTING_INTERVAL, CHECKPOINT_INTERVAL);
         config.set(DEFAULT_PARALLELISM, 1);
         config.set(STATE_BACKEND, "rocksdb");
-        config.set(STATE_CACHE_BACKEND_KEY_SIZE, CACHE_KEY_SIZE);
+        config.set(STATE_BACKEND_CACHE_SIZE, CACHE_KEY_SIZE);
         config.set(INCREMENTAL_CHECKPOINTS, true);
     }
 
@@ -100,46 +99,40 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     }
 
     @Test
-    public void testHashMapAndHashMapCache1() throws Exception {
+    public void testHashMapWithCache1() throws Exception {
         config.set(STATE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 1);
     }
 
     @Test
-    public void testHashMapAndHashMapCache2() throws Exception {
+    public void testHashMapWithCache2() throws Exception {
         config.set(STATE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 2);
     }
 
     @Test
-    public void testHashMapAndHashMapCache100() throws Exception {
+    public void testHashMapWithCache100() throws Exception {
         config.set(STATE_BACKEND, "hashmap");
-        config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 100);
     }
 
     @Test
-    public void testRocksDBAndHashMapCache1() throws Exception {
-        config.set(STATE_CACHE_BACKEND, "hashmap");
+    public void testRocksDBWithCache1() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 1);
     }
 
     @Test
-    public void testRocksDBAndHashMapCache2() throws Exception {
-        config.set(STATE_CACHE_BACKEND, "hashmap");
+    public void testRocksDBWithCache2() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 2);
     }
 
     @Test
-    public void testRocksDBAndHashMapCache100() throws Exception {
-        config.set(STATE_CACHE_BACKEND, "hashmap");
+    public void testRocksDBWithCache100() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
         test(env, 100);
     }

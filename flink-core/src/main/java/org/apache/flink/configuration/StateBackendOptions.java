@@ -63,32 +63,10 @@ public class StateBackendOptions {
                                     .text("Recognized shortcut names are 'hashmap' and 'rocksdb'.")
                                     .build());
 
-    @Documentation.Section(value = Documentation.Sections.COMMON_STATE_BACKENDS, position = 1)
-    public static final ConfigOption<String> STATE_CACHE_BACKEND =
-            ConfigOptions.key("state.cache-backend.type")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            Description.builder()
-                                    .text("The state backend to be used to store state.")
-                                    .linebreak()
-                                    .text(
-                                            "The implementation can be specified either via their shortcut "
-                                                    + " name, or via the class name of a %s. "
-                                                    + "If a factory is specified it is instantiated via its "
-                                                    + "zero argument constructor and its %s "
-                                                    + "method is called.",
-                                            TextElement.code("StateBackendFactory"),
-                                            TextElement.code(
-                                                    "StateBackendFactory#createFromConfig(ReadableConfig, ClassLoader)"))
-                                    .linebreak()
-                                    .text("Recognized shortcut names are 'hashmap' and 'rocksdb'.")
-                                    .build());
-
-    public static final ConfigOption<Integer> STATE_CACHE_BACKEND_KEY_SIZE =
-            ConfigOptions.key("state.cache-backend.key-size")
+    public static final ConfigOption<Integer> STATE_BACKEND_CACHE_SIZE =
+            ConfigOptions.key("state.backend.cache.max-num-entries")
                     .intType()
-                    .defaultValue(0)
+                    .noDefaultValue()
                     .withDescription(Description.builder().text("").build());
 
     @Documentation.Section(Documentation.Sections.STATE_BACKEND_LATENCY_TRACKING)

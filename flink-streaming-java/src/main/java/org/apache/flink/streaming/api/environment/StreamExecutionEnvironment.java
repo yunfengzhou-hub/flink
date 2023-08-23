@@ -133,7 +133,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.configuration.StateBackendOptions.STATE_CACHE_BACKEND_KEY_SIZE;
+import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND_CACHE_SIZE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -200,8 +200,6 @@ public class StreamExecutionEnvironment implements AutoCloseable {
 
     /** The state backend used for storing k/v state and state snapshots. */
     private StateBackend defaultStateBackend;
-
-    private StateBackend defaultStateBackendForCache;
 
     /** Whether to enable ChangelogStateBackend, default value is unset. */
     private TernaryBoolean changelogStateBackendEnabled = TernaryBoolean.UNDEFINED;
@@ -668,26 +666,6 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         return this;
     }
 
-    private void setStateBackendForCache(StateBackend backend) {
-        this.defaultStateBackendForCache = backend;
-    }
-
-    private ReadableConfig getConfigurationForCache(ReadableConfig readableConfig) {
-        if (!(readableConfig instanceof Configuration)) {
-            return new Configuration();
-        }
-        Configuration configuration = ((Configuration) readableConfig);
-        Configuration configurationForCache = new Configuration();
-        for (String key : configuration.keySet()) {
-            if (!key.startsWith("state.cache-backend")) {
-                continue;
-            }
-            String newKey = key.replaceFirst("state.cache-backend", "state.backend");
-            configurationForCache.setString(newKey, configuration.getString(key, null));
-        }
-        return configurationForCache;
-    }
-
     /**
      * Gets the state backend that defines how to store and checkpoint state.
      *
@@ -1011,8 +989,6 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                 .ifPresent(this::enableChangelogStateBackend);
         Optional.ofNullable(loadStateBackend(configuration, classLoader))
                 .ifPresent(this::setStateBackend);
-        Optional.ofNullable(loadStateBackend(getConfigurationForCache(configuration), classLoader))
-                .ifPresent(this::setStateBackendForCache);
         configuration
                 .getOptional(PipelineOptions.OPERATOR_CHAINING)
                 .ifPresent(c -> this.isChainingEnabled = c);
@@ -2309,11 +2285,9 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         }
 
         StateBackend stateBackend = defaultStateBackend;
-        if (defaultStateBackendForCache != null) {
-            int keySize = this.configuration.get(STATE_CACHE_BACKEND_KEY_SIZE);
-            Preconditions.checkArgument(keySize > 0);
-            stateBackend =
-                    new StateBackendWithCache(stateBackend, defaultStateBackendForCache, keySize);
+        if (this.configuration.get(STATE_BACKEND_CACHE_SIZE) != null) {
+            stateBackend = new StateBackendWithCache(
+                    stateBackend, this.configuration.get(STATE_BACKEND_CACHE_SIZE));
         }
 
         // We copy the transformation so that newly added transformations cannot intervene with the
