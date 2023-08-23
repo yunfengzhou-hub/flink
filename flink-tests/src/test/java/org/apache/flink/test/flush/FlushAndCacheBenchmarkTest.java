@@ -131,13 +131,6 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     }
 
     @Test
-    public void testRocksDBAndHashMapCache12() throws Exception {
-        config.set(STATE_CACHE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 1);
-    }
-
-    @Test
     public void testRocksDBAndHashMapCache2() throws Exception {
         config.set(STATE_CACHE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);

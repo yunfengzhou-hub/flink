@@ -12,11 +12,18 @@ class RunnableFutureWithCache implements RunnableFuture<SnapshotResult<KeyedStat
     private final RunnableFuture<SnapshotResult<KeyedStateHandle>> future;
     private final RunnableFuture<SnapshotResult<KeyedStateHandle>> futureForCache;
 
+    private final Runnable completionCallback;
+
+    private boolean isCompletionCallbackInvoked;
+
     RunnableFutureWithCache(
             RunnableFuture<SnapshotResult<KeyedStateHandle>> future,
-            RunnableFuture<SnapshotResult<KeyedStateHandle>> futureForCache) {
+            RunnableFuture<SnapshotResult<KeyedStateHandle>> futureForCache,
+            Runnable completionCallback) {
         this.future = future;
         this.futureForCache = futureForCache;
+        this.completionCallback = completionCallback;
+        this.isCompletionCallbackInvoked = false;
     }
 
     @Override
@@ -51,13 +58,23 @@ class RunnableFutureWithCache implements RunnableFuture<SnapshotResult<KeyedStat
 
     @Override
     public SnapshotResult<KeyedStateHandle> get() throws InterruptedException, ExecutionException {
-        return mergeResults(future.get(), futureForCache.get());
+        SnapshotResult<KeyedStateHandle> result = mergeResults(future.get(), futureForCache.get());
+        if (!isCompletionCallbackInvoked) {
+            isCompletionCallbackInvoked = true;
+            completionCallback.run();
+        }
+        return result;
     }
 
     @Override
     public SnapshotResult<KeyedStateHandle> get(long timeout, TimeUnit unit)
             throws InterruptedException, ExecutionException, TimeoutException {
-        return mergeResults(future.get(timeout, unit), futureForCache.get(timeout, unit));
+        SnapshotResult<KeyedStateHandle> result = mergeResults(future.get(timeout, unit), futureForCache.get(timeout, unit));
+        if (!isCompletionCallbackInvoked) {
+            isCompletionCallbackInvoked = true;
+            completionCallback.run();
+        }
+        return result;
     }
 
     private SnapshotResult<KeyedStateHandle> mergeResults(

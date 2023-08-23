@@ -1,5 +1,7 @@
 package org.apache.flink.runtime.state.cache;
 
+import org.apache.flink.api.common.state.MapState;
+import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.state.ValueState;
@@ -27,9 +29,7 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.RunnableFuture;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class KeyedStateBackendWithCache<K>
@@ -73,35 +73,38 @@ public class KeyedStateBackendWithCache<K>
             StateDescriptor<S, T> stateDescriptor,
             KeyedStateFunction<K, S> function)
             throws Exception {
-        for (StateWithCache state : states.values()) {
-            state.removeOutdatedState();
-        }
-        backendForCache.applyToAllKeys(
-                namespace, namespaceSerializer, stateDescriptor, function);
-        backend.applyToAllKeys(
-                namespace, namespaceSerializer, stateDescriptor, function);
+        throw new UnsupportedOperationException();
+//        for (StateWithCache state : states.values()) {
+//            state.removeOutdatedState();
+//        }
+//        backendForCache.applyToAllKeys(
+//                namespace, namespaceSerializer, stateDescriptor, function);
+//        backend.applyToAllKeys(
+//                namespace, namespaceSerializer, stateDescriptor, function);
     }
 
     @Override
     public <N> Stream<K> getKeys(String state, N namespace) {
-        Set<K> keysInCache = backendForCache.getKeys(state, namespace).collect(Collectors.toSet());
-        return Stream.concat(
-                keysInCache.stream(),
-                backend.getKeys(state, namespace).filter(k -> !keysInCache.contains(k)));
+        throw new UnsupportedOperationException();
+//        Set<K> keysInCache = backendForCache.getKeys(state, namespace).collect(Collectors.toSet());
+//        return Stream.concat(
+//                keysInCache.stream(),
+//                backend.getKeys(state, namespace).filter(k -> !keysInCache.contains(k)));
     }
 
     @Override
     public <N> Stream<Tuple2<K, N>> getKeysAndNamespaces(String state) {
-        Set<K> keysInCache =
-                backendForCache
-                        .getKeysAndNamespaces(state)
-                        .map(x -> x.f0)
-                        .collect(Collectors.toSet());
-        return Stream.concat(
-                backendForCache.getKeysAndNamespaces(state),
-                backend.getKeysAndNamespaces(state)
-                        .filter(x -> !keysInCache.contains(x.f0))
-                        .map(x -> (Tuple2<K, N>) x));
+        throw new UnsupportedOperationException();
+//        Set<K> keysInCache =
+//                backendForCache
+//                        .getKeysAndNamespaces(state)
+//                        .map(x -> x.f0)
+//                        .collect(Collectors.toSet());
+//        return Stream.concat(
+//                backendForCache.getKeysAndNamespaces(state),
+//                backend.getKeysAndNamespaces(state)
+//                        .filter(x -> !keysInCache.contains(x.f0))
+//                        .map(x -> (Tuple2<K, N>) x));
     }
 
     @Override
@@ -122,16 +125,21 @@ public class KeyedStateBackendWithCache<K>
             // TODO: Support all states.
             return state;
         }
-        S stateForCache =
+        MapStateDescriptor<K, ?> stateDescriptorForCache = new MapStateDescriptor<>(
+                stateDescriptor.getName(),
+                backendForCache.getKeySerializer(),
+                stateDescriptor.getSerializer()
+        );
+        MapState<K, ?> stateForCache =
                 backendForCache.getPartitionedState(
-                        namespace, namespaceSerializer, stateDescriptor);
+                        namespace, namespaceSerializer, stateDescriptorForCache);
         StateWithCache<K> result =
                 new ValueStateWithCache<>(
                         namespace,
                         namespaceSerializer,
-                        (ValueStateDescriptor) stateDescriptor,
+                        (MapStateDescriptor) stateDescriptorForCache,
                         (ValueState) state,
-                        (ValueState) stateForCache,
+                        stateForCache,
                         backend,
                         backendForCache,
                         keySize);
@@ -204,14 +212,22 @@ public class KeyedStateBackendWithCache<K>
             @Nonnull CheckpointStreamFactory streamFactory,
             @Nonnull CheckpointOptions checkpointOptions)
             throws Exception {
-        for (StateWithCache state : states.values()) {
-            state.removeOutdatedState();
+        for (StateWithCache<K> state : states.values()) {
+            state.notifyLocalSnapshotStarted(checkpointId);
         }
         RunnableFuture<SnapshotResult<KeyedStateHandle>> future =
                 backend.snapshot(checkpointId, timestamp, streamFactory, checkpointOptions);
         RunnableFuture<SnapshotResult<KeyedStateHandle>> futureForCache =
                 backendForCache.snapshot(checkpointId, timestamp, streamFactory, checkpointOptions);
-        return new RunnableFutureWithCache(future, futureForCache);
+        return new RunnableFutureWithCache(
+                future,
+                futureForCache,
+                () -> {
+                    for (StateWithCache<K> state : states.values()) {
+                        state.notifyLocalSnapshotFinished(checkpointId);
+                    }
+                }
+        );
     }
 
     @Override

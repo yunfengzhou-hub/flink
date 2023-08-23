@@ -34,4 +34,10 @@ public class LinkedHashMapLRUCache<K, V> extends LinkedHashMap<K, V> {
         }
         return false;
     }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public LinkedHashMapLRUCache<K, V> clone() {
+        return (LinkedHashMapLRUCache<K, V>) super.clone();
+    }
 }
