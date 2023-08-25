@@ -4,6 +4,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.StateInitializationContext;
@@ -33,14 +34,20 @@ import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND;
 import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND_CACHE_SIZE;
 import static org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL;
 
-public class FlushAndCacheBenchmarkTest extends TestLogger {
+public class FlushAndCacheBenchmarkTest2 extends TestLogger {
     @TempDir Path tmp;
 
     private static final long NUM_RECORDS = (long) 2e7;
 
     private static final Duration CHECKPOINT_INTERVAL = Duration.ofMillis(1000);
 
-    private static final int CACHE_KEY_SIZE = 1000;
+    private static final int KEY_SIZE_THRESHOLD = 500;
+
+    private static final int CACHE_KEY_SIZE_0 = KEY_SIZE_THRESHOLD / 2;
+
+    private static final int CACHE_KEY_SIZE_50 = KEY_SIZE_THRESHOLD;
+
+    private static final int CACHE_KEY_SIZE_100 = 2 * KEY_SIZE_THRESHOLD;
 
     private Configuration config;
 
@@ -59,75 +66,60 @@ public class FlushAndCacheBenchmarkTest extends TestLogger {
     }
 
     @Test
-    public void testRocksDB0() throws Exception {
+    public void testRocksDB() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 1);
+        test(env);
     }
 
     @Test
-    public void testRocksDB50() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 2);
-    }
-
-    @Test
-    public void testRocksDB100() throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 100);
-    }
-
-    @Test
-    public void testHashMap0() throws Exception {
+    public void testHashMap() throws Exception {
         config.set(STATE_BACKEND, "hashmap");
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 1);
-    }
-
-    @Test
-    public void testHashMap50() throws Exception {
-        config.set(STATE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 2);
-    }
-
-    @Test
-    public void testHashMap100() throws Exception {
-        config.set(STATE_BACKEND, "hashmap");
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 100);
+        test(env);
     }
 
     @Test
     public void testRocksDBWithCache0() throws Exception {
-        config.set(STATE_BACKEND_CACHE_SIZE, CACHE_KEY_SIZE);
+        config.set(STATE_BACKEND_CACHE_SIZE, CACHE_KEY_SIZE_0);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 1);
+        test(env);
     }
 
     @Test
     public void testRocksDBWithCache50() throws Exception {
-        config.set(STATE_BACKEND_CACHE_SIZE, CACHE_KEY_SIZE);
+        config.set(STATE_BACKEND_CACHE_SIZE, CACHE_KEY_SIZE_50);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 2);
+        test(env);
     }
 
     @Test
     public void testRocksDBWithCache100() throws Exception {
-        config.set(STATE_BACKEND_CACHE_SIZE, CACHE_KEY_SIZE);
+        config.set(STATE_BACKEND_CACHE_SIZE, CACHE_KEY_SIZE_100);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(config);
-        test(env, 100);
+        test(env);
     }
 
-    private void test(StreamExecutionEnvironment env, long numRecordsWithSameKeyInCache) throws Exception {
+    private void test(StreamExecutionEnvironment env) throws Exception {
         String methodName = Thread.currentThread().getStackTrace()[2].getMethodName();
-        long mod = 2 * CACHE_KEY_SIZE;
         for (int i = 0; i < 6; i++) {
             env.fromSequence(0L, NUM_RECORDS)
-                    .keyBy(x -> (x / numRecordsWithSameKeyInCache)  % mod)
+                    .keyBy(new MyKeySelector())
                     .transform("myOperator", Types.TUPLE(Types.LONG, Types.LONG), new MyOperator())
                     .addSink(new DiscardingSink<>());
             JobExecutionResult executionResult = env.execute();
             System.out.println(methodName + "\t" + executionResult.getNetRuntime());
+        }
+    }
+
+    private static class MyKeySelector implements KeySelector<Long, Long> {
+        @Override
+        public Long getKey(Long value) {
+            // If cache size < threshold, cache hit rate = 0%
+            // Else if cache size < 2 * threshold, cache hit rate = 50%
+            // Else cache size >= 2 * threshold, cache hit rate = 100%
+            long mod = value % KEY_SIZE_THRESHOLD;
+            long offset = (value / (2 * KEY_SIZE_THRESHOLD)) % 2;
+            return mod + KEY_SIZE_THRESHOLD * offset;
         }
     }
 

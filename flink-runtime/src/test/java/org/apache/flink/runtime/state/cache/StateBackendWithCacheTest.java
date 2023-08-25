@@ -50,7 +50,7 @@ public class StateBackendWithCacheTest extends StateBackendTestBase<StateBackend
 
     @Override
     protected ConfigurableStateBackend getStateBackend() throws Exception {
-        return new StateBackendWithCache(new HashMapStateBackend(), new HashMapStateBackend(), 100);
+        return new StateBackendWithCache(new HashMapStateBackend(), 100);
     }
 
     @Override
