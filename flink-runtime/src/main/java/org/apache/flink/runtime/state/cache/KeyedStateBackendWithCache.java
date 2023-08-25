@@ -134,7 +134,7 @@ public class KeyedStateBackendWithCache<K>
                 backendForCache.getPartitionedState(
                         namespace, namespaceSerializer, stateDescriptorForCache);
         StateWithCache<K> result =
-                new ValueStateWithCacheV2<>(
+                new ValueStateWithCache<>(
                         namespace,
                         namespaceSerializer,
                         (MapStateDescriptor) stateDescriptorForCache,
