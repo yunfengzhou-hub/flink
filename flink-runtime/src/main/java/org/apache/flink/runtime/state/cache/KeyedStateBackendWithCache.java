@@ -21,6 +21,7 @@ import org.apache.flink.runtime.state.SavepointResources;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.TestableKeyedStateBackend;
+import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
 import org.apache.flink.util.Preconditions;
 
@@ -38,6 +39,7 @@ public class KeyedStateBackendWithCache<K>
     private final CheckpointableKeyedStateBackend<K> backendForCache;
     private final int keySize;
     private final Map<String, StateWithCache<K>> states;
+    private K currentKey;
 
     public KeyedStateBackendWithCache(
             CheckpointableKeyedStateBackend<K> backend,
@@ -47,10 +49,12 @@ public class KeyedStateBackendWithCache<K>
         this.backendForCache = Preconditions.checkNotNull(backendForCache);
         this.keySize = keySize;
         this.states = new HashMap<>();
+        this.currentKey = null;
     }
 
     @Override
     public void setCurrentKey(K newKey) {
+        currentKey = newKey;
         for (StateWithCache<K> state: states.values()) {
             state.setCurrentKey(newKey);
         }
@@ -58,7 +62,7 @@ public class KeyedStateBackendWithCache<K>
 
     @Override
     public K getCurrentKey() {
-        return backend.getCurrentKey();
+        return currentKey;
     }
 
     @Override
@@ -111,7 +115,31 @@ public class KeyedStateBackendWithCache<K>
     public <N, S extends State, T> S getOrCreateKeyedState(
             TypeSerializer<N> namespaceSerializer, StateDescriptor<S, T> stateDescriptor)
             throws Exception {
-        throw new UnsupportedOperationException();
+        S state = backend.getOrCreateKeyedState(namespaceSerializer, stateDescriptor);
+        if (!(stateDescriptor instanceof ValueStateDescriptor)) {
+            // TODO: Support all states.
+            return state;
+        }
+        MapStateDescriptor<K, ?> stateDescriptorForCache = new MapStateDescriptor<>(
+                stateDescriptor.getName(),
+                backendForCache.getKeySerializer(),
+                stateDescriptor.getSerializer()
+        );
+        MapState<K, ?> stateForCache =
+                backendForCache.getOrCreateKeyedState(namespaceSerializer, stateDescriptorForCache);
+        StateWithCache<K> result =
+                new ValueStateWithCache<>(
+                        (N) VoidNamespace.INSTANCE,
+                        namespaceSerializer,
+                        (MapStateDescriptor) stateDescriptorForCache,
+                        (ValueState) state,
+                        stateForCache,
+                        backend,
+                        backendForCache,
+                        keySize);
+        // TODO: avoid recreating state with cache.
+        states.put(stateDescriptor.getName(), result);
+        return (S) result;
     }
 
     @Override
@@ -184,7 +212,7 @@ public class KeyedStateBackendWithCache<K>
             KeyGroupedInternalPriorityQueue<T> create(
                     @Nonnull String stateName,
                     @Nonnull TypeSerializer<T> byteOrderedElementSerializer) {
-        throw new UnsupportedOperationException();
+        return backend.create(stateName, byteOrderedElementSerializer);
     }
 
     @Override
