@@ -1,22 +1,24 @@
 package org.apache.flink.runtime.state.cache;
 
-import org.apache.flink.api.common.state.MapState;
-import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyedStateBackend;
-import org.apache.flink.runtime.state.heap.HeapMapState;
+import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.function.RunnableWithException;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCache<K> {
     private static final long NO_CHECKPOINT_ID = -1;
     private final N namespace;
     private final TypeSerializer<N> namespaceSerializer;
-    private final MapStateDescriptor<K, V> cacheStateDescriptor;
+    private final ValueStateDescriptor<V> cacheStateDescriptor;
     private final ValueState<V> state;
-    private final HeapMapState<K, ?, K, V> stateForCache;
+    private final ValueState<V> stateForCache;
 
     private final KeyedStateBackend<K> keyedStateBackend;
 
@@ -31,9 +33,9 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
     public ValueStateWithCache(
             N namespace,
             TypeSerializer<N> namespaceSerializer,
-            MapStateDescriptor<K, V> cacheStateDescriptor,
+            ValueStateDescriptor<V> cacheStateDescriptor,
             ValueState<V> state,
-            MapState<K, V> stateForCache,
+            ValueState<V> stateForCache,
             KeyedStateBackend<K> keyedStateBackend,
             KeyedStateBackend<K> keyedStateBackendForCache,
             int keySize)
@@ -42,7 +44,7 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
         this.namespaceSerializer = namespaceSerializer;
         this.cacheStateDescriptor = cacheStateDescriptor;
         this.state = state;
-        this.stateForCache = (HeapMapState<K, ?, K, V>) stateForCache;
+        this.stateForCache = stateForCache;
         this.keyedStateBackend = keyedStateBackend;
         this.keyedStateBackendForCache = keyedStateBackendForCache;
         this.lruCache = new LinkedHashMapLRUCache<>(keySize, this::removalCallback);
@@ -52,8 +54,7 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
                 namespace,
                 namespaceSerializer,
                 cacheStateDescriptor,
-                (key, cacheState) -> cacheState.entries().forEach(
-                        entry -> lruCache.put(entry.getKey(), entry.getValue())));
+                (key, cacheState) -> lruCache.put(key, cacheState.value()));
     }
 
     @Override
@@ -86,18 +87,22 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
     }
 
     @Override
-    public void notifyLocalSnapshotStarted(long checkpointId) throws Exception {
+    public RunnableWithException notifyLocalSnapshotStarted(long checkpointId) throws Exception {
         // TODO: verify this when max concurrent checkpoint > 1
         Preconditions.checkState(currentlyReferencingCheckpointID == NO_CHECKPOINT_ID);
         currentlyReferencingCheckpointID = checkpointId;
-        keyedStateBackendForCache.applyToAllKeys(
-                namespace,
-                namespaceSerializer,
-                cacheStateDescriptor,
-                (key, state) -> state.clear()
-        );
-        keyedStateBackendForCache.setCurrentKey(currentKey);
-        stateForCache.update(lruCache);
+        return () -> {
+            keyedStateBackendForCache.applyToAllKeys(
+                    namespace,
+                    namespaceSerializer,
+                    cacheStateDescriptor,
+                    (key, state) -> state.clear()
+            );
+            for (Map.Entry<K, V> entry: lruCache.entrySet()) {
+                keyedStateBackendForCache.setCurrentKey(entry.getKey());
+                stateForCache.update(entry.getValue());
+            }
+        };
     }
 
     @Override
@@ -114,6 +119,50 @@ public class ValueStateWithCache<K, N, V> implements ValueState<V>, StateWithCac
             lruCache = lruCache.clone();
         }
         lruCache.put(currentKey, null);
+    }
+
+    static <K, N, V> ValueStateWithCache<K, N, V> getOrCreateKeyedState(
+            TypeSerializer<N> namespaceSerializer,
+            ValueStateDescriptor<V> stateDescriptor,
+            CheckpointableKeyedStateBackend<K> backend,
+            CheckpointableKeyedStateBackend<K> backendForCache,
+            int keySize)
+            throws Exception {
+        ValueState<V> state = backend.getOrCreateKeyedState(namespaceSerializer, stateDescriptor);
+        ValueState<V> stateForCache =
+                backendForCache.getOrCreateKeyedState(
+                        namespaceSerializer, stateDescriptor);
+        return new ValueStateWithCache<>(
+                (N) VoidNamespace.INSTANCE,
+                namespaceSerializer,
+                stateDescriptor,
+                state,
+                stateForCache,
+                backend,
+                backendForCache,
+                keySize);
+    }
+
+    static <K, N, V> ValueStateWithCache<K, N, V> getPartitionedState(
+            N namespace,
+            TypeSerializer<N> namespaceSerializer,
+            ValueStateDescriptor<V> stateDescriptor,
+            CheckpointableKeyedStateBackend<K> backend,
+            CheckpointableKeyedStateBackend<K> backendForCache,
+            int keySize) throws Exception {
+        ValueState<V> state = backend.getPartitionedState(namespace, namespaceSerializer, stateDescriptor);
+        ValueState<V> stateForCache =
+                backendForCache.getPartitionedState(
+                        namespace, namespaceSerializer, stateDescriptor);
+        return new ValueStateWithCache<>(
+                namespace,
+                namespaceSerializer,
+                stateDescriptor,
+                state,
+                stateForCache,
+                backend,
+                backendForCache,
+                keySize);
     }
 
     private void removalCallback(K keyToRemove, V value) {

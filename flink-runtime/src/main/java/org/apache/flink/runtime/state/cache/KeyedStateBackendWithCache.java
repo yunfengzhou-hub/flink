@@ -1,10 +1,8 @@
 package org.apache.flink.runtime.state.cache;
 
-import org.apache.flink.api.common.state.MapState;
-import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
-import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -21,16 +19,22 @@ import org.apache.flink.runtime.state.SavepointResources;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.TestableKeyedStateBackend;
-import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.concurrent.FutureUtils;
+import org.apache.flink.util.function.RunnableWithException;
 
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RunnableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class KeyedStateBackendWithCache<K>
@@ -115,28 +119,29 @@ public class KeyedStateBackendWithCache<K>
     public <N, S extends State, T> S getOrCreateKeyedState(
             TypeSerializer<N> namespaceSerializer, StateDescriptor<S, T> stateDescriptor)
             throws Exception {
-        S state = backend.getOrCreateKeyedState(namespaceSerializer, stateDescriptor);
-        if (!(stateDescriptor instanceof ValueStateDescriptor)) {
-            // TODO: Support all states.
-            return state;
+        StateWithCache<K> result;
+        if (stateDescriptor instanceof ValueStateDescriptor) {
+            result = ValueStateWithCache.getOrCreateKeyedState(
+                    namespaceSerializer,
+                    (ValueStateDescriptor) stateDescriptor,
+                    backend,
+                    backendForCache,
+                    keySize
+            );
+        } else if (stateDescriptor instanceof ListStateDescriptor) {
+            result = ListStateWithCache.getOrCreateKeyedState(
+                    namespaceSerializer,
+                    (ListStateDescriptor) stateDescriptor,
+                    backend,
+                    backendForCache,
+                    keySize
+            );
+        } else {
+            throw new UnsupportedOperationException(stateDescriptor.getClass().getCanonicalName());
         }
-        MapStateDescriptor<K, ?> stateDescriptorForCache = new MapStateDescriptor<>(
-                stateDescriptor.getName(),
-                backendForCache.getKeySerializer(),
-                stateDescriptor.getSerializer()
-        );
-        MapState<K, ?> stateForCache =
-                backendForCache.getOrCreateKeyedState(namespaceSerializer, stateDescriptorForCache);
-        StateWithCache<K> result =
-                new ValueStateWithCache<>(
-                        (N) VoidNamespace.INSTANCE,
-                        namespaceSerializer,
-                        (MapStateDescriptor) stateDescriptorForCache,
-                        (ValueState) state,
-                        stateForCache,
-                        backend,
-                        backendForCache,
-                        keySize);
+        if (currentKey != null) {
+            result.setCurrentKey(currentKey);
+        }
         // TODO: avoid recreating state with cache.
         states.put(stateDescriptor.getName(), result);
         return (S) result;
@@ -148,29 +153,31 @@ public class KeyedStateBackendWithCache<K>
             TypeSerializer<N> namespaceSerializer,
             StateDescriptor<S, ?> stateDescriptor)
             throws Exception {
-        S state = backend.getPartitionedState(namespace, namespaceSerializer, stateDescriptor);
-        if (!(stateDescriptor instanceof ValueStateDescriptor)) {
-            // TODO: Support all states.
-            return state;
+        StateWithCache<K> result;
+        if (stateDescriptor instanceof ValueStateDescriptor) {
+            result = ValueStateWithCache.getPartitionedState(
+                    namespace,
+                    namespaceSerializer,
+                    (ValueStateDescriptor) stateDescriptor,
+                    backend,
+                    backendForCache,
+                    keySize
+            );
+        } else if (stateDescriptor instanceof ListStateDescriptor) {
+            result = ListStateWithCache.getPartitionedState(
+                    namespace,
+                    namespaceSerializer,
+                    (ListStateDescriptor) stateDescriptor,
+                    backend,
+                    backendForCache,
+                    keySize
+            );
+        } else {
+            throw new UnsupportedOperationException(stateDescriptor.getClass().getCanonicalName());
         }
-        MapStateDescriptor<K, ?> stateDescriptorForCache = new MapStateDescriptor<>(
-                stateDescriptor.getName(),
-                backendForCache.getKeySerializer(),
-                stateDescriptor.getSerializer()
-        );
-        MapState<K, ?> stateForCache =
-                backendForCache.getPartitionedState(
-                        namespace, namespaceSerializer, stateDescriptorForCache);
-        StateWithCache<K> result =
-                new ValueStateWithCache<>(
-                        namespace,
-                        namespaceSerializer,
-                        (MapStateDescriptor) stateDescriptorForCache,
-                        (ValueState) state,
-                        stateForCache,
-                        backend,
-                        backendForCache,
-                        keySize);
+        if (currentKey != null) {
+            result.setCurrentKey(currentKey);
+        }
         // TODO: avoid recreating state with cache.
         states.put(stateDescriptor.getName(), result);
         return (S) result;
@@ -212,6 +219,7 @@ public class KeyedStateBackendWithCache<K>
             KeyGroupedInternalPriorityQueue<T> create(
                     @Nonnull String stateName,
                     @Nonnull TypeSerializer<T> byteOrderedElementSerializer) {
+        // TODO: optimize created queue.
         return backend.create(stateName, byteOrderedElementSerializer);
     }
 
@@ -240,16 +248,18 @@ public class KeyedStateBackendWithCache<K>
             @Nonnull CheckpointStreamFactory streamFactory,
             @Nonnull CheckpointOptions checkpointOptions)
             throws Exception {
+        List<RunnableWithException> runnables = new ArrayList<>();
         for (StateWithCache<K> state : states.values()) {
-            state.notifyLocalSnapshotStarted(checkpointId);
+            runnables.add(state.notifyLocalSnapshotStarted(checkpointId));
         }
-        RunnableFuture<SnapshotResult<KeyedStateHandle>> future =
-                backend.snapshot(checkpointId, timestamp, streamFactory, checkpointOptions);
-        RunnableFuture<SnapshotResult<KeyedStateHandle>> futureForCache =
-                backendForCache.snapshot(checkpointId, timestamp, streamFactory, checkpointOptions);
         return new RunnableFutureWithCache(
-                future,
-                futureForCache,
+                runnables,
+                backend,
+                backendForCache,
+                checkpointId,
+                timestamp,
+                streamFactory,
+                checkpointOptions,
                 () -> {
                     for (StateWithCache<K> state : states.values()) {
                         state.notifyLocalSnapshotFinished(checkpointId);

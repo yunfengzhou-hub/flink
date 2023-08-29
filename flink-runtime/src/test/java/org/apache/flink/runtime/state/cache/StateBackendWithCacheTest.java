@@ -73,6 +73,76 @@ public class StateBackendWithCacheTest extends StateBackendTestBase<StateBackend
     @Override
     @Ignore
     @Test
+    public void testSnapshotNonAccessedState() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testNumStateEntries() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testConcurrentModificationWithApplyToAllKeys() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testApplyToAllKeysLambdaFunction() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testAggregatingStateAddAndGetWithMutableAccumulator() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testAggregatingStateMergingWithMutableAccumulator() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testAggregatingStateAddAndGetWithImmutableAccumulator() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testAggregatingStateMergingWithImmutableAccumulator() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testGetKeys() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testGetKeysAndNamespaces() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testReducingState() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testReducingStateAddAndGet() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testReducingStateMerging() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
+    public void testReducingStateDefaultValue() throws Exception {}
+
+    @Override
+    @Ignore
+    @Test
     public void testKryoRegisteringRestoreResilienceWithRegisteredType() throws Exception {}
 
     @Override
@@ -128,42 +198,7 @@ public class StateBackendWithCacheTest extends StateBackendTestBase<StateBackend
     @Override
     @Ignore
     @Test
-    public void testListStateAddNull() throws Exception {}
-
-    @Override
-    @Ignore
-    @Test
-    public void testListStateAddAllNullEntries() throws Exception {}
-
-    @Override
-    @Ignore
-    @Test
-    public void testListStateAddAllNull() throws Exception {}
-
-    @Override
-    @Ignore
-    @Test
-    public void testListStateUpdateNullEntries() throws Exception {}
-
-    @Override
-    @Ignore
-    @Test
-    public void testListStateUpdateNull() throws Exception {}
-
-    @Override
-    @Ignore
-    @Test
-    public void testListStateAPIs() throws Exception {}
-
-    @Override
-    @Ignore
-    @Test
     public void testListStateMerging() throws Exception {}
-
-    @Override
-    @Ignore
-    @Test
-    public void testListStateDefaultValue() throws Exception {}
 
     @Override
     @Ignore

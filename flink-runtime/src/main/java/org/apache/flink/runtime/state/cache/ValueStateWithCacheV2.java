@@ -6,7 +6,7 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.heap.HeapMapState;
-import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.function.RunnableWithException;
 
 import java.io.IOException;
 
@@ -88,19 +88,8 @@ public class ValueStateWithCacheV2<K, N, V> implements ValueState<V>, StateWithC
     }
 
     @Override
-    public void notifyLocalSnapshotStarted(long checkpointId) throws Exception {
-        // TODO: verify this when max concurrent checkpoint > 1
-        Preconditions.checkState(currentlyReferencingCheckpointID == NO_CHECKPOINT_ID);
-        flushCurrentValueToCache();
-        currentlyReferencingCheckpointID = checkpointId;
-        keyedStateBackendForCache.applyToAllKeys(
-                namespace,
-                namespaceSerializer,
-                cacheStateDescriptor,
-                (key, state) -> state.clear()
-        );
-        keyedStateBackendForCache.setCurrentKey(currentKey);
-        stateForCache.update(lruCache);
+    public RunnableWithException notifyLocalSnapshotStarted(long checkpointId) throws Exception {
+        throw new UnsupportedOperationException();
     }
 
     @Override
