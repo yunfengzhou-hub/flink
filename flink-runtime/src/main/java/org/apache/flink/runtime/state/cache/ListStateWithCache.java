@@ -1,36 +1,22 @@
 package org.apache.flink.runtime.state.cache;
 
+import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.VoidNamespace;
+import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalListState;
 import org.apache.flink.util.Preconditions;
-import org.apache.flink.util.function.RunnableWithException;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
-public class ListStateWithCache<K, N, V> implements InternalListState<K, N, V>, StateWithCache<K> {
-    private static final long NO_CHECKPOINT_ID = -1;
-    private final N namespace;
-    private final TypeSerializer<N> namespaceSerializer;
-    private final ListStateDescriptor<V> cacheStateDescriptor;
-    private final InternalListState<K, N, V> state;
-    private final InternalListState<K, N, V> stateForCache;
-
-    private final KeyedStateBackend<K> keyedStateBackend;
-
-    private final KeyedStateBackend<K> keyedStateBackendForCache;
-
-    private LinkedHashMapLRUCache<K, List<V>> lruCache;
-
-    private K currentKey;
-
-    private long currentlyReferencingCheckpointID;
+public class ListStateWithCache<K, N, V>
+        extends AbstractStateWithCache<K, N, List<V>, ListState<V>>
+        implements InternalListState<K, N, V> {
 
     public ListStateWithCache(
             N namespace,
@@ -42,30 +28,22 @@ public class ListStateWithCache<K, N, V> implements InternalListState<K, N, V>, 
             KeyedStateBackend<K> keyedStateBackendForCache,
             int keySize)
             throws Exception {
-        this.namespace = namespace;
-        this.namespaceSerializer = namespaceSerializer;
-        this.cacheStateDescriptor = cacheStateDescriptor;
-        this.state = state;
-        this.stateForCache = stateForCache;
-        this.keyedStateBackend = keyedStateBackend;
-        this.keyedStateBackendForCache = keyedStateBackendForCache;
-        this.lruCache = new LinkedHashMapLRUCache<>(keySize, this::removalCallback);
-        this.currentlyReferencingCheckpointID = NO_CHECKPOINT_ID;
-
-        keyedStateBackendForCache.applyToAllKeys(
+        super(
                 namespace,
                 namespaceSerializer,
                 cacheStateDescriptor,
-                (key, cacheState) -> {
-                    List<V> list = new ArrayList<>();
-                    lruCache.put(key, list);
-                    cacheState.get().forEach(list::add);
-                });
+                state,
+                stateForCache,
+                keyedStateBackend,
+                keyedStateBackendForCache,
+                keySize
+        );
     }
 
     @Override
     public Iterable<V> get() throws Exception {
-        List<V> currentValue = lruCache.get(currentKey);
+        List<V> currentValue = getFromCache();
+        System.out.println(currentValue);
         if (currentValue == null) {
             keyedStateBackend.setCurrentKey(currentKey);
             Iterable<V> tmpCurrentValue = state.get();
@@ -73,28 +51,21 @@ public class ListStateWithCache<K, N, V> implements InternalListState<K, N, V>, 
                 currentValue = new ArrayList<>();
                 tmpCurrentValue.forEach(currentValue::add);
             }
-            if (currentlyReferencingCheckpointID != NO_CHECKPOINT_ID) {
-                currentlyReferencingCheckpointID = NO_CHECKPOINT_ID;
-                lruCache = lruCache.clone();
-            }
-            lruCache.put(currentKey, currentValue);
+            addToCache(currentValue);
         }
+        System.out.println(currentValue);
         return currentValue;
     }
 
     @Override
     public void add(V value) throws Exception {
         Preconditions.checkNotNull(value);
-        if (currentlyReferencingCheckpointID != NO_CHECKPOINT_ID) {
-            currentlyReferencingCheckpointID = NO_CHECKPOINT_ID;
-            lruCache = lruCache.clone();
-        }
-        List<V> list = (List<V>) get();
+        List<V> list = getFromCache();
         if (list == null) {
             list = new ArrayList<>();
         }
         list.add(value);
-        update(list);
+        addToCache(list);
     }
 
     @Override
@@ -103,72 +74,34 @@ public class ListStateWithCache<K, N, V> implements InternalListState<K, N, V>, 
         for (V value: values) {
             Preconditions.checkNotNull(value);
         }
-        if (values != null) {
-            if (values.isEmpty()) {
-                values = null;
-            } else {
-                values = new ArrayList<>(values);
-            }
+        if (values.isEmpty()) {
+            values = null;
+        } else {
+            values = new ArrayList<>(values);
         }
-        if (currentlyReferencingCheckpointID != NO_CHECKPOINT_ID) {
-            currentlyReferencingCheckpointID = NO_CHECKPOINT_ID;
-            lruCache = lruCache.clone();
-        }
-        lruCache.put(currentKey, values);
+        addToCache(values);
     }
 
     @Override
     public void addAll(List<V> values) throws Exception {
-        if (currentlyReferencingCheckpointID != NO_CHECKPOINT_ID) {
-            currentlyReferencingCheckpointID = NO_CHECKPOINT_ID;
-            lruCache = lruCache.clone();
+        Preconditions.checkNotNull(values);
+        if (values.isEmpty()) {
+            return;
         }
-        List<V> list = (List<V>) get();
+        for (V value: values) {
+            Preconditions.checkNotNull(value);
+        }
+        List<V> list = getFromCache();
         if (list == null) {
             list = new ArrayList<>();
         }
         list.addAll(values);
-        update(list);
+        addToCache(list);
     }
 
     @Override
     public void clear() {
-        if (currentlyReferencingCheckpointID != NO_CHECKPOINT_ID) {
-            currentlyReferencingCheckpointID = NO_CHECKPOINT_ID;
-            lruCache = lruCache.clone();
-        }
-        lruCache.put(currentKey, null);
-    }
-
-    @Override
-    public void setCurrentKey(K key) {
-        currentKey = key;
-    }
-
-    @Override
-    public RunnableWithException notifyLocalSnapshotStarted(long checkpointId) throws Exception {
-        // TODO: verify this when max concurrent checkpoint > 1
-        Preconditions.checkState(currentlyReferencingCheckpointID == NO_CHECKPOINT_ID);
-        currentlyReferencingCheckpointID = checkpointId;
-        return () -> {
-            keyedStateBackendForCache.applyToAllKeys(
-                    namespace,
-                    namespaceSerializer,
-                    cacheStateDescriptor,
-                    (key, state) -> state.clear()
-            );
-            for (Map.Entry<K, List<V>> entry: lruCache.entrySet()) {
-                keyedStateBackendForCache.setCurrentKey(entry.getKey());
-                stateForCache.update(entry.getValue());
-            }
-        };
-    }
-
-    @Override
-    public void notifyLocalSnapshotFinished(long checkpointId) {
-        if (currentlyReferencingCheckpointID == checkpointId) {
-            currentlyReferencingCheckpointID = NO_CHECKPOINT_ID;
-        }
+        addToCache(null);
     }
 
     static <K, N, V> ListStateWithCache<K, N, V> getOrCreateKeyedState(
@@ -214,15 +147,6 @@ public class ListStateWithCache<K, N, V> implements InternalListState<K, N, V>, 
                 keySize);
     }
 
-    private void removalCallback(K keyToRemove, List<V> value) {
-        keyedStateBackend.setCurrentKey(keyToRemove);
-        try {
-            state.update(value);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @Override
     public List<V> getInternal() throws Exception {
         return (List<V>) get();
@@ -235,23 +159,23 @@ public class ListStateWithCache<K, N, V> implements InternalListState<K, N, V>, 
 
     @Override
     public TypeSerializer<K> getKeySerializer() {
-        return stateForCache.getKeySerializer();
+        return ((InternalKvState<K, N, V>) stateForCache).getKeySerializer();
     }
 
     @Override
     public TypeSerializer<N> getNamespaceSerializer() {
-        return stateForCache.getNamespaceSerializer();
+        return ((InternalKvState<K, N, V>) stateForCache).getNamespaceSerializer();
     }
 
     @Override
     public TypeSerializer<List<V>> getValueSerializer() {
-        return stateForCache.getValueSerializer();
+        return ((InternalKvState<K, N, List<V>>) stateForCache).getValueSerializer();
     }
 
     @Override
     public void setCurrentNamespace(N namespace) {
-        state.setCurrentNamespace(namespace);
-        stateForCache.setCurrentNamespace(namespace);
+        ((InternalKvState<K, N, V>) state).setCurrentNamespace(namespace);
+        ((InternalKvState<K, N, V>) stateForCache).setCurrentNamespace(namespace);
     }
 
     @Override
@@ -271,5 +195,15 @@ public class ListStateWithCache<K, N, V> implements InternalListState<K, N, V>, 
     @Override
     public void mergeNamespaces(N target, Collection<N> sources) throws Exception {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected List<V> getValue(ListState<V> state) throws Exception {
+        return (List<V>) state.get();
+    }
+
+    @Override
+    protected void updateValue(ListState<V> state, List<V> value) throws Exception {
+        state.update(value);
     }
 }
