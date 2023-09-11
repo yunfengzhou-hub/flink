@@ -40,6 +40,7 @@ import org.apache.flink.runtime.state.ResultSubpartitionStateHandle;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StateObject;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.cache.KeyedStateHandleWithCache;
 import org.apache.flink.runtime.state.changelog.ChangelogStateBackendHandle;
 import org.apache.flink.runtime.state.changelog.ChangelogStateBackendHandle.ChangelogStateBackendHandleImpl;
 import org.apache.flink.runtime.state.changelog.ChangelogStateHandle;
@@ -123,6 +124,8 @@ public abstract class MetadataV2V3SerializerBase {
     private static final byte CHANGELOG_FILE_INCREMENT_HANDLE_V2 = 13;
     // CHANGELOG_HANDLE_V2 is introduced to add new field of checkpointId.
     private static final byte CHANGELOG_HANDLE_V2 = 14;
+
+    private static final byte HANDLE_WITH_CACHE = 15;
 
     // ------------------------------------------------------------------------
     //  (De)serialization entry points
@@ -399,6 +402,19 @@ public abstract class MetadataV2V3SerializerBase {
             dos.writeLong(handle.getCheckpointedSize());
             writeStateHandleId(handle, dos);
             dos.writeUTF(handle.getStorageIdentifier());
+        } else if (stateHandle instanceof KeyedStateHandleWithCache) {
+            KeyedStateHandleWithCache handleWithCache = (KeyedStateHandleWithCache) stateHandle;
+            dos.writeByte(HANDLE_WITH_CACHE);
+            KeyedStateHandle handle = handleWithCache.getHandle();
+            dos.writeBoolean(handle != null);
+            if (handle != null) {
+                serializeKeyedStateHandle(handle, dos);
+            }
+            KeyedStateHandle handleForCache = handleWithCache.getHandleForCache();
+            dos.writeBoolean(handleForCache != null);
+            if (handleForCache != null) {
+                serializeKeyedStateHandle(handleForCache, dos);
+            }
         } else {
             throw new IllegalStateException(
                     "Unknown KeyedStateHandle type: " + stateHandle.getClass());
@@ -535,6 +551,17 @@ public abstract class MetadataV2V3SerializerBase {
                     checkpointedSize,
                     storageIdentifier,
                     stateHandleId);
+        } else if (HANDLE_WITH_CACHE == type) {
+            KeyedStateHandle handle = null;
+            if (dis.readBoolean()) {
+                handle = deserializeKeyedStateHandle(dis, context);
+            }
+
+            KeyedStateHandle handleForCache = null;
+            if (dis.readBoolean()) {
+                handleForCache = deserializeKeyedStateHandle(dis, context);
+            }
+            return KeyedStateHandleWithCache.create(handle, handleForCache);
         } else {
             throw new IllegalStateException("Reading invalid KeyedStateHandle, type: " + type);
         }

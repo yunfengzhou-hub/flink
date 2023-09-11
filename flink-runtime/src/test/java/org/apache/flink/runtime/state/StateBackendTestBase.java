@@ -153,7 +153,7 @@ import static org.mockito.Mockito.verify;
  * <p>NOTE: Please ensure to close and dispose any created keyed state backend in tests.
  */
 @SuppressWarnings("serial")
-public abstract class StateBackendTestBase<B extends AbstractStateBackend> extends TestLogger {
+public abstract class StateBackendTestBase<B extends StateBackend> extends TestLogger {
 
     @Rule public final ExpectedException expectedException = ExpectedException.none();
 

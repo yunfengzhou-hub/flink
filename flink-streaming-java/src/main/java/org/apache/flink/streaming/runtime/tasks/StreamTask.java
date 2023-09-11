@@ -560,6 +560,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
      */
     protected void processInput(MailboxDefaultAction.Controller controller) throws Exception {
         DataInputStatus status = inputProcessor.processInput();
+
         switch (status) {
             case MORE_AVAILABLE:
                 if (taskIsAvailable()) {
@@ -610,8 +611,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
                         new ResumeWrapper(controller.suspendDefaultAction(timer), timer)));
     }
 
-    protected void endData(StopMode mode) throws Exception {
+    //    private void flush(long numRecordsProcessed) throws Exception {
+    //        numRecordsProcessedBeforeLastFlush = numRecordsProcessed;
+    //        operatorChain.flushOperators();
+    //    }
 
+    protected void endData(StopMode mode) throws Exception {
         if (mode == StopMode.DRAIN) {
             advanceToEndOfEventTime();
         }

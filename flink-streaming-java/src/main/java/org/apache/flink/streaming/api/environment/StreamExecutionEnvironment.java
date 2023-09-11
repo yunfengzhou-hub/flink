@@ -76,6 +76,7 @@ import org.apache.flink.runtime.scheduler.ClusterDatasetCorruptedException;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
+import org.apache.flink.runtime.state.cache.StateBackendWithCache;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -132,6 +133,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.StateBackendOptions.STATE_BACKEND_CACHE_SIZE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -2323,11 +2325,17 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                     "No operators defined in streaming topology. Cannot execute.");
         }
 
+        StateBackend stateBackend = defaultStateBackend;
+        if (this.configuration.get(STATE_BACKEND_CACHE_SIZE) != null) {
+            stateBackend = new StateBackendWithCache(
+                    stateBackend, this.configuration.get(STATE_BACKEND_CACHE_SIZE));
+        }
+
         // We copy the transformation so that newly added transformations cannot intervene with the
         // stream graph generation.
         return new StreamGraphGenerator(
                         new ArrayList<>(transformations), config, checkpointCfg, configuration)
-                .setStateBackend(defaultStateBackend)
+                .setStateBackend(stateBackend)
                 .setChangelogStateBackendEnabled(changelogStateBackendEnabled)
                 .setSavepointDir(defaultSavepointDirectory)
                 .setChaining(isChainingEnabled)
