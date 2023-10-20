@@ -40,24 +40,35 @@ class HybridShuffleITCase extends BatchShuffleITCaseBase {
 
     @Parameter public boolean enableNewHybridMode;
 
-    @Parameters(name = "enableNewHybridMode={0}")
-    public static Collection<Boolean> parameters() {
-        return Arrays.asList(false, true);
+    @Parameter(value = 1)
+    public boolean enableAdaptiveAutoParallelism;
+
+    @Parameters(name = "enableNewHybridMode={0} enableAdaptiveAutoParallelism={1}")
+    public static Collection<Boolean[]> parameters() {
+        return Arrays.asList(
+                new Boolean[] {false, false},
+                new Boolean[] {true, false},
+                new Boolean[] {true, true},
+                new Boolean[] {true, true});
     }
 
     @TestTemplate
     void testHybridFullExchanges() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = configureHybridOptions(getConfiguration(), false);
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
+        JobGraph jobGraph =
+                createJobGraph(
+                        numRecordsToSend, false, configuration, enableAdaptiveAutoParallelism);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @TestTemplate
     void testHybridSelectiveExchanges() throws Exception {
-        final int numRecordsToSend = 10000;
+        final int numRecordsToSend = 1000;
         Configuration configuration = configureHybridOptions(getConfiguration(), true);
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
+        JobGraph jobGraph =
+                createJobGraph(
+                        numRecordsToSend, false, configuration, enableAdaptiveAutoParallelism);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
@@ -65,7 +76,9 @@ class HybridShuffleITCase extends BatchShuffleITCaseBase {
     void testHybridFullExchangesRestart() throws Exception {
         final int numRecordsToSend = 10;
         Configuration configuration = configureHybridOptions(getConfiguration(), false);
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
+        JobGraph jobGraph =
+                createJobGraph(
+                        numRecordsToSend, true, configuration, enableAdaptiveAutoParallelism);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
@@ -73,7 +86,9 @@ class HybridShuffleITCase extends BatchShuffleITCaseBase {
     void testHybridSelectiveExchangesRestart() throws Exception {
         final int numRecordsToSend = 10;
         Configuration configuration = configureHybridOptions(getConfiguration(), true);
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
+        JobGraph jobGraph =
+                createJobGraph(
+                        numRecordsToSend, true, configuration, enableAdaptiveAutoParallelism);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 

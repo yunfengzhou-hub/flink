@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
@@ -29,9 +30,9 @@ import static org.apache.flink.runtime.io.network.partition.PartitionTestUtils.v
 public class ResultPartitionManagerTest extends TestLogger {
 
     /**
-     * Tests that {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID, int,
-     * BufferAvailabilityListener)} would throw {@link PartitionNotFoundException} if this partition
-     * was not registered before.
+     * Tests that {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID,
+     * org.apache.flink.runtime.executiongraph.IndexRange, BufferAvailabilityListener)} would throw
+     * {@link PartitionNotFoundException} if this partition was not registered before.
      */
     @Test
     public void testThrowPartitionNotFoundException() throws Exception {
@@ -42,8 +43,9 @@ public class ResultPartitionManagerTest extends TestLogger {
     }
 
     /**
-     * Tests {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID, int,
-     * BufferAvailabilityListener)} successful if this partition was already registered before.
+     * Tests {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID,
+     * org.apache.flink.runtime.executiongraph.IndexRange, BufferAvailabilityListener)} successful
+     * if this partition was already registered before.
      */
     @Test
     public void testCreateViewForRegisteredPartition() throws Exception {
@@ -52,13 +54,15 @@ public class ResultPartitionManagerTest extends TestLogger {
 
         partitionManager.registerResultPartition(partition);
         partitionManager.createSubpartitionView(
-                partition.getPartitionId(), 0, new NoOpBufferAvailablityListener());
+                partition.getPartitionId(),
+                new IndexRange(0, 0),
+                new NoOpBufferAvailablityListener());
     }
 
     /**
-     * Tests {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID, int,
-     * BufferAvailabilityListener)} would throw a {@link PartitionNotFoundException} if this
-     * partition was already released before.
+     * Tests {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID,
+     * org.apache.flink.runtime.executiongraph.IndexRange, BufferAvailabilityListener)} would throw
+     * a {@link PartitionNotFoundException} if this partition was already released before.
      */
     @Test
     public void testCreateViewForReleasedPartition() throws Exception {

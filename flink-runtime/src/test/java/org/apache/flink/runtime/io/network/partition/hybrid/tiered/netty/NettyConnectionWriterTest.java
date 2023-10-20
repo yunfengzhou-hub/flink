@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +38,8 @@ public class NettyConnectionWriterTest {
         int bufferNumber = 10;
         NettyPayloadManager nettyPayloadManager = new NettyPayloadManager();
         NettyConnectionWriter nettyConnectionWriter =
-                new NettyConnectionWriterImpl(nettyPayloadManager, () -> {});
+                new NettyConnectionWriterImpl(
+                        nettyPayloadManager, (ResultSubpartitionView view) -> {});
         writeBufferToWriter(bufferNumber, nettyConnectionWriter);
         assertThat(nettyPayloadManager.getBacklog()).isEqualTo(bufferNumber);
         assertThat(nettyConnectionWriter.numQueuedPayloads()).isEqualTo(bufferNumber);
@@ -47,7 +49,8 @@ public class NettyConnectionWriterTest {
     @Test
     void testGetNettyConnectionId() {
         NettyConnectionWriter nettyConnectionWriter =
-                new NettyConnectionWriterImpl(new NettyPayloadManager(), () -> {});
+                new NettyConnectionWriterImpl(
+                        new NettyPayloadManager(), (ResultSubpartitionView view) -> {});
         assertThat(nettyConnectionWriter.getNettyConnectionId()).isNotNull();
     }
 
@@ -57,7 +60,7 @@ public class NettyConnectionWriterTest {
         NettyConnectionWriter nettyConnectionWriter =
                 new NettyConnectionWriterImpl(
                         new NettyPayloadManager(),
-                        () -> {
+                        (ResultSubpartitionView view) -> {
                             notifier.complete(null);
                         });
         nettyConnectionWriter.notifyAvailable();
@@ -68,7 +71,8 @@ public class NettyConnectionWriterTest {
     void testClose() {
         int bufferNumber = 10;
         NettyConnectionWriter nettyConnectionWriter =
-                new NettyConnectionWriterImpl(new NettyPayloadManager(), () -> {});
+                new NettyConnectionWriterImpl(
+                        new NettyPayloadManager(), (ResultSubpartitionView view) -> {});
         writeBufferToWriter(bufferNumber, nettyConnectionWriter);
         nettyConnectionWriter.close(null);
         assertThat(nettyConnectionWriter.numQueuedPayloads()).isZero();
@@ -83,7 +87,8 @@ public class NettyConnectionWriterTest {
     void testGetNumQueuedBufferPayloads() {
         NettyPayloadManager nettyPayloadManager = new NettyPayloadManager();
         NettyConnectionWriter nettyConnectionWriter =
-                new NettyConnectionWriterImpl(nettyPayloadManager, () -> {});
+                new NettyConnectionWriterImpl(
+                        nettyPayloadManager, (ResultSubpartitionView view) -> {});
         nettyConnectionWriter.writeNettyPayload(NettyPayload.newSegment(0));
         writeBufferToWriter(3, nettyConnectionWriter);
         nettyConnectionWriter.writeNettyPayload(NettyPayload.newSegment(2));

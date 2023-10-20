@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.netty;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
 import org.apache.flink.runtime.io.network.TestingConnectionManager;
@@ -817,7 +818,7 @@ class CreditBasedPartitionRequestClientHandlerTest {
                     inputGate,
                     0,
                     new ResultPartitionID(),
-                    0,
+                    new IndexRange(0, 0),
                     InputChannelBuilder.STUB_CONNECTION_ID,
                     new TestingConnectionManager(),
                     0,

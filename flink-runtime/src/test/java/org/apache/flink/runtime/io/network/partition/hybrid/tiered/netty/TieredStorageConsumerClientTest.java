@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TestingTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
@@ -44,8 +44,8 @@ class TieredStorageConsumerClientTest {
     private static final TieredStoragePartitionId DEFAULT_PARTITION_ID =
             TieredStorageIdMappingUtils.convertId(new ResultPartitionID());
 
-    private static final TieredStorageSubpartitionId DEFAULT_SUBPARTITION_ID =
-            new TieredStorageSubpartitionId(0);
+    private static final TieredStorageInputChannelId DEFAULT_INPUT_CHANNEL_ID =
+            new TieredStorageInputChannelId(0);
 
     @Test
     void testStart() {
@@ -67,7 +67,7 @@ class TieredStorageConsumerClientTest {
                 new TestingTierConsumerAgent.Builder().setBufferSupplier(() -> buffer).build();
         TieredStorageConsumerClient consumerClient =
                 createTieredStorageConsumerClient(tierConsumerAgent);
-        assertThat(consumerClient.getNextBuffer(DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID))
+        assertThat(consumerClient.getNextBuffer(DEFAULT_PARTITION_ID, DEFAULT_INPUT_CHANNEL_ID))
                 .hasValue(buffer);
     }
 
@@ -109,7 +109,7 @@ class TieredStorageConsumerClientTest {
                                 .build()),
                 Collections.singletonList(
                         new TieredStorageConsumerSpec(
-                                DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID)),
+                                DEFAULT_PARTITION_ID, DEFAULT_INPUT_CHANNEL_ID)),
                 new TestingTieredStorageNettyService.Builder().build());
     }
 }

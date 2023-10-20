@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
 import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -37,7 +38,7 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
             SingleInputGate inputGate,
             int channelIndex,
             ResultPartitionID partitionId,
-            int consumedSubpartitionIndex,
+            IndexRange consumedSubpartitionIndexRange,
             ResultPartitionManager partitionManager,
             TaskEventPublisher taskEventPublisher,
             int initialBackOff,
@@ -48,7 +49,7 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
                 inputGate,
                 channelIndex,
                 partitionId,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 initialBackOff,
                 maxBackoff,
                 metrics.getNumBytesInLocalCounter(),
@@ -65,7 +66,7 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
                 inputGate,
                 getChannelIndex(),
                 partitionId,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 partitionManager,
                 taskEventPublisher,
                 initialBackoff,

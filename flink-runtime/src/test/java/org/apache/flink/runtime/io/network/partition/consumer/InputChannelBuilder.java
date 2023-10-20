@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
@@ -43,7 +44,7 @@ public class InputChannelBuilder {
 
     private int channelIndex = 0;
     private ResultPartitionID partitionId = new ResultPartitionID();
-    private int consumedSubpartitionIndex = 0;
+    private IndexRange subpartitionIndexRange = new IndexRange(0, 0);
     private ConnectionID connectionID = STUB_CONNECTION_ID;
     private ResultPartitionManager partitionManager =
             new TestingResultPartitionManager(new NoOpResultSubpartitionView());
@@ -70,8 +71,8 @@ public class InputChannelBuilder {
         return this;
     }
 
-    public InputChannelBuilder setConsumedSubpartitionIndex(int consumedSubpartitionIndex) {
-        this.consumedSubpartitionIndex = consumedSubpartitionIndex;
+    public InputChannelBuilder setSubpartitionIndexRange(IndexRange subpartitionIndexRange) {
+        this.subpartitionIndexRange = subpartitionIndexRange;
         return this;
     }
 
@@ -130,7 +131,7 @@ public class InputChannelBuilder {
                         inputGate,
                         channelIndex,
                         partitionId,
-                        consumedSubpartitionIndex,
+                        subpartitionIndexRange,
                         partitionManager,
                         taskEventPublisher,
                         connectionManager,
@@ -147,7 +148,7 @@ public class InputChannelBuilder {
                 inputGate,
                 channelIndex,
                 partitionId,
-                consumedSubpartitionIndex,
+                subpartitionIndexRange,
                 partitionManager,
                 taskEventPublisher,
                 initialBackoff,
@@ -162,7 +163,7 @@ public class InputChannelBuilder {
                 inputGate,
                 channelIndex,
                 partitionId,
-                consumedSubpartitionIndex,
+                subpartitionIndexRange,
                 connectionID,
                 connectionManager,
                 initialBackoff,
@@ -179,7 +180,7 @@ public class InputChannelBuilder {
                         inputGate,
                         channelIndex,
                         partitionId,
-                        consumedSubpartitionIndex,
+                        subpartitionIndexRange,
                         partitionManager,
                         taskEventPublisher,
                         initialBackoff,
@@ -196,7 +197,7 @@ public class InputChannelBuilder {
                         inputGate,
                         channelIndex,
                         partitionId,
-                        consumedSubpartitionIndex,
+                        subpartitionIndexRange,
                         connectionID,
                         connectionManager,
                         initialBackoff,

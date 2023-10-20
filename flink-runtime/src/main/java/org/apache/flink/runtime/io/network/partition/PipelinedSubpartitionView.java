@@ -52,7 +52,7 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
 
     @Override
     public void notifyDataAvailable() {
-        availabilityListener.notifyDataAvailable();
+        availabilityListener.notifyDataAvailable(this);
     }
 
     @Override
@@ -85,8 +85,18 @@ public class PipelinedSubpartitionView implements ResultSubpartitionView {
     }
 
     @Override
-    public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
-        return parent.getAvailabilityAndBacklog(numCreditsAvailable);
+    public AvailabilityWithBacklog getAvailabilityAndBacklog(boolean isCreditAvailable) {
+        return parent.getAvailabilityAndBacklog(isCreditAvailable);
+    }
+
+    @Override
+    public boolean isAvailable(boolean isCreditAvailable) {
+        return parent.isAvailable(isCreditAvailable);
+    }
+
+    @Override
+    public int getBacklog() {
+        return parent.getBuffersInBacklogUnsafe();
     }
 
     @Override

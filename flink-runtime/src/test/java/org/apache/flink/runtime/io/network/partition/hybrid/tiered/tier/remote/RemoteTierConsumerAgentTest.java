@@ -22,8 +22,8 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.TestingPartitionFileReader;
 
@@ -59,7 +59,7 @@ class RemoteTierConsumerAgentTest {
         assertThat(
                         remoteTierConsumerAgent.getNextBuffer(
                                 new TieredStoragePartitionId(new ResultPartitionID()),
-                                new TieredStorageSubpartitionId(0),
+                                new TieredStorageInputChannelId(0),
                                 0))
                 .isEmpty();
     }
@@ -84,7 +84,7 @@ class RemoteTierConsumerAgentTest {
         Optional<Buffer> optionalBuffer =
                 remoteTierConsumerAgent.getNextBuffer(
                         new TieredStoragePartitionId(new ResultPartitionID()),
-                        new TieredStorageSubpartitionId(0),
+                        new TieredStorageInputChannelId(0),
                         0);
         assertThat(optionalBuffer)
                 .hasValueSatisfying(

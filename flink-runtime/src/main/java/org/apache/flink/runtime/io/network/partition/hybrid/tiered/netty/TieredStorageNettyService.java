@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -45,9 +45,9 @@ public interface TieredStorageNettyService {
      * of {@link NettyConnectionReader}.
      *
      * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
-     * @param subpartitionId subpartition id indicates the unique id of subpartition.
+     * @param inputChannelId input channel id indicates the unique id of input channel.
      * @return the future of netty connection reader.
      */
     CompletableFuture<NettyConnectionReader> registerConsumer(
-            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId);
+            TieredStoragePartitionId partitionId, TieredStorageInputChannelId inputChannelId);
 }

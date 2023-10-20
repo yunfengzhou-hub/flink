@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.runtime.event.task.IntegerTaskEvent;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.util.TestLogger;
@@ -61,17 +62,18 @@ public class NettyMessageServerSideSerializationTest extends TestLogger {
 
     @Test
     public void testPartitionRequest() {
+        int queueIndex = random.nextInt();
         NettyMessage.PartitionRequest expected =
                 new NettyMessage.PartitionRequest(
                         new ResultPartitionID(),
-                        random.nextInt(),
+                        new IndexRange(queueIndex, queueIndex),
                         new InputChannelID(),
                         random.nextInt());
 
         NettyMessage.PartitionRequest actual = encodeAndDecode(expected, channel);
 
         assertEquals(expected.partitionId, actual.partitionId);
-        assertEquals(expected.queueIndex, actual.queueIndex);
+        assertEquals(expected.queueIndexRange, actual.queueIndexRange);
         assertEquals(expected.receiverId, actual.receiverId);
         assertEquals(expected.credit, actual.credit);
     }

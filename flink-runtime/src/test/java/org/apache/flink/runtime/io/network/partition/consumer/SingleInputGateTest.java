@@ -933,12 +933,18 @@ public class SingleInputGateTest extends InputGateTestBase {
         SubpartitionInfo info6 = createSubpartitionInfo(partitionIds[2], 1);
 
         assertThat(gate.getInputChannels().size()).isEqualTo(6);
-        assertThat(gate.getInputChannels().get(info1).getConsumedSubpartitionIndex()).isEqualTo(0);
-        assertThat(gate.getInputChannels().get(info2).getConsumedSubpartitionIndex()).isEqualTo(1);
-        assertThat(gate.getInputChannels().get(info3).getConsumedSubpartitionIndex()).isEqualTo(0);
-        assertThat(gate.getInputChannels().get(info4).getConsumedSubpartitionIndex()).isEqualTo(1);
-        assertThat(gate.getInputChannels().get(info5).getConsumedSubpartitionIndex()).isEqualTo(0);
-        assertThat(gate.getInputChannels().get(info6).getConsumedSubpartitionIndex()).isEqualTo(1);
+        assertThat(gate.getInputChannels().get(info1).getConsumedSubpartitionIndexRange())
+                .isEqualTo(new IndexRange(0, 0));
+        assertThat(gate.getInputChannels().get(info2).getConsumedSubpartitionIndexRange())
+                .isEqualTo(new IndexRange(1, 1));
+        assertThat(gate.getInputChannels().get(info3).getConsumedSubpartitionIndexRange())
+                .isEqualTo(new IndexRange(0, 0));
+        assertThat(gate.getInputChannels().get(info4).getConsumedSubpartitionIndexRange())
+                .isEqualTo(new IndexRange(1, 1));
+        assertThat(gate.getInputChannels().get(info5).getConsumedSubpartitionIndexRange())
+                .isEqualTo(new IndexRange(0, 0));
+        assertThat(gate.getInputChannels().get(info6).getConsumedSubpartitionIndexRange())
+                .isEqualTo(new IndexRange(1, 1));
 
         assertChannelsType(gate, LocalRecoveredInputChannel.class, Arrays.asList(info1, info2));
         assertChannelsType(gate, RemoteRecoveredInputChannel.class, Arrays.asList(info3, info4));
@@ -1271,7 +1277,8 @@ public class SingleInputGateTest extends InputGateTestBase {
 
     private static SubpartitionInfo createSubpartitionInfo(
             IntermediateResultPartitionID partitionId, int subpartitionIndex) {
-        return new SubpartitionInfo(partitionId, subpartitionIndex);
+        return new SubpartitionInfo(
+                partitionId, new IndexRange(subpartitionIndex, subpartitionIndex));
     }
 
     static SingleInputGate createSingleInputGate(
@@ -1454,7 +1461,7 @@ public class SingleInputGateTest extends InputGateTestBase {
         @Override
         public ResultSubpartitionView createSubpartitionView(
                 ResultPartitionID partitionId,
-                int subpartitionIndex,
+                IndexRange subpartitionIndexRange,
                 BufferAvailabilityListener availabilityListener)
                 throws IOException {
             ++counter;

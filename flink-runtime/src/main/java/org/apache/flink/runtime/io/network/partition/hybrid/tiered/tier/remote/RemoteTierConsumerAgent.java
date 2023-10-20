@@ -23,12 +23,14 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -75,8 +77,14 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     @Override
     public Optional<Buffer> getNextBuffer(
             TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId,
+            TieredStorageInputChannelId inputChannelId,
             int segmentId) {
+        Preconditions.checkArgument(
+                inputChannelId.getSubpartitionIndexRange().getStartIndex()
+                        == inputChannelId.getSubpartitionIndexRange().getEndIndex());
+        TieredStorageSubpartitionId subpartitionId =
+                new TieredStorageSubpartitionId(
+                        inputChannelId.getSubpartitionIndexRange().getStartIndex());
         // Get current segment id and buffer index.
         Tuple2<Integer, Integer> bufferIndexAndSegmentId =
                 currentBufferIndexAndSegmentIds

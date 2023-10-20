@@ -116,15 +116,15 @@ public class HsSubpartitionConsumer
         }
         // notify outside of lock to avoid deadlock
         if (notifyDownStream) {
-            availabilityListener.notifyDataAvailable();
+            availabilityListener.notifyDataAvailable(this);
         }
     }
 
     @Override
-    public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
+    public AvailabilityWithBacklog getAvailabilityAndBacklog(boolean isCreditAvailable) {
         synchronized (lock) {
-            boolean availability = numCreditsAvailable > 0;
-            if (numCreditsAvailable <= 0
+            boolean availability = isCreditAvailable;
+            if (!isCreditAvailable
                     && cachedNextDataType != null
                     && cachedNextDataType == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
@@ -135,6 +135,33 @@ public class HsSubpartitionConsumer
                 needNotify = true;
             }
             return new AvailabilityWithBacklog(availability, backlog);
+        }
+    }
+
+    @Override
+    public boolean isAvailable(boolean isCreditAvailable) {
+        synchronized (lock) {
+            if (getSubpartitionBacklog() == 0) {
+                needNotify = true;
+            }
+
+            if (isCreditAvailable) {
+                return true;
+            } else {
+                return cachedNextDataType != null
+                        && cachedNextDataType == Buffer.DataType.EVENT_BUFFER;
+            }
+        }
+    }
+
+    @Override
+    public int getBacklog() {
+        synchronized (lock) {
+            int backlog = getSubpartitionBacklog();
+            if (backlog == 0) {
+                needNotify = true;
+            }
+            return backlog;
         }
     }
 
@@ -218,6 +245,9 @@ public class HsSubpartitionConsumer
     public void notifyNewBufferSize(int newBufferSize) {
         throw new UnsupportedOperationException("Method should never be called.");
     }
+
+    @Override
+    public void notifyRequiredSegmentId(int segmentId) {}
 
     // -------------------------------
     //       Internal Methods

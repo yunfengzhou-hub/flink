@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
+import org.apache.flink.runtime.io.network.netty.UnionResultSubpartitionView;
 import org.apache.flink.util.CollectionUtil;
 
 import org.slf4j.Logger;
@@ -60,7 +62,7 @@ public class ResultPartitionManager implements ResultPartitionProvider {
     @Override
     public ResultSubpartitionView createSubpartitionView(
             ResultPartitionID partitionId,
-            int subpartitionIndex,
+            IndexRange subpartitionIndexRange,
             BufferAvailabilityListener availabilityListener)
             throws IOException {
 
@@ -72,10 +74,26 @@ public class ResultPartitionManager implements ResultPartitionProvider {
                 throw new PartitionNotFoundException(partitionId);
             }
 
-            LOG.debug("Requesting subpartition {} of {}.", subpartitionIndex, partition);
+            LOG.debug("Requesting subpartitions {} of {}.", subpartitionIndexRange, partition);
 
-            subpartitionView =
-                    partition.createSubpartitionView(subpartitionIndex, availabilityListener);
+            if (subpartitionIndexRange.getStartIndex() == subpartitionIndexRange.getEndIndex()) {
+                subpartitionView =
+                        partition.createSubpartitionView(
+                                subpartitionIndexRange.getStartIndex(), availabilityListener);
+            } else {
+                int numViews =
+                        subpartitionIndexRange.getEndIndex()
+                                - subpartitionIndexRange.getStartIndex()
+                                + 1;
+                UnionResultSubpartitionView unionView =
+                        new UnionResultSubpartitionView(numViews, availabilityListener);
+                subpartitionView = unionView;
+                for (int i = subpartitionIndexRange.getStartIndex();
+                        i <= subpartitionIndexRange.getEndIndex();
+                        i++) {
+                    partition.createSubpartitionView(i, unionView);
+                }
+            }
         }
 
         return subpartitionView;

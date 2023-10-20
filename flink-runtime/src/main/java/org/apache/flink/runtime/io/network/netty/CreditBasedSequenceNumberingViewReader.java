@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
@@ -81,7 +82,7 @@ class CreditBasedSequenceNumberingViewReader
     public void requestSubpartitionView(
             ResultPartitionProvider partitionProvider,
             ResultPartitionID resultPartitionId,
-            int subPartitionIndex)
+            IndexRange subpartitionIndexRange)
             throws IOException {
 
         synchronized (requestLock) {
@@ -92,13 +93,13 @@ class CreditBasedSequenceNumberingViewReader
                 // view cannot be available in getNextBuffer().
                 this.subpartitionView =
                         partitionProvider.createSubpartitionView(
-                                resultPartitionId, subPartitionIndex, this);
+                                resultPartitionId, subpartitionIndexRange, this);
             } else {
                 throw new IllegalStateException("Subpartition already requested");
             }
         }
 
-        notifyDataAvailable();
+        notifyDataAvailable(this.subpartitionView);
     }
 
     @Override
@@ -146,7 +147,7 @@ class CreditBasedSequenceNumberingViewReader
      */
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog() {
-        return subpartitionView.getAvailabilityAndBacklog(numCreditsAvailable);
+        return subpartitionView.getAvailabilityAndBacklog(numCreditsAvailable > 0);
     }
 
     /**
@@ -189,7 +190,7 @@ class CreditBasedSequenceNumberingViewReader
 
     @VisibleForTesting
     ResultSubpartitionView.AvailabilityWithBacklog hasBuffersAvailable() {
-        return subpartitionView.getAvailabilityAndBacklog(Integer.MAX_VALUE);
+        return subpartitionView.getAvailabilityAndBacklog(true);
     }
 
     @Nullable
@@ -230,13 +231,18 @@ class CreditBasedSequenceNumberingViewReader
     }
 
     @Override
-    public void notifyDataAvailable() {
+    public void notifyDataAvailable(ResultSubpartitionView view) {
         requestQueue.notifyReaderNonEmpty(this);
     }
 
     @Override
     public void notifyPriorityEvent(int prioritySequenceNumber) {
-        notifyDataAvailable();
+        notifyDataAvailable(this.subpartitionView);
+    }
+
+    @VisibleForTesting
+    public void notifyDataAvailable() {
+        notifyDataAvailable(subpartitionView);
     }
 
     @Override

@@ -123,7 +123,7 @@ class ResultPartitionTest {
         // times
         for (int x = 0; x < 2; x++) {
             ResultSubpartitionView subpartitionView1 =
-                    partition.createSubpartitionView(0, () -> {});
+                    partition.createSubpartitionView(0, (ResultSubpartitionView view) -> {});
             subpartitionView1.releaseAllResources();
 
             // partition should not be released on consumption
@@ -199,10 +199,10 @@ class ResultPartitionTest {
     }
 
     /**
-     * Tests {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID, int,
-     * BufferAvailabilityListener)} would throw a {@link PartitionNotFoundException} if the
-     * registered partition was released from manager via {@link ResultPartition#fail(Throwable)}
-     * before.
+     * Tests {@link ResultPartitionManager#createSubpartitionView(ResultPartitionID,
+     * org.apache.flink.runtime.executiongraph.IndexRange, BufferAvailabilityListener)} would throw
+     * a {@link PartitionNotFoundException} if the registered partition was released from manager
+     * via {@link ResultPartition#fail(Throwable)} before.
      */
     @Test
     void testCreateSubpartitionOnFailingPartition() throws Exception {
@@ -488,7 +488,9 @@ class ResultPartitionTest {
                 new ResultPartitionBuilder().setBufferPoolFactory(() -> localPool).build();
         resultPartition.setup();
         // emulate BufferDebloater - and suggest small buffer size
-        resultPartition.createSubpartitionView(0, () -> {}).notifyNewBufferSize(1);
+        resultPartition
+                .createSubpartitionView(0, (ResultSubpartitionView view) -> {})
+                .notifyNewBufferSize(1);
         // need to insert two records: the 1st one expands the buffer regardless of back-pressure
         resultPartition.emitRecord(ByteBuffer.allocate(recordSize), 0);
         // insert the 2nd record:

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
@@ -134,10 +135,12 @@ class ClientTransportErrorHandlingTest {
                 .onError(isA(LocalTransportException.class));
 
         // First request is successful
-        requestClient.requestSubpartition(new ResultPartitionID(), 0, rich[0], 0);
+        requestClient.requestSubpartition(
+                new ResultPartitionID(), new IndexRange(0, 0), rich[0], 0);
 
         // Second request is *not* successful
-        requestClient.requestSubpartition(new ResultPartitionID(), 0, rich[1], 0);
+        requestClient.requestSubpartition(
+                new ResultPartitionID(), new IndexRange(0, 0), rich[1], 0);
         // Wait for the notification, and it could confirm all the request operations are done
         assertThat(sync.await(TestingUtils.TESTING_DURATION.toMillis(), TimeUnit.MILLISECONDS))
                 .withFailMessage(

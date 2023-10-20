@@ -24,6 +24,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.event.TaskEvent;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -76,7 +77,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
             SingleInputGate inputGate,
             int channelIndex,
             ResultPartitionID partitionId,
-            int consumedSubpartitionIndex,
+            IndexRange consumedSubpartitionIndexRange,
             int initialBackoff,
             int maxBackoff,
             Counter numBytesIn,
@@ -86,7 +87,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
                 inputGate,
                 channelIndex,
                 partitionId,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 initialBackoff,
                 maxBackoff,
                 numBytesIn,

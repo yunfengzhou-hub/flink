@@ -90,7 +90,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
                                     request.receiverId, request.credit, outboundQueue);
 
                     reader.requestSubpartitionView(
-                            partitionProvider, request.partitionId, request.queueIndex);
+                            partitionProvider, request.partitionId, request.queueIndexRange);
 
                     outboundQueue.notifyReaderCreated(reader);
                 } catch (PartitionNotFoundException notFound) {

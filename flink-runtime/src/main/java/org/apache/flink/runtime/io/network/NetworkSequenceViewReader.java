@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -37,7 +38,7 @@ public interface NetworkSequenceViewReader {
     void requestSubpartitionView(
             ResultPartitionProvider partitionProvider,
             ResultPartitionID resultPartitionId,
-            int subPartitionIndex)
+            IndexRange subpartitionIndexRange)
             throws IOException;
 
     @Nullable

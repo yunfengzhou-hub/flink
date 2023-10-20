@@ -20,6 +20,7 @@ package org.apache.flink.streaming.runtime.io.benchmark;
 
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
@@ -67,7 +68,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
             int index,
             int buffersPerChannel,
             NettyShuffleDescriptor inputChannelDescriptor,
-            int consumedSubpartitionIndex,
+            IndexRange subpartitionIndexRange,
             SingleInputGateFactory.ChannelStatistics channelStatistics,
             InputChannelMetrics metrics) {
         ResultPartitionID partitionId = inputChannelDescriptor.getResultPartitionID();
@@ -76,7 +77,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
                     inputGate,
                     index,
                     partitionId,
-                    index,
+                    subpartitionIndexRange,
                     partitionManager,
                     taskEventPublisher,
                     partitionRequestInitialBackoff,
@@ -87,7 +88,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
                     inputGate,
                     index,
                     partitionId,
-                    index,
+                    subpartitionIndexRange,
                     inputChannelDescriptor.getConnectionId(),
                     connectionManager,
                     partitionRequestInitialBackoff,
@@ -109,7 +110,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
                 SingleInputGate inputGate,
                 int channelIndex,
                 ResultPartitionID partitionId,
-                int consumedSubpartitionIndex,
+                IndexRange subpartitionIndexRange,
                 ResultPartitionManager partitionManager,
                 TaskEventPublisher taskEventPublisher,
                 int initialBackoff,
@@ -119,7 +120,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
                     inputGate,
                     channelIndex,
                     partitionId,
-                    consumedSubpartitionIndex,
+                    subpartitionIndexRange,
                     partitionManager,
                     taskEventPublisher,
                     initialBackoff,
@@ -160,7 +161,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
                 SingleInputGate inputGate,
                 int channelIndex,
                 ResultPartitionID partitionId,
-                int consumedSubpartitionIndex,
+                IndexRange subpartitionIndexRange,
                 ConnectionID connectionId,
                 ConnectionManager connectionManager,
                 int initialBackOff,
@@ -171,7 +172,7 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
                     inputGate,
                     channelIndex,
                     partitionId,
-                    consumedSubpartitionIndex,
+                    subpartitionIndexRange,
                     connectionId,
                     connectionManager,
                     initialBackOff,

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
+
 import java.io.IOException;
 
 /** Interface for creating result partitions. */
@@ -26,7 +28,7 @@ public interface ResultPartitionProvider {
     /** Returns the requested intermediate result partition input view. */
     ResultSubpartitionView createSubpartitionView(
             ResultPartitionID partitionId,
-            int index,
+            IndexRange indexRange,
             BufferAvailabilityListener availabilityListener)
             throws IOException;
 }

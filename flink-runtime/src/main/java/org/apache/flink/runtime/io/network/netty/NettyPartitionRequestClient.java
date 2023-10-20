@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.runtime.event.TaskEvent;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
@@ -108,7 +109,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
     @Override
     public void requestSubpartition(
             final ResultPartitionID partitionId,
-            final int subpartitionIndex,
+            final IndexRange subpartitionIndexRange,
             final RemoteInputChannel inputChannel,
             int delayMs)
             throws IOException {
@@ -117,7 +118,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 
         LOG.debug(
                 "Requesting subpartition {} of partition {} with {} ms delay.",
-                subpartitionIndex,
+                subpartitionIndexRange,
                 partitionId,
                 delayMs);
 
@@ -126,7 +127,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
         final PartitionRequest request =
                 new PartitionRequest(
                         partitionId,
-                        subpartitionIndex,
+                        subpartitionIndexRange,
                         inputChannel.getInputChannelId(),
                         inputChannel.getInitialCredit());
 

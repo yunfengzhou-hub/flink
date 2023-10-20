@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
 
 import java.io.IOException;
@@ -39,13 +39,13 @@ public interface TierConsumerAgent {
      * Get buffer from the consumer agent.
      *
      * @param partitionId the id of partition.
-     * @param subpartitionId the id of subpartition.
+     * @param inputChannelId the id of input channel.
      * @param segmentId the id of segment.
      * @return buffer.
      */
     Optional<Buffer> getNextBuffer(
             TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId,
+            TieredStorageInputChannelId inputChannelId,
             int segmentId);
 
     /**

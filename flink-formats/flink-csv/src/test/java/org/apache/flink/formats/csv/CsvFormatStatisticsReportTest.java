@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -75,6 +77,35 @@ public class CsvFormatStatisticsReportTest extends StatisticsReportTestBase {
     }
 
     @Test
+    public void testCsvFormatStatsReportWithMultiFile2() throws Exception {
+        // insert data and get statistics.
+        DataType dataType = tEnv.from("sourceTable").getResolvedSchema().toPhysicalRowDataType();
+        tEnv.fromValues(dataType, getData()).executeInsert("sourceTable").await();
+        tEnv.fromValues(dataType, getData()).executeInsert("sourceTable").await();
+        assertThat(folder.listFiles()).isNotNull().hasSize(1);
+        File[] files = folder.listFiles();
+        List<Path> paths = new ArrayList<>();
+        assert files != null;
+        paths.add(new Path(files[0].toURI().toString()));
+        TableStats tableStats = csvBulkDecodingFormat.reportStatistics(paths, null);
+
+        System.out.println(getData());
+        printFile(files[0]);
+        //        String ddl1 =
+        //                String.format(
+        //                        "CREATE TABLE printSinkTable (\n"
+        //                                + "%s"
+        //                                + ") with (\n"
+        //                                + " 'connector' = 'print')",
+        //                        String.join(",\n", ddlTypesMapToStringList(ddlTypesMap())));
+        //        System.out.println(ddl1);
+        //        tEnv.executeSql(ddl1);
+        //        tEnv.from("sourceTable").executeInsert("printSinkTable").await();
+
+        assertThat(tableStats).isEqualTo(new TableStats(6));
+    }
+
+    @Test
     public void testCsvFormatStatsReportWithMultiFile() throws Exception {
         // insert data and get statistics.
         DataType dataType = tEnv.from("sourceTable").getResolvedSchema().toPhysicalRowDataType();
@@ -86,8 +117,19 @@ public class CsvFormatStatisticsReportTest extends StatisticsReportTestBase {
         assert files != null;
         paths.add(new Path(files[0].toURI().toString()));
         paths.add(new Path(files[1].toURI().toString()));
+        printFile(files[0]);
+        printFile(files[1]);
         TableStats tableStats = csvBulkDecodingFormat.reportStatistics(paths, null);
         assertThat(tableStats).isEqualTo(new TableStats(6));
+    }
+
+    private static void printFile(File myObj) throws FileNotFoundException {
+        Scanner myReader = new Scanner(myObj);
+        while (myReader.hasNextLine()) {
+            String data = myReader.nextLine();
+            System.out.println(data);
+        }
+        myReader.close();
     }
 
     @Test

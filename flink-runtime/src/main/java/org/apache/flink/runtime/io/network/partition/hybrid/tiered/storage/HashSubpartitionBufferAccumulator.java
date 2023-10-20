@@ -127,7 +127,7 @@ public class HashSubpartitionBufferAccumulator {
             BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
             currentWritingBuffer.append(record);
             if (currentWritingBuffer.isFull()) {
-                finishCurrentWritingBuffer();
+                finishCurrentWritingBuffer(record.hasRemaining());
             }
         }
     }
@@ -138,13 +138,16 @@ public class HashSubpartitionBufferAccumulator {
             return;
         }
 
-        finishCurrentWritingBuffer();
+        finishCurrentWritingBuffer(false);
     }
 
-    private void finishCurrentWritingBuffer() {
+    private void finishCurrentWritingBuffer(boolean isPartialRecord) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
         if (currentWritingBuffer == null) {
             return;
+        }
+        if (!isPartialRecord) {
+            currentWritingBuffer.setWithoutPartialRecord();
         }
         currentWritingBuffer.finish();
         BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();

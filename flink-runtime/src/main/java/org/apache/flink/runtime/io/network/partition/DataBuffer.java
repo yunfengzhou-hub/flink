@@ -36,18 +36,18 @@ import java.nio.ByteBuffer;
 public interface DataBuffer {
 
     /**
-     * Appends data of the specified channel to this {@link DataBuffer} and returns true if this
-     * {@link DataBuffer} is full.
+     * Appends data of the specified subpartition to this {@link DataBuffer} and returns true if
+     * this {@link DataBuffer} is full.
      */
-    boolean append(ByteBuffer source, int targetChannel, Buffer.DataType dataType)
+    boolean append(ByteBuffer source, int targetSubpartition, Buffer.DataType dataType)
             throws IOException;
 
     /**
      * Copies data in this {@link DataBuffer} to the target {@link MemorySegment} in channel index
-     * order and returns {@link BufferWithChannel} which contains the copied data and the
-     * corresponding channel index.
+     * order and returns {@link BufferWithSubpartition} which contains the copied data and the
+     * corresponding subpartition index.
      */
-    BufferWithChannel getNextBuffer(@Nullable MemorySegment transitBuffer);
+    BufferWithSubpartition getNextBuffer(@Nullable MemorySegment transitBuffer);
 
     /** Returns the total number of records written to this {@link DataBuffer}. */
     long numTotalRecords();

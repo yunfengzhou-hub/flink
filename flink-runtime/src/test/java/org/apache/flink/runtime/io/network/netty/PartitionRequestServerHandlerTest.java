@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.api.StopMode;
@@ -66,7 +67,8 @@ public class PartitionRequestServerHandlerTest extends TestLogger {
         final ResultPartitionID partitionId = new ResultPartitionID();
 
         // Write the message of partition request to server
-        channel.writeInbound(new PartitionRequest(partitionId, 0, new InputChannelID(), 2));
+        channel.writeInbound(
+                new PartitionRequest(partitionId, new IndexRange(0, 0), new InputChannelID(), 2));
         channel.runPendingTasks();
 
         // Read the response message after handling partition request
@@ -109,8 +111,9 @@ public class PartitionRequestServerHandlerTest extends TestLogger {
         ResultPartition resultPartition =
                 PartitionTestUtils.createPartition(ResultPartitionType.PIPELINED_BOUNDED);
         ResultPartitionProvider partitionProvider =
-                (partitionId, index, availabilityListener) ->
-                        resultPartition.createSubpartitionView(index, availabilityListener);
+                (partitionId, subpartitionIndexRange, availabilityListener) ->
+                        resultPartition.createSubpartitionView(
+                                subpartitionIndexRange.getStartIndex(), availabilityListener);
 
         // Creates the netty network handler stack.
         PartitionRequestQueue partitionRequestQueue = new PartitionRequestQueue();
@@ -125,7 +128,8 @@ public class PartitionRequestServerHandlerTest extends TestLogger {
         NetworkSequenceViewReader viewReader =
                 new CreditBasedSequenceNumberingViewReader(
                         inputChannelID, 2, partitionRequestQueue);
-        viewReader.requestSubpartitionView(partitionProvider, resultPartition.getPartitionId(), 0);
+        viewReader.requestSubpartitionView(
+                partitionProvider, resultPartition.getPartitionId(), new IndexRange(0, 0));
         partitionRequestQueue.notifyReaderCreated(viewReader);
 
         // Write the message to acknowledge all records are processed to server

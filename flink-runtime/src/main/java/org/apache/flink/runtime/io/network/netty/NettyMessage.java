@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.netty;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FileRegionBuffer;
@@ -514,7 +515,7 @@ public abstract class NettyMessage {
 
         final ResultPartitionID partitionId;
 
-        final int queueIndex;
+        final IndexRange queueIndexRange;
 
         final InputChannelID receiverId;
 
@@ -522,11 +523,11 @@ public abstract class NettyMessage {
 
         PartitionRequest(
                 ResultPartitionID partitionId,
-                int queueIndex,
+                IndexRange queueIndexRange,
                 InputChannelID receiverId,
                 int credit) {
             this.partitionId = checkNotNull(partitionId);
-            this.queueIndex = queueIndex;
+            this.queueIndexRange = queueIndexRange;
             this.receiverId = checkNotNull(receiverId);
             this.credit = credit;
         }
@@ -538,7 +539,8 @@ public abstract class NettyMessage {
                     (bb) -> {
                         partitionId.getPartitionId().writeTo(bb);
                         partitionId.getProducerId().writeTo(bb);
-                        bb.writeInt(queueIndex);
+                        bb.writeInt(queueIndexRange.getStartIndex());
+                        bb.writeInt(queueIndexRange.getEndIndex());
                         receiverId.writeTo(bb);
                         bb.writeInt(credit);
                     };
@@ -552,6 +554,7 @@ public abstract class NettyMessage {
                     IntermediateResultPartitionID.getByteBufLength()
                             + ExecutionAttemptID.getByteBufLength()
                             + Integer.BYTES
+                            + Integer.BYTES
                             + InputChannelID.getByteBufLength()
                             + Integer.BYTES);
         }
@@ -561,16 +564,19 @@ public abstract class NettyMessage {
                     new ResultPartitionID(
                             IntermediateResultPartitionID.fromByteBuf(buffer),
                             ExecutionAttemptID.fromByteBuf(buffer));
-            int queueIndex = buffer.readInt();
+            int startIndex = buffer.readInt();
+            int endIndex = buffer.readInt();
+            IndexRange queueIndexRange = new IndexRange(startIndex, endIndex);
             InputChannelID receiverId = InputChannelID.fromByteBuf(buffer);
             int credit = buffer.readInt();
 
-            return new PartitionRequest(partitionId, queueIndex, receiverId, credit);
+            return new PartitionRequest(partitionId, queueIndexRange, receiverId, credit);
         }
 
         @Override
         public String toString() {
-            return String.format("PartitionRequest(%s:%d:%d)", partitionId, queueIndex, credit);
+            return String.format(
+                    "PartitionRequest(%s:%s:%d)", partitionId, queueIndexRange, credit);
         }
     }
 
