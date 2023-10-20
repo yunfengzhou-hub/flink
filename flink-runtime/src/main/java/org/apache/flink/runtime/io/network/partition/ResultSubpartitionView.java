@@ -66,13 +66,30 @@ public interface ResultSubpartitionView {
     Throwable getFailureCause();
 
     /**
-     * Get the availability and backlog of the view. The availability represents if the view is
-     * ready to get buffer from it. The backlog represents the number of available data buffers.
+     * Gets the availability of the view. The availability represents if the view is ready to get
+     * data or event buffer from it.
      *
-     * @param numCreditsAvailable the available credits for this {@link ResultSubpartitionView}.
+     * @param isCreditAvailable whether there are credits available for this {@link
+     *     ResultSubpartitionView}.
+     * @return the availability of the view.
+     */
+    boolean isAvailable(boolean isCreditAvailable);
+
+    /**
+     * Gets the backlog of the view. The backlog represents the number of available data buffers.
+     *
+     * @return the backlog of the view.
+     */
+    int getBacklog();
+
+    /**
+     * A shortcut to get the results from both {@link #isAvailable(boolean)} and {@link
+     * #getBacklog()}, possibly reducing workload(e.g. locks) needed to invoke these two methods.
+     *
+     * @param isCreditAvailable the availability of credits for this {@link ResultSubpartitionView}.
      * @return availability and backlog.
      */
-    AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable);
+    AvailabilityWithBacklog getAvailabilityAndBacklog(boolean isCreditAvailable);
 
     int unsynchronizedGetNumberOfQueuedBuffers();
 
@@ -86,7 +103,9 @@ public interface ResultSubpartitionView {
      *
      * @param segmentId segment id is the id indicating the required id.
      */
-    default void notifyRequiredSegmentId(int segmentId) {}
+    default void notifyRequiredSegmentId(int segmentId) {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Availability of the {@link ResultSubpartitionView} and the backlog in the corresponding

@@ -144,6 +144,11 @@ public class EventSerializerTest {
 
             if (evt instanceof CheckpointBarrier) {
                 assertTrue(bufferConsumer.build().getDataType().isBlockingUpstream());
+            } else if (evt instanceof EndOfData) {
+                assertEquals(Buffer.DataType.END_OF_DATA, bufferConsumer.build().getDataType());
+            } else if (evt instanceof EndOfPartitionEvent) {
+                assertEquals(
+                        Buffer.DataType.END_OF_PARTITION, bufferConsumer.build().getDataType());
             } else {
                 assertEquals(Buffer.DataType.EVENT_BUFFER, bufferConsumer.build().getDataType());
             }
@@ -161,6 +166,10 @@ public class EventSerializerTest {
 
             if (evt instanceof CheckpointBarrier) {
                 assertTrue(buffer.getDataType().isBlockingUpstream());
+            } else if (evt instanceof EndOfData) {
+                assertEquals(Buffer.DataType.END_OF_DATA, buffer.getDataType());
+            } else if (evt instanceof EndOfPartitionEvent) {
+                assertEquals(Buffer.DataType.END_OF_PARTITION, buffer.getDataType());
             } else {
                 assertEquals(Buffer.DataType.EVENT_BUFFER, buffer.getDataType());
             }

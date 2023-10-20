@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
+import org.apache.flink.runtime.io.network.partition.BufferWithSubpartition;
 import org.apache.flink.runtime.io.network.partition.DataBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
@@ -198,11 +198,12 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
         do {
             MemorySegment freeSegment = getFreeSegment();
-            BufferWithChannel bufferWithChannel = currentDataBuffer.getNextBuffer(freeSegment);
-            if (bufferWithChannel == null) {
+            BufferWithSubpartition bufferWithSubpartition =
+                    currentDataBuffer.getNextBuffer(freeSegment);
+            if (bufferWithSubpartition == null) {
                 break;
             }
-            flushBuffer(bufferWithChannel);
+            flushBuffer(bufferWithSubpartition);
         } while (true);
 
         releaseFreeBuffers();
@@ -219,13 +220,18 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private void writeLargeRecord(ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
 
         checkState(dataType != Buffer.DataType.EVENT_BUFFER);
+
         while (record.hasRemaining()) {
             int toCopy = Math.min(record.remaining(), bufferSizeBytes);
             MemorySegment writeBuffer = requestBuffer().getMemorySegment();
             writeBuffer.put(0, record, toCopy);
 
+            if (!record.hasRemaining()) {
+                dataType = Buffer.DataType.DATA_BUFFER_WITHOUT_PARTIAL_RECORD;
+            }
+
             flushBuffer(
-                    new BufferWithChannel(
+                    new BufferWithSubpartition(
                             new NetworkBuffer(
                                     writeBuffer, checkNotNull(bufferRecycler), dataType, toCopy),
                             subpartitionId));
@@ -242,11 +248,12 @@ public class SortBufferAccumulator implements BufferAccumulator {
         return freeSegment;
     }
 
-    private void flushBuffer(BufferWithChannel bufferWithChannel) {
+    private void flushBuffer(BufferWithSubpartition bufferWithSubpartition) {
         checkNotNull(accumulatedBufferFlusher)
                 .accept(
-                        new TieredStorageSubpartitionId(bufferWithChannel.getChannelIndex()),
-                        Collections.singletonList(bufferWithChannel.getBuffer()));
+                        new TieredStorageSubpartitionId(
+                                bufferWithSubpartition.getSubpartitionIndex()),
+                        Collections.singletonList(bufferWithSubpartition.getBuffer()));
     }
 
     private Buffer requestBuffer() {

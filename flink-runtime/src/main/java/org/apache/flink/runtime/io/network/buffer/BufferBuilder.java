@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.buffer;
 
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
@@ -47,6 +48,15 @@ public class BufferBuilder implements AutoCloseable {
         this.memorySegment = checkNotNull(memorySegment);
         this.buffer = new NetworkBuffer(memorySegment, recycler);
         this.maxCapacity = buffer.getMaxCapacity();
+    }
+
+    /**
+     * Marks the builder as not having a partial record split at the end of the built buffer. This
+     * method affects the data type of the buffer.
+     */
+    public void setWithoutPartialRecord() {
+        Preconditions.checkState(buffer.getDataType() == Buffer.DataType.DATA_BUFFER);
+        buffer.setDataType(Buffer.DataType.DATA_BUFFER_WITHOUT_PARTIAL_RECORD);
     }
 
     /**

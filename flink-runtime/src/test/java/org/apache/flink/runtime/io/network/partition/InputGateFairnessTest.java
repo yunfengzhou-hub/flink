@@ -375,6 +375,7 @@ public class InputGateFairnessTest {
                     consumedResultId,
                     ResultPartitionType.PIPELINED,
                     subpartitionIndexRange,
+                    false,
                     numberOfInputChannels,
                     SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                     STUB_BUFFER_POOL_FACTORY,

@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
+import org.apache.flink.runtime.io.network.partition.BufferWithSubpartition;
 import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
 import org.apache.flink.runtime.io.network.partition.SortBuffer;
 
@@ -55,7 +55,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
     }
 
     @Override
-    public BufferWithChannel getNextBuffer(@Nullable MemorySegment transitBuffer) {
+    public BufferWithSubpartition getNextBuffer(@Nullable MemorySegment transitBuffer) {
         checkState(isFinished, "Sort buffer is not ready to be read.");
         checkState(!isReleased, "Sort buffer is already released.");
 
@@ -112,20 +112,23 @@ public class TieredStorageSortBuffer extends SortBuffer {
                 // move to next channel if the current channel has been finished
                 if (readIndexEntryAddress
                         == lastIndexEntryAddresses[currentReadingSubpartitionId]) {
-                    updateReadChannelAndIndexEntryAddress();
+                    updateReadSubpartitionAndIndexEntryAddress();
                     break;
                 }
                 readIndexEntryAddress = nextReadIndexEntryAddress;
             }
         } while (numBytesRead < transitBuffer.size() && bufferDataType.isBuffer());
 
+        if (getSegmentOffsetFromPointer(readIndexEntryAddress) == 0
+                && bufferDataType == Buffer.DataType.DATA_BUFFER) {
+            bufferDataType = Buffer.DataType.DATA_BUFFER_WITHOUT_PARTIAL_RECORD;
+        }
+
         numTotalBytesRead += numBytesRead;
-        return new BufferWithChannel(
+        return new BufferWithSubpartition(
                 new NetworkBuffer(
                         transitBuffer,
-                        bufferDataType == Buffer.DataType.DATA_BUFFER
-                                ? bufferRecycler
-                                : FreeingBufferRecycler.INSTANCE,
+                        bufferDataType.isBuffer() ? bufferRecycler : FreeingBufferRecycler.INSTANCE,
                         bufferDataType,
                         numBytesRead),
                 currentReadingSubpartitionId);

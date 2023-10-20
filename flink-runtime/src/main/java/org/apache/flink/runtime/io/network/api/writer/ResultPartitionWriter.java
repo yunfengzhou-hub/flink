@@ -20,8 +20,10 @@ package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.io.network.api.StopMode;
+import org.apache.flink.runtime.io.network.netty.UnionResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -94,6 +96,26 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 
     /** Sets the metric group for the {@link ResultPartitionWriter}. */
     void setMetricGroup(TaskIOMetricGroup metrics);
+
+    /** Returns a reader for the subpartition with the given index range. */
+    default ResultSubpartitionView createSubpartitionView(
+            IndexRange indexRange, BufferAvailabilityListener availabilityListener)
+            throws IOException {
+        ResultSubpartitionView subpartitionView;
+        if (indexRange.getStartIndex() == indexRange.getEndIndex()) {
+            subpartitionView =
+                    createSubpartitionView(indexRange.getStartIndex(), availabilityListener);
+        } else {
+            int numViews = indexRange.getEndIndex() - indexRange.getStartIndex() + 1;
+            UnionResultSubpartitionView unionView =
+                    new UnionResultSubpartitionView(numViews, availabilityListener);
+            subpartitionView = unionView;
+            for (int i = indexRange.getStartIndex(); i <= indexRange.getEndIndex(); i++) {
+                createSubpartitionView(i, unionView);
+            }
+        }
+        return subpartitionView;
+    }
 
     /** Returns a reader for the subpartition with the given index. */
     ResultSubpartitionView createSubpartitionView(

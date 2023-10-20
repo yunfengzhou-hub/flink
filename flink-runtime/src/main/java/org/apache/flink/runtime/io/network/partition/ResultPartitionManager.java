@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.concurrent.ScheduledExecutor;
 
@@ -107,7 +108,7 @@ public class ResultPartitionManager implements ResultPartitionProvider {
     @Override
     public ResultSubpartitionView createSubpartitionView(
             ResultPartitionID partitionId,
-            int subpartitionIndex,
+            IndexRange subpartitionIndexRange,
             BufferAvailabilityListener availabilityListener)
             throws IOException {
 
@@ -119,10 +120,10 @@ public class ResultPartitionManager implements ResultPartitionProvider {
                 throw new PartitionNotFoundException(partitionId);
             }
 
-            LOG.debug("Requesting subpartition {} of {}.", subpartitionIndex, partition);
+            LOG.debug("Requesting subpartitions {} of {}.", subpartitionIndexRange, partition);
 
             subpartitionView =
-                    partition.createSubpartitionView(subpartitionIndex, availabilityListener);
+                    partition.createSubpartitionView(subpartitionIndexRange, availabilityListener);
         }
 
         return subpartitionView;
@@ -131,7 +132,7 @@ public class ResultPartitionManager implements ResultPartitionProvider {
     @Override
     public Optional<ResultSubpartitionView> createSubpartitionViewOrRegisterListener(
             ResultPartitionID partitionId,
-            int subpartitionIndex,
+            IndexRange subpartitionIndex,
             BufferAvailabilityListener availabilityListener,
             PartitionRequestListener partitionRequestListener)
             throws IOException {

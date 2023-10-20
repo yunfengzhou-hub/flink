@@ -26,6 +26,7 @@ import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.execution.CancelTaskException;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
@@ -122,7 +123,7 @@ public class RemoteInputChannel extends InputChannel {
             SingleInputGate inputGate,
             int channelIndex,
             ResultPartitionID partitionId,
-            int consumedSubpartitionIndex,
+            IndexRange consumedSubpartitionIndexRange,
             ConnectionID connectionId,
             ConnectionManager connectionManager,
             int initialBackOff,
@@ -137,7 +138,7 @@ public class RemoteInputChannel extends InputChannel {
                 inputGate,
                 channelIndex,
                 partitionId,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 initialBackOff,
                 maxBackoff,
                 numBytesIn,
@@ -182,7 +183,7 @@ public class RemoteInputChannel extends InputChannel {
             LOG.debug(
                     "{}: Requesting REMOTE subpartition {} of partition {}. {}",
                     this,
-                    consumedSubpartitionIndex,
+                    consumedSubpartitionIndexRange,
                     partitionId,
                     channelStatePersister);
             // Create a client and request the partition
@@ -196,7 +197,7 @@ public class RemoteInputChannel extends InputChannel {
             }
 
             partitionRequestClient.requestSubpartition(
-                    partitionId, consumedSubpartitionIndex, this, 0);
+                    partitionId, consumedSubpartitionIndexRange, this, 0);
         }
     }
 
@@ -206,7 +207,7 @@ public class RemoteInputChannel extends InputChannel {
 
         if (increaseBackoff()) {
             partitionRequestClient.requestSubpartition(
-                    partitionId, consumedSubpartitionIndex, this, 0);
+                    partitionId, consumedSubpartitionIndexRange, this, 0);
         } else {
             failPartitionRequest();
         }
@@ -822,7 +823,7 @@ public class RemoteInputChannel extends InputChannel {
     }
 
     public void onFailedPartitionRequest() {
-        inputGate.triggerPartitionStateCheck(partitionId, consumedSubpartitionIndex);
+        inputGate.triggerPartitionStateCheck(partitionId, consumedSubpartitionIndexRange);
     }
 
     public void onError(Throwable cause) {

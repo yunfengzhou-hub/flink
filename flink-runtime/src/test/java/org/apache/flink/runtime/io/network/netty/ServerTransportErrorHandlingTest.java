@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionRequestListener;
@@ -45,7 +46,6 @@ import static org.apache.flink.runtime.io.network.netty.NettyTestUtil.initServer
 import static org.apache.flink.runtime.io.network.netty.NettyTestUtil.shutdown;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -62,7 +62,7 @@ public class ServerTransportErrorHandlingTest {
 
         when(partitionManager.createSubpartitionViewOrRegisterListener(
                         any(ResultPartitionID.class),
-                        anyInt(),
+                        any(IndexRange.class),
                         any(BufferAvailabilityListener.class),
                         any(PartitionRequestListener.class)))
                 .thenAnswer(
@@ -100,7 +100,10 @@ public class ServerTransportErrorHandlingTest {
             // Write something to trigger close by server
             ch.writeAndFlush(
                     new NettyMessage.PartitionRequest(
-                            new ResultPartitionID(), 0, new InputChannelID(), Integer.MAX_VALUE));
+                            new ResultPartitionID(),
+                            new IndexRange(0, 0),
+                            new InputChannelID(),
+                            Integer.MAX_VALUE));
 
             // Wait for the notification
             if (!sync.await(TestingUtils.TESTING_DURATION.toMillis(), TimeUnit.MILLISECONDS)) {

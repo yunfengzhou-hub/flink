@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.PartitionRequestListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
@@ -47,13 +48,13 @@ public interface NetworkSequenceViewReader {
      *
      * @param partitionProvider the result partition provider
      * @param resultPartitionId the result partition id
-     * @param subPartitionIndex the sub partition index
+     * @param subpartitionIndexRange the sub partition index range
      * @throws IOException the thrown exception
      */
     void requestSubpartitionViewOrRegisterListener(
             ResultPartitionProvider partitionProvider,
             ResultPartitionID resultPartitionId,
-            int subPartitionIndex)
+            IndexRange subpartitionIndexRange)
             throws IOException;
 
     /**
@@ -62,10 +63,10 @@ public interface NetworkSequenceViewReader {
      * view reader for downstream task.
      *
      * @param partition the result partition
-     * @param subPartitionIndex the sub partition index
+     * @param subPartitionIndexRange the sub partition index
      * @throws IOException the thrown exception
      */
-    void notifySubpartitionCreated(ResultPartition partition, int subPartitionIndex)
+    void notifySubpartitionCreated(ResultPartition partition, IndexRange subPartitionIndexRange)
             throws IOException;
 
     @Nullable

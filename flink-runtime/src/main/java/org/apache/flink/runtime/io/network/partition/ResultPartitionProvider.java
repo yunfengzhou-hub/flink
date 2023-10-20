@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
+
 import java.io.IOException;
 import java.util.Optional;
 
@@ -27,7 +29,7 @@ public interface ResultPartitionProvider {
     /** Returns the requested intermediate result partition input view. */
     ResultSubpartitionView createSubpartitionView(
             ResultPartitionID partitionId,
-            int index,
+            IndexRange indexRange,
             BufferAvailabilityListener availabilityListener)
             throws IOException;
 
@@ -36,7 +38,7 @@ public interface ResultPartitionProvider {
      * view immediately, otherwise register the listener and return empty.
      *
      * @param partitionId the result partition id
-     * @param index the index
+     * @param indexRange the index
      * @param availabilityListener the buffer availability listener
      * @param partitionRequestListener the partition request listener
      * @return the result subpartition view
@@ -44,7 +46,7 @@ public interface ResultPartitionProvider {
      */
     Optional<ResultSubpartitionView> createSubpartitionViewOrRegisterListener(
             ResultPartitionID partitionId,
-            int index,
+            IndexRange indexRange,
             BufferAvailabilityListener availabilityListener,
             PartitionRequestListener partitionRequestListener)
             throws IOException;

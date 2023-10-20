@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
@@ -87,7 +88,7 @@ class CreditBasedSequenceNumberingViewReader
     public void requestSubpartitionViewOrRegisterListener(
             ResultPartitionProvider partitionProvider,
             ResultPartitionID resultPartitionId,
-            int subPartitionIndex)
+            IndexRange subpartitionIndexRange)
             throws IOException {
         synchronized (requestLock) {
             checkState(subpartitionView == null, "Subpartition already requested");
@@ -95,13 +96,16 @@ class CreditBasedSequenceNumberingViewReader
                     partitionRequestListener == null, "Partition request listener already created");
             partitionRequestListener =
                     new NettyPartitionRequestListener(
-                            partitionProvider, this, subPartitionIndex, resultPartitionId);
+                            partitionProvider, this, subpartitionIndexRange, resultPartitionId);
             // The partition provider will create subpartitionView if resultPartition is
             // registered, otherwise it will register a listener of partition request to the result
             // partition manager.
             Optional<ResultSubpartitionView> subpartitionViewOptional =
                     partitionProvider.createSubpartitionViewOrRegisterListener(
-                            resultPartitionId, subPartitionIndex, this, partitionRequestListener);
+                            resultPartitionId,
+                            subpartitionIndexRange,
+                            this,
+                            partitionRequestListener);
             if (subpartitionViewOptional.isPresent()) {
                 this.subpartitionView = subpartitionViewOptional.get();
             } else {
@@ -116,11 +120,11 @@ class CreditBasedSequenceNumberingViewReader
     }
 
     @Override
-    public void notifySubpartitionCreated(ResultPartition partition, int subPartitionIndex)
-            throws IOException {
+    public void notifySubpartitionCreated(
+            ResultPartition partition, IndexRange subPartitionIndexRange) throws IOException {
         synchronized (requestLock) {
             checkState(subpartitionView == null, "Subpartition already requested");
-            subpartitionView = partition.createSubpartitionView(subPartitionIndex, this);
+            subpartitionView = partition.createSubpartitionView(subPartitionIndexRange, this);
         }
 
         notifyDataAvailable();
@@ -172,7 +176,7 @@ class CreditBasedSequenceNumberingViewReader
      */
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog() {
-        return subpartitionView.getAvailabilityAndBacklog(numCreditsAvailable);
+        return subpartitionView.getAvailabilityAndBacklog(numCreditsAvailable > 0);
     }
 
     /**
@@ -221,7 +225,7 @@ class CreditBasedSequenceNumberingViewReader
 
     @VisibleForTesting
     ResultSubpartitionView.AvailabilityWithBacklog hasBuffersAvailable() {
-        return subpartitionView.getAvailabilityAndBacklog(Integer.MAX_VALUE);
+        return subpartitionView.getAvailabilityAndBacklog(true);
     }
 
     @Nullable
@@ -265,13 +269,18 @@ class CreditBasedSequenceNumberingViewReader
     }
 
     @Override
-    public void notifyDataAvailable() {
+    public void notifyDataAvailable(ResultSubpartitionView view) {
         requestQueue.notifyReaderNonEmpty(this);
     }
 
     @Override
     public void notifyPriorityEvent(int prioritySequenceNumber) {
-        notifyDataAvailable();
+        notifyDataAvailable(this.subpartitionView);
+    }
+
+    @VisibleForTesting
+    public void notifyDataAvailable() {
+        notifyDataAvailable(subpartitionView);
     }
 
     @Override

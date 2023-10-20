@@ -118,7 +118,7 @@ public class DataBufferTest {
             --numDataBuffers;
 
             while (dataBuffer.hasRemaining()) {
-                BufferWithChannel buffer = copyIntoSegment(bufferSize, dataBuffer);
+                BufferWithSubpartition buffer = copyIntoSegment(bufferSize, dataBuffer);
                 if (buffer == null) {
                     break;
                 }
@@ -143,9 +143,9 @@ public class DataBufferTest {
                 numSubpartitions, numBytesWritten, numBytesRead, dataWritten, buffersRead);
     }
 
-    private BufferWithChannel copyIntoSegment(int bufferSize, DataBuffer dataBuffer) {
+    private BufferWithSubpartition copyIntoSegment(int bufferSize, DataBuffer dataBuffer) {
         if (useHashBuffer) {
-            BufferWithChannel buffer = dataBuffer.getNextBuffer(null);
+            BufferWithSubpartition buffer = dataBuffer.getNextBuffer(null);
             if (buffer == null || !buffer.getBuffer().isBuffer()) {
                 return buffer;
             }
@@ -154,9 +154,9 @@ public class DataBufferTest {
             int numBytes = buffer.getBuffer().readableBytes();
             segment.put(0, buffer.getBuffer().getNioBufferReadable(), numBytes);
             buffer.getBuffer().recycleBuffer();
-            return new BufferWithChannel(
+            return new BufferWithSubpartition(
                     new NetworkBuffer(segment, MemorySegment::free, DataType.DATA_BUFFER, numBytes),
-                    buffer.getChannelIndex());
+                    buffer.getSubpartitionIndex());
         } else {
             MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
             return dataBuffer.getNextBuffer(segment);
@@ -164,10 +164,10 @@ public class DataBufferTest {
     }
 
     private void addBufferRead(
-            BufferWithChannel buffer, Queue<Buffer>[] buffersRead, int[] numBytesRead) {
-        int channel = buffer.getChannelIndex();
-        buffersRead[channel].add(buffer.getBuffer());
-        numBytesRead[channel] += buffer.getBuffer().readableBytes();
+            BufferWithSubpartition buffer, Queue<Buffer>[] buffersRead, int[] numBytesRead) {
+        int subpartition = buffer.getSubpartitionIndex();
+        buffersRead[subpartition].add(buffer.getBuffer());
+        numBytesRead[subpartition] += buffer.getBuffer().readableBytes();
     }
 
     public static void checkWriteReadResult(
@@ -250,11 +250,14 @@ public class DataBufferTest {
     }
 
     private void checkReadResult(
-            DataBuffer dataBuffer, ByteBuffer expectedBuffer, int expectedChannel, int bufferSize) {
+            DataBuffer dataBuffer,
+            ByteBuffer expectedBuffer,
+            int expectedSubpartition,
+            int bufferSize) {
         MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
-        BufferWithChannel bufferWithChannel = dataBuffer.getNextBuffer(segment);
-        assertEquals(expectedChannel, bufferWithChannel.getChannelIndex());
-        assertEquals(expectedBuffer, bufferWithChannel.getBuffer().getNioBufferReadable());
+        BufferWithSubpartition bufferWithSubpartition = dataBuffer.getNextBuffer(segment);
+        assertEquals(expectedSubpartition, bufferWithSubpartition.getSubpartitionIndex());
+        assertEquals(expectedBuffer, bufferWithSubpartition.getBuffer().getNioBufferReadable());
     }
 
     @Test(expected = IllegalArgumentException.class)

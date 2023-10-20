@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.event.TaskEvent;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
@@ -68,7 +69,7 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
             SingleInputGate gate,
             int channelIndex,
             ResultPartitionID partitionId,
-            int consumedSubpartitionIndex,
+            IndexRange consumedSubpartitionIndexRange,
             ResultPartitionManager partitionManager,
             TaskEventPublisher taskEventPublisher,
             ConnectionManager connectionManager,
@@ -82,7 +83,7 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
                 gate,
                 channelIndex,
                 partitionId,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 initialBackoff,
                 maxBackoff,
                 null,
@@ -167,7 +168,7 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
                 inputGate,
                 getChannelIndex(),
                 partitionId,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 checkNotNull(producerAddress),
                 connectionManager,
                 initialBackoff,
@@ -184,7 +185,7 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
                 inputGate,
                 getChannelIndex(),
                 resultPartitionID,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 partitionManager,
                 taskEventPublisher,
                 initialBackoff,

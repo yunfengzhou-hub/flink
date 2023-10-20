@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
@@ -86,7 +87,7 @@ public class CancelPartitionRequestTest {
             // Return infinite subpartition
             when(partitions.createSubpartitionViewOrRegisterListener(
                             eq(pid),
-                            eq(0),
+                            any(IndexRange.class),
                             any(BufferAvailabilityListener.class),
                             any(PartitionRequestListener.class)))
                     .thenAnswer(
@@ -100,7 +101,12 @@ public class CancelPartitionRequestTest {
             Channel ch = connect(serverAndClient);
 
             // Request for non-existing input channel => results in cancel request
-            ch.writeAndFlush(new PartitionRequest(pid, 0, new InputChannelID(), Integer.MAX_VALUE))
+            ch.writeAndFlush(
+                            new PartitionRequest(
+                                    pid,
+                                    new IndexRange(0, 0),
+                                    new InputChannelID(),
+                                    Integer.MAX_VALUE))
                     .await();
 
             // Wait for the notification
@@ -137,7 +143,7 @@ public class CancelPartitionRequestTest {
             // Return infinite subpartition
             when(partitions.createSubpartitionViewOrRegisterListener(
                             eq(pid),
-                            eq(0),
+                            any(IndexRange.class),
                             any(BufferAvailabilityListener.class),
                             any(PartitionRequestListener.class)))
                     .thenAnswer(
@@ -146,7 +152,7 @@ public class CancelPartitionRequestTest {
                                         BufferAvailabilityListener listener =
                                                 (BufferAvailabilityListener)
                                                         invocationOnMock.getArguments()[2];
-                                        listener.notifyDataAvailable();
+                                        listener.notifyDataAvailable(view);
                                         return Optional.of(view);
                                     });
 
@@ -159,7 +165,9 @@ public class CancelPartitionRequestTest {
             // Request for non-existing input channel => results in cancel request
             InputChannelID inputChannelId = new InputChannelID();
 
-            ch.writeAndFlush(new PartitionRequest(pid, 0, inputChannelId, Integer.MAX_VALUE))
+            ch.writeAndFlush(
+                            new PartitionRequest(
+                                    pid, new IndexRange(0, 0), inputChannelId, Integer.MAX_VALUE))
                     .await();
 
             // Wait for the notification
@@ -227,8 +235,18 @@ public class CancelPartitionRequestTest {
         public void acknowledgeAllDataProcessed() {}
 
         @Override
-        public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
+        public AvailabilityWithBacklog getAvailabilityAndBacklog(boolean isCreditAvailable) {
             return new AvailabilityWithBacklog(true, 0);
+        }
+
+        @Override
+        public boolean isAvailable(boolean isCreditAvailable) {
+            return true;
+        }
+
+        @Override
+        public int getBacklog() {
+            return 0;
         }
 
         @Override

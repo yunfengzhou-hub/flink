@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
@@ -40,7 +40,7 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
 
     private final Map<
                     TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
+                    Map<TieredStorageInputChannelId, CompletableFuture<NettyConnectionReader>>>
             nettyConnectionReaders = new HashMap<>();
 
     public MemoryTierConsumerAgent(
@@ -48,13 +48,13 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
             TieredStorageNettyService nettyService) {
         for (TieredStorageConsumerSpec tieredStorageConsumerSpec : tieredStorageConsumerSpecs) {
             TieredStoragePartitionId partitionId = tieredStorageConsumerSpec.getPartitionId();
-            TieredStorageSubpartitionId subpartitionId =
-                    tieredStorageConsumerSpec.getSubpartitionId();
+            TieredStorageInputChannelId inputChannelId =
+                    tieredStorageConsumerSpec.getInputChannelId();
             nettyConnectionReaders
                     .computeIfAbsent(partitionId, ignore -> new HashMap<>())
                     .put(
-                            subpartitionId,
-                            nettyService.registerConsumer(partitionId, subpartitionId));
+                            inputChannelId,
+                            nettyService.registerConsumer(partitionId, inputChannelId));
         }
     }
 
@@ -71,12 +71,12 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
     @Override
     public Optional<Buffer> getNextBuffer(
             TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId,
+            TieredStorageInputChannelId inputChannelId,
             int segmentId) {
         try {
             return nettyConnectionReaders
                     .get(partitionId)
-                    .get(subpartitionId)
+                    .get(inputChannelId)
                     .get()
                     .readBuffer(segmentId);
         } catch (InterruptedException | ExecutionException e) {

@@ -47,7 +47,7 @@ public abstract class SubpartitionTestBase extends TestLogger {
         subpartition.release();
 
         try {
-            subpartition.createReadView(() -> {});
+            subpartition.createReadView((ResultSubpartitionView view) -> {});
             fail("expected an exception");
         } catch (IllegalStateException e) {
             // expected

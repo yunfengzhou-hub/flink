@@ -22,6 +22,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.checkpoint.channel.RecordingChannelStateWriter;
 import org.apache.flink.runtime.execution.CancelTaskException;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.disk.NoOpFileChannelManager;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
@@ -85,7 +86,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -248,7 +248,9 @@ public class LocalInputChannelTest {
                 createLocalInputChannel(inputGate, partitionManager, initialBackoff, maxBackoff);
 
         when(partitionManager.createSubpartitionView(
-                        eq(ch.partitionId), eq(0), any(BufferAvailabilityListener.class)))
+                        eq(ch.partitionId),
+                        any(IndexRange.class),
+                        any(BufferAvailabilityListener.class)))
                 .thenThrow(new PartitionNotFoundException(ch.partitionId));
 
         Timer timer = mock(Timer.class);
@@ -265,7 +267,9 @@ public class LocalInputChannelTest {
         ch.requestSubpartition();
         verify(partitionManager)
                 .createSubpartitionView(
-                        eq(ch.partitionId), eq(0), any(BufferAvailabilityListener.class));
+                        eq(ch.partitionId),
+                        any(IndexRange.class),
+                        any(BufferAvailabilityListener.class));
 
         // Request subpartition and verify that the actual requests are delayed.
         for (long expected : expectedDelays) {
@@ -292,7 +296,7 @@ public class LocalInputChannelTest {
         ResultPartitionManager partitionManager = mock(ResultPartitionManager.class);
         when(partitionManager.createSubpartitionView(
                         any(ResultPartitionID.class),
-                        anyInt(),
+                        any(IndexRange.class),
                         any(BufferAvailabilityListener.class)))
                 .thenReturn(view);
 
@@ -411,7 +415,7 @@ public class LocalInputChannelTest {
         ResultPartitionManager partitionManager = mock(ResultPartitionManager.class);
         when(partitionManager.createSubpartitionView(
                         any(ResultPartitionID.class),
-                        anyInt(),
+                        any(IndexRange.class),
                         any(BufferAvailabilityListener.class)))
                 .thenAnswer(
                         (Answer<ResultSubpartitionView>)
@@ -534,7 +538,8 @@ public class LocalInputChannelTest {
                         PartitionTestUtils.createPartition(
                                 ResultPartitionType.PIPELINED, NoOpFileChannelManager.INSTANCE);
         ResultSubpartition subpartition = parent.getAllPartitions()[0];
-        ResultSubpartitionView subpartitionView = subpartition.createReadView(() -> {});
+        ResultSubpartitionView subpartitionView =
+                subpartition.createReadView((ResultSubpartitionView view) -> {});
 
         TestingResultPartitionManager partitionManager =
                 new TestingResultPartitionManager(subpartitionView);
@@ -573,7 +578,8 @@ public class LocalInputChannelTest {
                         PartitionTestUtils.createPartition(
                                 ResultPartitionType.PIPELINED, NoOpFileChannelManager.INSTANCE);
         ResultSubpartition subpartition = parent.getAllPartitions()[0];
-        ResultSubpartitionView subpartitionView = subpartition.createReadView(() -> {});
+        ResultSubpartitionView subpartitionView =
+                subpartition.createReadView((ResultSubpartitionView view) -> {});
 
         TestingResultPartitionManager partitionManager =
                 new TestingResultPartitionManager(subpartitionView);
@@ -626,11 +632,13 @@ public class LocalInputChannelTest {
         LocalInputChannel channel0 =
                 createLocalInputChannel(
                         new SingleInputGateBuilder().build(),
-                        new TestingResultPartitionManager(subpartition0.createReadView(() -> {})));
+                        new TestingResultPartitionManager(
+                                subpartition0.createReadView((ResultSubpartitionView view) -> {})));
         LocalInputChannel channel1 =
                 createLocalInputChannel(
                         new SingleInputGateBuilder().build(),
-                        new TestingResultPartitionManager(subpartition1.createReadView(() -> {})));
+                        new TestingResultPartitionManager(
+                                subpartition1.createReadView((ResultSubpartitionView view) -> {})));
 
         channel0.requestSubpartition();
         channel1.requestSubpartition();
@@ -748,7 +756,8 @@ public class LocalInputChannelTest {
                 inputChannels[i] =
                         InputChannelBuilder.newBuilder()
                                 .setChannelIndex(i)
-                                .setConsumedSubpartitionIndex(subpartitionIndex)
+                                .setSubpartitionIndexRange(
+                                        new IndexRange(subpartitionIndex, subpartitionIndex))
                                 .setPartitionManager(partitionManager)
                                 .setPartitionId(consumedPartitionIds[i])
                                 .setTaskEventPublisher(taskEventDispatcher)

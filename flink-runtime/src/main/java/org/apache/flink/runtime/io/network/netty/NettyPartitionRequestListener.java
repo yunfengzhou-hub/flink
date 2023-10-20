@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.partition.PartitionRequestListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
@@ -34,19 +35,19 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class NettyPartitionRequestListener implements PartitionRequestListener {
     private final ResultPartitionProvider resultPartitionProvider;
     private final NetworkSequenceViewReader reader;
-    private final int subPartitionIndex;
+    private final IndexRange subPartitionIndexRange;
     private final ResultPartitionID resultPartitionId;
     private final long createTimestamp;
 
     public NettyPartitionRequestListener(
             ResultPartitionProvider resultPartitionProvider,
             NetworkSequenceViewReader reader,
-            int subPartitionIndex,
+            IndexRange subPartitionIndexRange,
             ResultPartitionID resultPartitionId) {
         this(
                 resultPartitionProvider,
                 reader,
-                subPartitionIndex,
+                subPartitionIndexRange,
                 resultPartitionId,
                 System.currentTimeMillis());
     }
@@ -55,12 +56,12 @@ public class NettyPartitionRequestListener implements PartitionRequestListener {
     public NettyPartitionRequestListener(
             ResultPartitionProvider resultPartitionProvider,
             NetworkSequenceViewReader reader,
-            int subPartitionIndex,
+            IndexRange subPartitionIndexRange,
             ResultPartitionID resultPartitionId,
             long createTimestamp) {
         this.resultPartitionProvider = resultPartitionProvider;
         this.reader = reader;
-        this.subPartitionIndex = subPartitionIndex;
+        this.subPartitionIndexRange = subPartitionIndexRange;
         this.resultPartitionId = resultPartitionId;
         this.createTimestamp = createTimestamp;
     }
@@ -88,7 +89,7 @@ public class NettyPartitionRequestListener implements PartitionRequestListener {
     @Override
     public void notifyPartitionCreated(ResultPartition partition) throws IOException {
         checkNotNull(partition);
-        reader.notifySubpartitionCreated(partition, subPartitionIndex);
+        reader.notifySubpartitionCreated(partition, subPartitionIndexRange);
     }
 
     @Override

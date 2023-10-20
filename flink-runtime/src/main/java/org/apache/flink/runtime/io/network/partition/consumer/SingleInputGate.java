@@ -149,6 +149,8 @@ public class SingleInputGate extends IndexedInputGate {
      */
     private final IndexRange subpartitionIndexRange;
 
+    private final boolean isUnionViewSupported;
+
     /** The number of input channels (equivalent to the number of consumed partitions). */
     private final int numberOfInputChannels;
 
@@ -236,6 +238,7 @@ public class SingleInputGate extends IndexedInputGate {
             IntermediateDataSetID consumedResultId,
             final ResultPartitionType consumedPartitionType,
             IndexRange subpartitionIndexRange,
+            boolean isUnionViewSupported,
             int numberOfInputChannels,
             PartitionProducerStateProvider partitionProducerStateProvider,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
@@ -257,6 +260,7 @@ public class SingleInputGate extends IndexedInputGate {
         this.bufferPoolFactory = checkNotNull(bufferPoolFactory);
 
         this.subpartitionIndexRange = checkNotNull(subpartitionIndexRange);
+        this.isUnionViewSupported = isUnionViewSupported;
 
         checkArgument(numberOfInputChannels > 0);
         this.numberOfInputChannels = numberOfInputChannels;
@@ -575,9 +579,10 @@ public class SingleInputGate extends IndexedInputGate {
             for (InputChannel inputChannel : channels) {
                 IntermediateResultPartitionID partitionId =
                         inputChannel.getPartitionId().getPartitionId();
-                int subpartitionIndex = inputChannel.getConsumedSubpartitionIndex();
+                IndexRange subpartitionIndexRange =
+                        inputChannel.getConsumedSubpartitionIndexRange();
                 if (inputChannels.put(
-                                        new SubpartitionInfo(partitionId, subpartitionIndex),
+                                        new SubpartitionInfo(partitionId, subpartitionIndexRange),
                                         inputChannel)
                                 == null
                         && inputChannel instanceof UnknownInputChannel) {
@@ -600,57 +605,73 @@ public class SingleInputGate extends IndexedInputGate {
             IntermediateResultPartitionID partitionId =
                     shuffleDescriptor.getResultPartitionID().getPartitionId();
 
-            for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
-                    subpartitionIndex <= subpartitionIndexRange.getEndIndex();
-                    ++subpartitionIndex) {
-                SubpartitionInfo subpartitionInfo =
-                        new SubpartitionInfo(partitionId, subpartitionIndex);
-                InputChannel current = inputChannels.get(subpartitionInfo);
-
-                if (current instanceof UnknownInputChannel) {
-                    UnknownInputChannel unknownChannel = (UnknownInputChannel) current;
-                    boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
-                    InputChannel newChannel;
-                    if (isLocal) {
-                        newChannel =
-                                unknownChannel.toLocalInputChannel(
-                                        shuffleDescriptor.getResultPartitionID());
-                    } else {
-                        RemoteInputChannel remoteInputChannel =
-                                unknownChannel.toRemoteInputChannel(
-                                        shuffleDescriptor.getConnectionId());
-                        remoteInputChannel.setup();
-                        newChannel = remoteInputChannel;
-                    }
-                    LOG.debug(
-                            "{}: Updated unknown input channel to {}.", owningTaskName, newChannel);
-
-                    inputChannels.put(subpartitionInfo, newChannel);
-                    channels[current.getChannelIndex()] = newChannel;
-
-                    if (requestedPartitionsFlag) {
-                        newChannel.requestSubpartition();
-                    }
-
-                    for (TaskEvent event : pendingEvents) {
-                        newChannel.sendTaskEvent(event);
-                    }
-
-                    if (--numberOfUninitializedChannels == 0) {
-                        pendingEvents.clear();
-                    }
+            if (isUnionViewSupported) {
+                updateInputChannelInternal(
+                        localLocation,
+                        shuffleDescriptor,
+                        new SubpartitionInfo(partitionId, subpartitionIndexRange));
+            } else {
+                for (int index = subpartitionIndexRange.getStartIndex();
+                        index <= subpartitionIndexRange.getEndIndex();
+                        index++) {
+                    updateInputChannelInternal(
+                            localLocation,
+                            shuffleDescriptor,
+                            new SubpartitionInfo(partitionId, new IndexRange(index, index)));
                 }
+            }
+        }
+    }
+
+    private void updateInputChannelInternal(
+            ResourceID localLocation,
+            NettyShuffleDescriptor shuffleDescriptor,
+            SubpartitionInfo subpartitionInfo)
+            throws IOException, InterruptedException {
+        InputChannel current = inputChannels.get(subpartitionInfo);
+
+        if (current instanceof UnknownInputChannel) {
+            UnknownInputChannel unknownChannel = (UnknownInputChannel) current;
+            boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
+            InputChannel newChannel;
+            if (isLocal) {
+                newChannel =
+                        unknownChannel.toLocalInputChannel(
+                                shuffleDescriptor.getResultPartitionID());
+            } else {
+                RemoteInputChannel remoteInputChannel =
+                        unknownChannel.toRemoteInputChannel(shuffleDescriptor.getConnectionId());
+                remoteInputChannel.setup();
+                newChannel = remoteInputChannel;
+            }
+            LOG.debug("{}: Updated unknown input channel to {}.", owningTaskName, newChannel);
+
+            inputChannels.put(subpartitionInfo, newChannel);
+            channels[current.getChannelIndex()] = newChannel;
+
+            if (requestedPartitionsFlag) {
+                newChannel.requestSubpartition();
+            }
+
+            for (TaskEvent event : pendingEvents) {
+                newChannel.sendTaskEvent(event);
+            }
+
+            if (--numberOfUninitializedChannels == 0) {
+                pendingEvents.clear();
             }
         }
     }
 
     /** Retriggers a partition request. */
     public void retriggerPartitionRequest(
-            IntermediateResultPartitionID partitionId, int subpartitionIndex) throws IOException {
+            IntermediateResultPartitionID partitionId, IndexRange subpartitionIndexRange)
+            throws IOException {
         synchronized (requestLock) {
             if (!closeFuture.isDone()) {
                 final InputChannel ch =
-                        inputChannels.get(new SubpartitionInfo(partitionId, subpartitionIndex));
+                        inputChannels.get(
+                                new SubpartitionInfo(partitionId, subpartitionIndexRange));
 
                 checkNotNull(ch, "Unknown input channel with ID " + partitionId);
 
@@ -658,7 +679,7 @@ public class SingleInputGate extends IndexedInputGate {
                         "{}: Retriggering partition request {}:{}.",
                         owningTaskName,
                         ch.partitionId,
-                        ch.getConsumedSubpartitionIndex());
+                        ch.getConsumedSubpartitionIndexRange());
 
                 if (ch.getClass() == RemoteInputChannel.class) {
                     final RemoteInputChannel rch = (RemoteInputChannel) ch;
@@ -869,7 +890,7 @@ public class SingleInputGate extends IndexedInputGate {
                 checkNotNull(tieredStorageConsumerClient)
                         .getNextBuffer(
                                 tieredStorageConsumerSpec.getPartitionId(),
-                                tieredStorageConsumerSpec.getSubpartitionId());
+                                tieredStorageConsumerSpec.getInputChannelId());
         // Continue to read buffer from consumer client until the specific partition and
         // subpartition is unavailable because an empty buffer is read.
         buffer.ifPresent(result -> queueChannel(checkNotNull(inputChannel), null, false));
@@ -1030,7 +1051,9 @@ public class SingleInputGate extends IndexedInputGate {
             checkNotNull(availabilityNotifier)
                     .notifyAvailable(
                             tieredStorageConsumerSpec.getPartitionId(),
-                            tieredStorageConsumerSpec.getSubpartitionId());
+                            tieredStorageConsumerSpec
+                                    .getInputChannelId()
+                                    .getArbitraryCorrespondingSubpartitionId());
         } else {
             queueChannel(checkNotNull(channel), null, false);
         }
@@ -1054,7 +1077,8 @@ public class SingleInputGate extends IndexedInputGate {
         queueChannel(checkNotNull(inputChannel), null, true);
     }
 
-    void triggerPartitionStateCheck(ResultPartitionID partitionId, int subpartitionIndex) {
+    void triggerPartitionStateCheck(
+            ResultPartitionID partitionId, IndexRange subpartitionIndexRange) {
         partitionProducerStateProvider.requestPartitionProducerState(
                 consumedResultId,
                 partitionId,
@@ -1065,7 +1089,7 @@ public class SingleInputGate extends IndexedInputGate {
                     if (isProducingState) {
                         try {
                             retriggerPartitionRequest(
-                                    partitionId.getPartitionId(), subpartitionIndex);
+                                    partitionId.getPartitionId(), subpartitionIndexRange);
                         } catch (IOException t) {
                             responseHandle.failConsumption(t);
                         }
@@ -1185,9 +1209,15 @@ public class SingleInputGate extends IndexedInputGate {
             this.channelIndexes = new HashMap<>();
             for (int index = 0; index < checkNotNull(tieredStorageConsumerSpecs).size(); index++) {
                 TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
-                channelIndexes
-                        .computeIfAbsent(spec.getPartitionId(), ignore -> new HashMap<>())
-                        .put(spec.getSubpartitionId(), index);
+                IndexRange subpartitionIndexRange =
+                        spec.getInputChannelId().getSubpartitionIndexRange();
+                for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
+                        subpartitionIndex <= subpartitionIndexRange.getEndIndex();
+                        subpartitionIndex++) {
+                    channelIndexes
+                            .computeIfAbsent(spec.getPartitionId(), ignore -> new HashMap<>())
+                            .put(new TieredStorageSubpartitionId(subpartitionIndex), index);
+                }
             }
         }
 
@@ -1206,17 +1236,17 @@ public class SingleInputGate extends IndexedInputGate {
 
     static class SubpartitionInfo {
         private final IntermediateResultPartitionID partitionID;
-        private final int subpartitionIndex;
+        private final IndexRange subpartitionIndexRange;
 
-        SubpartitionInfo(IntermediateResultPartitionID partitionID, int subpartitionIndex) {
+        SubpartitionInfo(
+                IntermediateResultPartitionID partitionID, IndexRange subpartitionIndexRange) {
             this.partitionID = checkNotNull(partitionID);
-            checkArgument(subpartitionIndex >= 0);
-            this.subpartitionIndex = subpartitionIndex;
+            this.subpartitionIndexRange = subpartitionIndexRange;
         }
 
         @Override
         public int hashCode() {
-            return partitionID.hashCode() ^ subpartitionIndex;
+            return partitionID.hashCode() ^ subpartitionIndexRange.hashCode();
         }
 
         @Override
@@ -1226,7 +1256,7 @@ public class SingleInputGate extends IndexedInputGate {
             } else if (obj != null && obj.getClass() == getClass()) {
                 SubpartitionInfo that = (SubpartitionInfo) obj;
                 return that.partitionID.equals(this.partitionID)
-                        && that.subpartitionIndex == this.subpartitionIndex;
+                        && that.subpartitionIndexRange.equals(this.subpartitionIndexRange);
             } else {
                 return false;
             }

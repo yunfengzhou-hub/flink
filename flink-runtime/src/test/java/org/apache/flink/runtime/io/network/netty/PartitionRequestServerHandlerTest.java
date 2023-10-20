@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.api.StopMode;
@@ -84,7 +85,7 @@ public class PartitionRequestServerHandlerTest extends TestLogger {
         NetworkSequenceViewReader viewReader =
                 new CreditBasedSequenceNumberingViewReader(
                         inputChannelID, 2, partitionRequestQueue);
-        viewReader.notifySubpartitionCreated(resultPartition, 0);
+        viewReader.notifySubpartitionCreated(resultPartition, new IndexRange(0, 0));
         partitionRequestQueue.notifyReaderCreated(viewReader);
 
         // Write the message to acknowledge all records are processed to server

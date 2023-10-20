@@ -173,7 +173,7 @@ class HsResultPartitionTest {
                         dataWritten,
                         subpartition,
                         numBytesWritten,
-                        Buffer.DataType.EVENT_BUFFER);
+                        Buffer.DataType.END_OF_PARTITION);
             }
 
             Tuple2<ResultSubpartitionView, TestingBufferAvailabilityListener>[] viewAndListeners =
@@ -712,7 +712,7 @@ class HsResultPartitionTest {
         private int numNotifications;
 
         @Override
-        public synchronized void notifyDataAvailable() {
+        public synchronized void notifyDataAvailable(ResultSubpartitionView view) {
             if (numNotifications == 0) {
                 notifyAll();
             }

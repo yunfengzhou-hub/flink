@@ -174,6 +174,7 @@ public class SingleInputGateBuilder {
                         intermediateDataSetID,
                         partitionType,
                         subpartitionIndexRange,
+                        false,
                         numberOfChannels,
                         partitionProducerStateProvider,
                         bufferPoolFactory,

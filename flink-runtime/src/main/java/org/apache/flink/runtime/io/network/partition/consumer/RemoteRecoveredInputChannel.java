@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
@@ -40,7 +41,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
             SingleInputGate inputGate,
             int channelIndex,
             ResultPartitionID partitionId,
-            int consumedSubpartitionIndex,
+            IndexRange consumedSubpartitionIndexRange,
             ConnectionID connectionId,
             ConnectionManager connectionManager,
             int initialBackOff,
@@ -52,7 +53,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
                 inputGate,
                 channelIndex,
                 partitionId,
-                consumedSubpartitionIndex,
+                consumedSubpartitionIndexRange,
                 initialBackOff,
                 maxBackoff,
                 metrics.getNumBytesInRemoteCounter(),
@@ -71,7 +72,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
                         inputGate,
                         getChannelIndex(),
                         partitionId,
-                        consumedSubpartitionIndex,
+                        consumedSubpartitionIndexRange,
                         connectionId,
                         connectionManager,
                         initialBackoff,

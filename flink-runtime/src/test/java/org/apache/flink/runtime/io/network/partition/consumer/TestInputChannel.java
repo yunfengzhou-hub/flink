@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.event.TaskEvent;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
@@ -89,7 +90,7 @@ public class TestInputChannel extends InputChannel {
                 inputGate,
                 channelIndex,
                 new ResultPartitionID(),
-                0,
+                new IndexRange(0, 0),
                 0,
                 0,
                 new SimpleCounter(),

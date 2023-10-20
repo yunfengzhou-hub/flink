@@ -23,6 +23,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.execution.CancelTaskException;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -56,7 +57,7 @@ public abstract class InputChannel {
     protected final ResultPartitionID partitionId;
 
     /** The index of the subpartition consumed by this channel. */
-    protected final int consumedSubpartitionIndex;
+    protected final IndexRange consumedSubpartitionIndexRange;
 
     protected final SingleInputGate inputGate;
 
@@ -83,7 +84,7 @@ public abstract class InputChannel {
             SingleInputGate inputGate,
             int channelIndex,
             ResultPartitionID partitionId,
-            int consumedSubpartitionIndex,
+            IndexRange consumedSubpartitionIndexRange,
             int initialBackoff,
             int maxBackoff,
             Counter numBytesIn,
@@ -100,8 +101,7 @@ public abstract class InputChannel {
         this.channelInfo = new InputChannelInfo(inputGate.getGateIndex(), channelIndex);
         this.partitionId = checkNotNull(partitionId);
 
-        checkArgument(consumedSubpartitionIndex >= 0);
-        this.consumedSubpartitionIndex = consumedSubpartitionIndex;
+        this.consumedSubpartitionIndexRange = consumedSubpartitionIndexRange;
 
         this.initialBackoff = initial;
         this.maxBackoff = max;
@@ -132,8 +132,8 @@ public abstract class InputChannel {
         return partitionId;
     }
 
-    public int getConsumedSubpartitionIndex() {
-        return consumedSubpartitionIndex;
+    public IndexRange getConsumedSubpartitionIndexRange() {
+        return consumedSubpartitionIndexRange;
     }
 
     /**
@@ -176,7 +176,7 @@ public abstract class InputChannel {
 
     /**
      * Requests the subpartition specified by {@link #partitionId} and {@link
-     * #consumedSubpartitionIndex}.
+     * #consumedSubpartitionIndexRange}.
      */
     abstract void requestSubpartition() throws IOException, InterruptedException;
 

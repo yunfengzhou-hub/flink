@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -49,7 +50,7 @@ public class TieredStorageConsumerClient {
      */
     private final Map<
                     TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<TierConsumerAgent, Integer>>>
+                    Map<TieredStorageInputChannelId, Tuple2<TierConsumerAgent, Integer>>>
             currentConsumerAgentAndSegmentIds = new HashMap<>();
 
     public TieredStorageConsumerClient(
@@ -68,22 +69,22 @@ public class TieredStorageConsumerClient {
     }
 
     public Optional<Buffer> getNextBuffer(
-            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+            TieredStoragePartitionId partitionId, TieredStorageInputChannelId inputChannelId) {
         Tuple2<TierConsumerAgent, Integer> currentConsumerAgentAndSegmentId =
                 currentConsumerAgentAndSegmentIds
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
-                        .getOrDefault(subpartitionId, Tuple2.of(null, 0));
+                        .getOrDefault(inputChannelId, Tuple2.of(null, 0));
         Optional<Buffer> buffer = Optional.empty();
         if (currentConsumerAgentAndSegmentId.f0 == null) {
             for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
                 buffer =
                         tierConsumerAgent.getNextBuffer(
-                                partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
+                                partitionId, inputChannelId, currentConsumerAgentAndSegmentId.f1);
                 if (buffer.isPresent()) {
                     currentConsumerAgentAndSegmentIds
                             .get(partitionId)
                             .put(
-                                    subpartitionId,
+                                    inputChannelId,
                                     Tuple2.of(
                                             tierConsumerAgent,
                                             currentConsumerAgentAndSegmentId.f1));
@@ -93,7 +94,7 @@ public class TieredStorageConsumerClient {
         } else {
             buffer =
                     currentConsumerAgentAndSegmentId.f0.getNextBuffer(
-                            partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
+                            partitionId, inputChannelId, currentConsumerAgentAndSegmentId.f1);
         }
         if (!buffer.isPresent()) {
             return Optional.empty();
@@ -102,9 +103,9 @@ public class TieredStorageConsumerClient {
         if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
             currentConsumerAgentAndSegmentIds
                     .get(partitionId)
-                    .put(subpartitionId, Tuple2.of(null, currentConsumerAgentAndSegmentId.f1 + 1));
+                    .put(inputChannelId, Tuple2.of(null, currentConsumerAgentAndSegmentId.f1 + 1));
             bufferData.recycleBuffer();
-            return getNextBuffer(partitionId, subpartitionId);
+            return getNextBuffer(partitionId, inputChannelId);
         }
         return Optional.of(bufferData);
     }

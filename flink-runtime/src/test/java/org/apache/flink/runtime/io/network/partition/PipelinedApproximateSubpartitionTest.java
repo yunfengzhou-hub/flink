@@ -58,11 +58,11 @@ public class PipelinedApproximateSubpartitionTest extends PipelinedSubpartitionT
                 createPipelinedApproximateSubpartition();
 
         // first request
-        assertNotNull(subpartition.createReadView(() -> {}));
+        assertNotNull(subpartition.createReadView((ResultSubpartitionView view) -> {}));
         assertFalse(subpartition.isPartialBufferCleanupRequired());
 
         // reconnecting request
-        assertNotNull(subpartition.createReadView(() -> {}));
+        assertNotNull(subpartition.createReadView((ResultSubpartitionView view) -> {}));
         assertTrue(subpartition.isPartialBufferCleanupRequired());
     }
 

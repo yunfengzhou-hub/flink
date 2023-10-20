@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.netty.NettyPartitionRequestListener;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.util.TestLogger;
@@ -45,7 +46,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        0,
+                        new IndexRange(0, 0),
                         new ResultPartitionID());
         partitionRequestListenerManager.registerListener(listener1);
         listenerList.add(listener1);
@@ -56,7 +57,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        1,
+                        new IndexRange(1, 1),
                         new ResultPartitionID());
         partitionRequestListenerManager.registerListener(listener2);
         listenerList.add(listener2);
@@ -67,7 +68,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        2,
+                        new IndexRange(2, 2),
                         new ResultPartitionID());
         partitionRequestListenerManager.registerListener(listener3);
         listenerList.add(listener3);
@@ -94,7 +95,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        0,
+                        new IndexRange(0, 0),
                         new ResultPartitionID());
         partitionRequestListenerManager.registerListener(listener1);
 
@@ -104,7 +105,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        1,
+                        new IndexRange(1, 1),
                         new ResultPartitionID());
         partitionRequestListenerManager.registerListener(listener2);
         listenerList.add(listener2);
@@ -115,7 +116,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        2,
+                        new IndexRange(2, 2),
                         new ResultPartitionID());
         partitionRequestListenerManager.registerListener(listener3);
         listenerList.add(listener3);
@@ -142,7 +143,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        0,
+                        new IndexRange(0, 0),
                         new ResultPartitionID(),
                         0L);
         partitionRequestListenerManager.registerListener(listener1);
@@ -154,7 +155,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        1,
+                        new IndexRange(1, 1),
                         new ResultPartitionID(),
                         0L);
         partitionRequestListenerManager.registerListener(listener2);
@@ -167,7 +168,7 @@ class PartitionRequestListenerManagerTest extends TestLogger {
                         TestingSubpartitionCreatedViewReader.newBuilder()
                                 .setReceiverId(new InputChannelID())
                                 .build(),
-                        2,
+                        new IndexRange(2, 2),
                         new ResultPartitionID(),
                         currentTimestamp);
         partitionRequestListenerManager.registerListener(listener3);

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
@@ -58,7 +59,7 @@ public class RecoveredInputChannelTest {
                     new SingleInputGateBuilder().build(),
                     0,
                     new ResultPartitionID(),
-                    0,
+                    new IndexRange(0, 0),
                     0,
                     0,
                     new SimpleCounter(),

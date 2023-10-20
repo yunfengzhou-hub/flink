@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 
@@ -62,7 +63,7 @@ public class TestingPartitionRequestListener implements PartitionRequestListener
 
     @Override
     public void notifyPartitionCreated(ResultPartition partition) throws IOException {
-        reader.notifySubpartitionCreated(partition, 0);
+        reader.notifySubpartitionCreated(partition, new IndexRange(0, 0));
     }
 
     @Override

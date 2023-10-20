@@ -44,6 +44,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * thread.
  */
 public class HashSubpartitionBufferAccumulator {
+    private static final int numConsecutiveBuffersThreshold = 4;
 
     private final TieredStorageSubpartitionId subpartitionId;
 
@@ -52,6 +53,8 @@ public class HashSubpartitionBufferAccumulator {
     private final HashSubpartitionBufferAccumulatorContext bufferAccumulatorContext;
 
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
+
+    private int currentNumConsecutiveBuffers = 0;
 
     public HashSubpartitionBufferAccumulator(
             TieredStorageSubpartitionId subpartitionId,
@@ -107,6 +110,23 @@ public class HashSubpartitionBufferAccumulator {
 
     private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
+
+        assert record.remaining() <= bufferSize * numConsecutiveBuffersThreshold;
+        int remainingCurrentBufferSize =
+                unfinishedBuffers.isEmpty() ? 0 : unfinishedBuffers.peek().getWritableBytes();
+        int requiredNumBuffers =
+                (int)
+                        Math.ceil(
+                                1.0
+                                        * (record.remaining() - remainingCurrentBufferSize)
+                                        / bufferSize);
+        if (remainingCurrentBufferSize > 0) {
+            requiredNumBuffers++;
+        }
+        if (currentNumConsecutiveBuffers + requiredNumBuffers > numConsecutiveBuffersThreshold) {
+            finishCurrentWritingBufferIfNotEmpty();
+        }
+
         int availableBytes =
                 Optional.ofNullable(unfinishedBuffers.peek())
                         .map(
@@ -123,11 +143,23 @@ public class HashSubpartitionBufferAccumulator {
     }
 
     private void writeRecord(ByteBuffer record) {
+        BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
+        //        int requiredNumBuffers =
+        //                (int) Math.ceil(1.0 * (record.remaining() -
+        // currentWritingBuffer.getWritableBytes()) / bufferSize);
+        //        if (currentWritingBuffer.getWritableBytes() > 0) {
+        //            requiredNumBuffers ++;
+        //        }
+        //        if (currentNumConsecutiveBuffers + requiredNumBuffers >
+        // numConsecutiveBuffersThreshold) {
+        //            finishCurrentWritingBufferIfNotEmpty();
+        //        }
+
         while (record.hasRemaining()) {
-            BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
+            currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
             currentWritingBuffer.append(record);
             if (currentWritingBuffer.isFull()) {
-                finishCurrentWritingBuffer();
+                finishCurrentWritingBuffer(record.hasRemaining());
             }
         }
     }
@@ -138,14 +170,21 @@ public class HashSubpartitionBufferAccumulator {
             return;
         }
 
-        finishCurrentWritingBuffer();
+        finishCurrentWritingBuffer(false);
     }
 
-    private void finishCurrentWritingBuffer() {
+    private void finishCurrentWritingBuffer(boolean isPartialRecord) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
         if (currentWritingBuffer == null) {
             return;
         }
+        if (!isPartialRecord) {
+            currentWritingBuffer.setWithoutPartialRecord();
+            currentNumConsecutiveBuffers = 0;
+        } else {
+            currentNumConsecutiveBuffers++;
+        }
+        //        assert currentNumConsecutiveBuffers <= numConsecutiveBuffersThreshold;
         currentWritingBuffer.finish();
         BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();
         Buffer buffer = bufferConsumer.build();

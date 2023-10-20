@@ -86,24 +86,47 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
                     getDataType(nettyPayloadManager.peek()),
-                    getBacklog(),
+                    getBacklogInternal(),
                     currentSequenceNumber);
         }
         return null;
     }
 
     @Override
-    public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
+    public AvailabilityWithBacklog getAvailabilityAndBacklog(boolean isCreditAvailable) {
         if (findCurrentNettyPayloadQueue()) {
             NettyPayloadManager currentQueue =
                     nettyPayloadManagers.get(managerIndexContainsCurrentSegment);
-            boolean availability = numCreditsAvailable > 0;
-            if (numCreditsAvailable == 0 && isEventOrError(currentQueue)) {
+            boolean availability = isCreditAvailable;
+            if (!isCreditAvailable && isEventOrError(currentQueue)) {
                 availability = true;
             }
-            return new AvailabilityWithBacklog(availability, getBacklog());
+            return new AvailabilityWithBacklog(availability, getBacklogInternal());
         }
         return new AvailabilityWithBacklog(false, 0);
+    }
+
+    @Override
+    public boolean isAvailable(boolean isCreditAvailable) {
+        if (findCurrentNettyPayloadQueue()) {
+            if (isCreditAvailable) {
+                return true;
+            } else {
+                NettyPayloadManager currentQueue =
+                        nettyPayloadManagers.get(managerIndexContainsCurrentSegment);
+
+                return isEventOrError(currentQueue);
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int getBacklog() {
+        if (findCurrentNettyPayloadQueue()) {
+            return getBacklogInternal();
+        }
+        return 0;
     }
 
     @Override
@@ -111,7 +134,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         if (segmentId > requiredSegmentId) {
             requiredSegmentId = segmentId;
             stopSendingData = false;
-            availabilityListener.notifyDataAvailable();
+            availabilityListener.notifyDataAvailable(this);
         }
     }
 
@@ -143,7 +166,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         if (findCurrentNettyPayloadQueue()) {
-            return getBacklog();
+            return getBacklogInternal();
         }
         return 0;
     }
@@ -151,7 +174,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     @Override
     public int getNumberOfQueuedBuffers() {
         if (findCurrentNettyPayloadQueue()) {
-            return getBacklog();
+            return getBacklogInternal();
         }
         return 0;
     }
@@ -178,6 +201,14 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
                 "Method notifyNewBufferSize should never be called.");
     }
 
+    @Nullable
+    NettyPayloadManager getCurrentNettyPayloadManager() {
+        if (stopSendingData || !findCurrentNettyPayloadQueue()) {
+            return null;
+        }
+        return nettyPayloadManagers.get(managerIndexContainsCurrentSegment);
+    }
+
     // -------------------------------
     //       Internal Methods
     // -------------------------------
@@ -199,7 +230,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         }
     }
 
-    private int getBacklog() {
+    private int getBacklogInternal() {
         return managerIndexContainsCurrentSegment == -1
                 ? 0
                 : nettyPayloadManagers.get(managerIndexContainsCurrentSegment).getBacklog();
