@@ -37,8 +37,8 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexRang
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
@@ -173,35 +173,12 @@ public class SingleInputGateFactory {
 
         ResultSubpartitionIndexSet subpartitionIndexSet =
                 new ResultSubpartitionIndexRange(igdd.getConsumedSubpartitionIndexRange());
-        TieredStorageConsumerClient tieredStorageConsumerClient = null;
-        List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
-        if (tieredStorageConfiguration != null) {
-            ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
-            tieredStorageConsumerSpecs = new ArrayList<>();
-            for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
-                TieredStoragePartitionId partitionId =
-                        TieredStorageIdMappingUtils.convertId(
-                                shuffleDescriptor.getResultPartitionID());
-                for (int index : subpartitionIndexSet.values()) {
-                    TieredStorageSubpartitionId subpartitionId =
-                            new TieredStorageSubpartitionId(index);
-                    tieredStorageConsumerSpecs.add(
-                            new TieredStorageConsumerSpec(partitionId, subpartitionId));
-                }
-            }
-            tieredStorageConsumerClient =
-                    new TieredStorageConsumerClient(
-                            tieredStorageConfiguration.getTierFactories(),
-                            tieredStorageConsumerSpecs,
-                            tieredStorageNettyService);
-        }
         SingleInputGate inputGate =
                 new SingleInputGate(
                         owningTaskName,
                         gateIndex,
                         igdd.getConsumedResultId(),
                         igdd.getConsumedPartitionType(),
-                        subpartitionIndexSet,
                         calculateNumChannels(
                                 igdd.getShuffleDescriptors().length, subpartitionIndexSet.size()),
                         partitionProducerStateProvider,
@@ -211,12 +188,9 @@ public class SingleInputGateFactory {
                         networkBufferSize,
                         new ThroughputCalculator(SystemClock.getInstance()),
                         maybeCreateBufferDebloater(
-                                owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
-                        tieredStorageConsumerClient,
-                        tieredStorageNettyService,
-                        tieredStorageConsumerSpecs);
+                                owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)));
 
-        createInputChannels(
+        createInputChannelsAndTieredStorageService(
                 owningTaskName, igdd, inputGate, subpartitionIndexSet, gateBuffersSpec, metrics);
         return inputGate;
     }
@@ -243,7 +217,7 @@ public class SingleInputGateFactory {
         return null;
     }
 
-    private void createInputChannels(
+    private void createInputChannelsAndTieredStorageService(
             String owningTaskName,
             InputGateDeploymentDescriptor inputGateDeploymentDescriptor,
             SingleInputGate inputGate,
@@ -262,22 +236,44 @@ public class SingleInputGateFactory {
         ChannelStatistics channelStatistics = new ChannelStatistics();
 
         int channelIdx = 0;
-        for (int i = 0; i < shuffleDescriptors.length; ++i) {
+        final List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = new ArrayList<>();
+        for (ShuffleDescriptor descriptor : shuffleDescriptors) {
+            TieredStoragePartitionId partitionId =
+                    TieredStorageIdMappingUtils.convertId(descriptor.getResultPartitionID());
             for (int subpartitionIndex : subpartitionIndexSet.values()) {
                 inputChannels[channelIdx] =
                         createInputChannel(
                                 inputGate,
                                 channelIdx,
                                 gateBuffersSpec.getEffectiveExclusiveBuffersPerChannel(),
-                                shuffleDescriptors[i],
+                                descriptor,
                                 new ResultSubpartitionIndexRange(subpartitionIndex),
                                 channelStatistics,
                                 metrics);
+                if (tieredStorageConfiguration != null) {
+                    tieredStorageConsumerSpecs.add(
+                            new TieredStorageConsumerSpec(
+                                    partitionId,
+                                    new TieredStorageInputChannelId(channelIdx),
+                                    new ResultSubpartitionIndexRange(subpartitionIndex)));
+                }
                 channelIdx++;
             }
         }
 
         inputGate.setInputChannels(inputChannels);
+
+        if (tieredStorageConfiguration != null) {
+            TieredStorageConsumerClient tieredStorageConsumerClient =
+                    new TieredStorageConsumerClient(
+                            tieredStorageConfiguration.getTierFactories(),
+                            tieredStorageConsumerSpecs,
+                            tieredStorageNettyService);
+            inputGate.setTieredStorageService(
+                    tieredStorageConsumerSpecs,
+                    tieredStorageConsumerClient,
+                    tieredStorageNettyService);
+        }
 
         LOG.debug(
                 "{}: Created {} input channels ({}).",

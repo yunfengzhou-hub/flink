@@ -302,10 +302,7 @@ public class InputGateFairnessTest {
 
     private SingleInputGate createFairnessVerifyingInputGate(int numberOfChannels) {
         return new FairnessVerifyingInputGate(
-                "Test Task Name",
-                new IntermediateDataSetID(),
-                new ResultSubpartitionIndexRange(0),
-                numberOfChannels);
+                "Test Task Name", new IntermediateDataSetID(), numberOfChannels);
     }
 
     private void fillRandom(
@@ -363,7 +360,6 @@ public class InputGateFairnessTest {
         public FairnessVerifyingInputGate(
                 String owningTaskName,
                 IntermediateDataSetID consumedResultId,
-                ResultSubpartitionIndexSet subpartitionIndexSet,
                 int numberOfInputChannels) {
 
             super(
@@ -371,7 +367,6 @@ public class InputGateFairnessTest {
                     0,
                     consumedResultId,
                     ResultPartitionType.PIPELINED,
-                    subpartitionIndexSet,
                     numberOfInputChannels,
                     SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                     STUB_BUFFER_POOL_FACTORY,
@@ -379,9 +374,6 @@ public class InputGateFairnessTest {
                     new UnpooledMemorySegmentProvider(BUFFER_SIZE),
                     BUFFER_SIZE,
                     new ThroughputCalculator(SystemClock.getInstance()),
-                    null,
-                    null,
-                    null,
                     null);
 
             channelsWithData = getInputChannelsWithData();

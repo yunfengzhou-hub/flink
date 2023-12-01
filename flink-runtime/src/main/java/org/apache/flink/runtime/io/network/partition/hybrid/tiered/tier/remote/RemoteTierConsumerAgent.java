@@ -23,15 +23,19 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,9 +59,15 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                     Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
             currentBufferIndexAndSegmentIds;
 
+    private final Map<
+                    TieredStoragePartitionId,
+                    Map<TieredStorageInputChannelId, TieredStorageSubpartitionId>>
+            subpartitionIds;
+
     private final int bufferSizeBytes;
 
     public RemoteTierConsumerAgent(
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             RemoteStorageScanner remoteStorageScanner,
             PartitionFileReader partitionFileReader,
             int bufferSizeBytes) {
@@ -65,6 +75,16 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         this.currentBufferIndexAndSegmentIds = new HashMap<>();
         this.partitionFileReader = partitionFileReader;
         this.bufferSizeBytes = bufferSizeBytes;
+
+        subpartitionIds = new HashMap<>();
+        for (TieredStorageConsumerSpec spec : tieredStorageConsumerSpecs) {
+            Iterator<TieredStorageSubpartitionId> iterator = spec.getSubpartitionIds().iterator();
+            TieredStorageSubpartitionId subpartitionId = iterator.next();
+            Preconditions.checkState(!iterator.hasNext());
+            subpartitionIds
+                    .computeIfAbsent(spec.getPartitionId(), ignored -> new HashMap<>())
+                    .put(spec.getInputChannelId(), subpartitionId);
+        }
     }
 
     @Override
@@ -94,7 +114,9 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<Buffer> getNextBuffer(
-            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+            TieredStoragePartitionId partitionId, TieredStorageInputChannelId inputChannelId) {
+        TieredStorageSubpartitionId subpartitionId =
+                subpartitionIds.get(partitionId).get(inputChannelId);
         // Get current segment id and buffer index.
         Tuple2<Integer, Integer> bufferIndexAndSegmentId =
                 currentBufferIndexAndSegmentIds

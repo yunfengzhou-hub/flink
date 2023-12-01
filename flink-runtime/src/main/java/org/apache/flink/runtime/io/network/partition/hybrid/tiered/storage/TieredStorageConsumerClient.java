@@ -18,16 +18,15 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
-import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -50,10 +49,11 @@ public class TieredStorageConsumerClient {
      * each data source, which is represented by {@link TieredStoragePartitionId} and {@link
      * TieredStorageSubpartitionId}.
      */
-    private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<TierConsumerAgent, Integer>>>
-            currentConsumerAgentAndSegmentIds = new HashMap<>();
+    private final Map<TieredStoragePartitionId, Map<TieredStorageInputChannelId, TierConsumerAgent>>
+            currentConsumerAgents = new HashMap<>();
+
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            segmentIds = new HashMap<>();
 
     private final List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs;
 
@@ -71,36 +71,32 @@ public class TieredStorageConsumerClient {
         for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
             tierConsumerAgent.start();
             for (TieredStorageConsumerSpec spec : tieredStorageConsumerSpecs) {
-                tierConsumerAgent.notifyRequiredSegmentId(
-                        spec.getPartitionId(), spec.getSubpartitionId(), 0);
+                for (TieredStorageSubpartitionId subpartitionId : spec.getSubpartitionIds()) {
+                    tierConsumerAgent.notifyRequiredSegmentId(
+                            spec.getPartitionId(), subpartitionId, 0);
+                }
             }
         }
     }
 
     public Optional<Buffer> getNextBuffer(
-            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId)
+            TieredStoragePartitionId partitionId, TieredStorageInputChannelId inputChannelId)
             throws IOException {
-        Tuple2<TierConsumerAgent, Integer> currentConsumerAgentAndSegmentId =
-                currentConsumerAgentAndSegmentIds
+        TierConsumerAgent currentConsumerAgent =
+                currentConsumerAgents
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
-                        .getOrDefault(subpartitionId, Tuple2.of(null, 0));
+                        .getOrDefault(inputChannelId, null);
         Optional<Buffer> buffer = Optional.empty();
-        if (currentConsumerAgentAndSegmentId.f0 == null) {
+        if (currentConsumerAgent == null) {
             for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
-                buffer = tierConsumerAgent.getNextBuffer(partitionId, subpartitionId);
+                buffer = tierConsumerAgent.getNextBuffer(partitionId, inputChannelId);
                 if (buffer.isPresent()) {
-                    currentConsumerAgentAndSegmentIds
-                            .get(partitionId)
-                            .put(
-                                    subpartitionId,
-                                    Tuple2.of(
-                                            tierConsumerAgent,
-                                            currentConsumerAgentAndSegmentId.f1));
+                    currentConsumerAgents.get(partitionId).put(inputChannelId, tierConsumerAgent);
                     break;
                 }
             }
         } else {
-            buffer = currentConsumerAgentAndSegmentId.f0.getNextBuffer(partitionId, subpartitionId);
+            buffer = currentConsumerAgent.getNextBuffer(partitionId, inputChannelId);
         }
         if (!buffer.isPresent()) {
             return Optional.empty();
@@ -111,20 +107,19 @@ public class TieredStorageConsumerClient {
                     (EndOfSegmentEvent)
                             EventSerializer.fromSerializedEvent(
                                     bufferData.getNioBufferReadable(), getClass().getClassLoader());
-            Preconditions.checkState(
-                    subpartitionId.equals(
-                            new TieredStorageSubpartitionId(event.getSubpartitionId())));
-            currentConsumerAgentAndSegmentIds
-                    .get(partitionId)
-                    .put(subpartitionId, Tuple2.of(null, currentConsumerAgentAndSegmentId.f1 + 1));
+            TieredStorageSubpartitionId subpartitionId =
+                    new TieredStorageSubpartitionId(event.getSubpartitionId());
+            Map<TieredStorageSubpartitionId, Integer> segmentIdsForCurrentPartition =
+                    segmentIds.computeIfAbsent(partitionId, ignore -> new HashMap<>());
+            int currentSegmentId = segmentIdsForCurrentPartition.getOrDefault(subpartitionId, 0);
+            segmentIdsForCurrentPartition.put(subpartitionId, currentSegmentId + 1);
             bufferData.recycleBuffer();
 
             for (TierConsumerAgent agent : tierConsumerAgents) {
-                agent.notifyRequiredSegmentId(
-                        partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1 + 1);
+                agent.notifyRequiredSegmentId(partitionId, subpartitionId, currentSegmentId + 1);
             }
 
-            return getNextBuffer(partitionId, subpartitionId);
+            return getNextBuffer(partitionId, inputChannelId);
         }
         return Optional.of(bufferData);
     }

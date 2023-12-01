@@ -18,28 +18,54 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+
+import java.util.Iterator;
 
 /** Describe the different data sources in {@link TieredStorageConsumerClient}. */
 public class TieredStorageConsumerSpec {
 
     private final TieredStoragePartitionId tieredStoragePartitionId;
 
-    private final TieredStorageSubpartitionId tieredStorageSubpartitionId;
+    private final TieredStorageInputChannelId tieredStorageInputChannelId;
+
+    private final ResultSubpartitionIndexSet tieredStorageSubpartitionIndexSet;
 
     public TieredStorageConsumerSpec(
             TieredStoragePartitionId tieredStoragePartitionId,
-            TieredStorageSubpartitionId tieredStorageSubpartitionId) {
+            TieredStorageInputChannelId tieredStorageInputChannelId,
+            ResultSubpartitionIndexSet tieredStorageSubpartitionIndexSet) {
         this.tieredStoragePartitionId = tieredStoragePartitionId;
-        this.tieredStorageSubpartitionId = tieredStorageSubpartitionId;
+        this.tieredStorageInputChannelId = tieredStorageInputChannelId;
+        this.tieredStorageSubpartitionIndexSet = tieredStorageSubpartitionIndexSet;
     }
 
     public TieredStoragePartitionId getPartitionId() {
         return tieredStoragePartitionId;
     }
 
-    public TieredStorageSubpartitionId getSubpartitionId() {
-        return tieredStorageSubpartitionId;
+    public TieredStorageInputChannelId getInputChannelId() {
+        return tieredStorageInputChannelId;
+    }
+
+    public Iterable<TieredStorageSubpartitionId> getSubpartitionIds() {
+        return () ->
+                new Iterator<TieredStorageSubpartitionId>() {
+                    private final Iterator<Integer> iterator =
+                            tieredStorageSubpartitionIndexSet.values().iterator();
+
+                    @Override
+                    public boolean hasNext() {
+                        return iterator.hasNext();
+                    }
+
+                    @Override
+                    public TieredStorageSubpartitionId next() {
+                        return new TieredStorageSubpartitionId(iterator.next());
+                    }
+                };
     }
 }

@@ -22,10 +22,12 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexRange;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageInputChannelId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.TestingPartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,15 +53,21 @@ class RemoteTierConsumerAgentTest {
 
     @Test
     void testGetEmptyBuffer() {
+        TieredStoragePartitionId partitionId =
+                new TieredStoragePartitionId(new ResultPartitionID());
         RemoteTierConsumerAgent remoteTierConsumerAgent =
                 new RemoteTierConsumerAgent(
+                        Collections.singletonList(
+                                new TieredStorageConsumerSpec(
+                                        partitionId,
+                                        new TieredStorageInputChannelId(0),
+                                        new ResultSubpartitionIndexRange(0))),
                         new RemoteStorageScanner(remoteStoragePath),
                         new TestingPartitionFileReader.Builder().build(),
                         1024);
         assertThat(
                         remoteTierConsumerAgent.getNextBuffer(
-                                new TieredStoragePartitionId(new ResultPartitionID()),
-                                new TieredStorageSubpartitionId(0)))
+                                partitionId, new TieredStorageInputChannelId(0)))
                 .isEmpty();
     }
 
@@ -77,13 +85,21 @@ class RemoteTierConsumerAgentTest {
                                                 false,
                                                 null))
                         .build();
+        TieredStoragePartitionId partitionId =
+                new TieredStoragePartitionId(new ResultPartitionID());
         RemoteTierConsumerAgent remoteTierConsumerAgent =
                 new RemoteTierConsumerAgent(
-                        new RemoteStorageScanner(remoteStoragePath), partitionFileReader, 1024);
+                        Collections.singletonList(
+                                new TieredStorageConsumerSpec(
+                                        partitionId,
+                                        new TieredStorageInputChannelId(0),
+                                        new ResultSubpartitionIndexRange(0))),
+                        new RemoteStorageScanner(remoteStoragePath),
+                        partitionFileReader,
+                        1024);
         Optional<Buffer> optionalBuffer =
                 remoteTierConsumerAgent.getNextBuffer(
-                        new TieredStoragePartitionId(new ResultPartitionID()),
-                        new TieredStorageSubpartitionId(0));
+                        partitionId, new TieredStorageInputChannelId(0));
         assertThat(optionalBuffer)
                 .hasValueSatisfying(
                         buffer -> assertThat(buffer.readableBytes()).isEqualTo(bufferSize));
