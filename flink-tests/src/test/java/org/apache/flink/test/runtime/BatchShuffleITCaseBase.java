@@ -19,6 +19,7 @@
 package org.apache.flink.test.runtime;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
+import org.apache.flink.api.common.eventtime.Watermark;
 import org.apache.flink.api.common.functions.OpenContext;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
@@ -169,9 +170,12 @@ class BatchShuffleITCaseBase {
 
         private final boolean deletePartitionFile;
 
+        private boolean isWatermarkReceived;
+
         VerifySink(boolean failExecution, boolean deletePartitionFile) {
             this.failExecution = failExecution;
             this.deletePartitionFile = deletePartitionFile;
+            this.isWatermarkReceived = false;
         }
 
         @Override
@@ -194,7 +198,14 @@ class BatchShuffleITCaseBase {
         }
 
         @Override
+        public void writeWatermark(Watermark watermark) throws Exception {
+            assertThat(watermark.getTimestamp()).isEqualTo(Long.MAX_VALUE);
+            isWatermarkReceived = true;
+        }
+
+        @Override
         public void invoke(String value, Context context) throws Exception {
+            assertThat(isWatermarkReceived).isFalse();
             NUM_RECEIVED_RECORDS[getRuntimeContext().getIndexOfThisSubtask()]++;
             assertThat(value).isEqualTo(RECORD);
         }
