@@ -30,8 +30,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Set;
 
 /**
  * A wrapper to union the output from multiple {@link ResultSubpartitionView}s. This class provides
@@ -71,6 +73,14 @@ public class UnionResultSubpartitionView
     private final Queue<Tuple2<ResultSubpartition.BufferAndBacklog, Integer>> cachedBuffers =
             new LinkedList<>();
 
+    /**
+     * A collection storing views that have triggered {@link
+     * #notifyDataAvailable(ResultSubpartitionView)} without {@link #notifyViewCreated(int,
+     * ResultSubpartitionView)}. This is used to resolve the race condition between these two
+     * methods.
+     */
+    private final Set<ResultSubpartitionView> unregisteredAvailableViews = new HashSet<>();
+
     private boolean isReleased;
 
     private int sequenceNumber;
@@ -82,7 +92,12 @@ public class UnionResultSubpartitionView
     }
 
     public void notifyViewCreated(int subpartitionId, ResultSubpartitionView view) {
-        allViews.put(subpartitionId, view);
+        synchronized (lock) {
+            allViews.put(subpartitionId, view);
+            if (unregisteredAvailableViews.remove(view)) {
+                notifyDataAvailable(view);
+            }
+        }
     }
 
     @Override
@@ -148,6 +163,11 @@ public class UnionResultSubpartitionView
     @Override
     public void notifyDataAvailable(ResultSubpartitionView view) {
         synchronized (lock) {
+            if (!allViews.containsValue(view)) {
+                unregisteredAvailableViews.add(view);
+                return;
+            }
+
             if (!availableViews.notifyDataAvailable(view) || !cachedBuffers.isEmpty()) {
                 // The availabilityListener has already been notified.
                 return;
