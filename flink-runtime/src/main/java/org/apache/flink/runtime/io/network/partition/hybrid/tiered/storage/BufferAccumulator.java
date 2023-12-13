@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.function.BiConsumer;
 
 /**
  * Accumulates received records into buffers. The {@link BufferAccumulator} receives the records
@@ -35,9 +34,10 @@ public interface BufferAccumulator extends AutoCloseable {
      * Setup the accumulator.
      *
      * @param bufferFlusher accepts the accumulated buffers. The first field is the subpartition id,
-     *     the second is the accumulated buffer to flush.
+     *     the second is the accumulated buffer to flush, and the third is the number of remaining
+     *     buffers to be written consecutively to the same segment.
      */
-    void setup(BiConsumer<TieredStorageSubpartitionId, Buffer> bufferFlusher);
+    void setup(TriConsumer<TieredStorageSubpartitionId, Buffer, Integer> bufferFlusher);
 
     /**
      * Receives the records from tiered store producer, these records will be accumulated and
@@ -63,4 +63,11 @@ public interface BufferAccumulator extends AutoCloseable {
      * Close the accumulator. This will flush all the remaining data and release all the resources.
      */
     void close();
+
+    /** Represents an operation that accepts three input arguments and returns no result. */
+    @FunctionalInterface
+    interface TriConsumer<A, B, C> {
+        /** Performs this operation on the given arguments. */
+        void accept(A a, B b, C c);
+    }
 }

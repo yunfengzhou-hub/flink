@@ -203,6 +203,7 @@ public abstract class InputChannel {
             switch (bufferAndAvailability.get().buffer().getDataType()) {
                 case NONE:
                 case DATA_BUFFER:
+                case DATA_BUFFER_WITH_CLEAR_END:
                 case END_OF_SEGMENT:
                     break;
                 case END_OF_DATA:

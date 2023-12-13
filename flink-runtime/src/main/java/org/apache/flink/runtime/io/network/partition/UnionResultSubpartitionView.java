@@ -120,16 +120,8 @@ public class UnionResultSubpartitionView
                 }
             }
 
-            // Currently, each runtime event is stored in an individual buffer, while
-            // stream elements would share and make full use the buffer space. Thus
-            // the partial record status can be determined by checkpoint the data type
-            // of the current and the next buffer.
-            boolean isLastBufferPartialRecord =
-                    buffer.buffer().getDataType() == Buffer.DataType.DATA_BUFFER
-                            && (buffer.getNextDataType() == Buffer.DataType.DATA_BUFFER
-                                    || buffer.getNextDataType() == Buffer.DataType.NONE);
-
-            availableViews.markLastConsumptionStatus(true, isLastBufferPartialRecord);
+            availableViews.markLastConsumptionStatus(
+                    true, buffer.buffer().getDataType().isPartialRecord());
 
             cachedBuffers.add(buffer);
         } while (cachedBuffers.size() < CACHE_CAPACITY);

@@ -166,9 +166,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent, AvailabilityN
                 currentBufferIndexAndSegmentIds
                         .get(partitionId)
                         .put(subpartitionId, Tuple2.of(++currentBufferIndex, currentSegmentId));
-                boolean isLastBufferPartialRecord =
-                        buffer.getDataType() == Buffer.DataType.DATA_BUFFER;
-                selector.markLastConsumptionStatus(true, isLastBufferPartialRecord);
+                selector.markLastConsumptionStatus(true, buffer.getDataType().isPartialRecord());
                 return Optional.of(buffer);
             } else {
                 selector.markLastConsumptionStatus(false, false);
