@@ -19,12 +19,15 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
+import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,6 +55,8 @@ public class TieredStorageConsumerClient {
                     Map<TieredStorageSubpartitionId, Tuple2<TierConsumerAgent, Integer>>>
             currentConsumerAgentAndSegmentIds = new HashMap<>();
 
+    private final List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs;
+
     public TieredStorageConsumerClient(
             List<TierFactory> tierFactories,
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
@@ -59,16 +64,22 @@ public class TieredStorageConsumerClient {
         this.tierFactories = tierFactories;
         this.nettyService = nettyService;
         this.tierConsumerAgents = createTierConsumerAgents(tieredStorageConsumerSpecs);
+        this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
     }
 
     public void start() {
         for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
             tierConsumerAgent.start();
+            for (TieredStorageConsumerSpec spec : tieredStorageConsumerSpecs) {
+                tierConsumerAgent.notifyRequiredSegmentId(
+                        spec.getPartitionId(), spec.getSubpartitionId(), 0);
+            }
         }
     }
 
     public Optional<Buffer> getNextBuffer(
-            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId)
+            throws IOException {
         Tuple2<TierConsumerAgent, Integer> currentConsumerAgentAndSegmentId =
                 currentConsumerAgentAndSegmentIds
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
@@ -76,9 +87,7 @@ public class TieredStorageConsumerClient {
         Optional<Buffer> buffer = Optional.empty();
         if (currentConsumerAgentAndSegmentId.f0 == null) {
             for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
-                buffer =
-                        tierConsumerAgent.getNextBuffer(
-                                partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
+                buffer = tierConsumerAgent.getNextBuffer(partitionId, subpartitionId);
                 if (buffer.isPresent()) {
                     currentConsumerAgentAndSegmentIds
                             .get(partitionId)
@@ -91,19 +100,30 @@ public class TieredStorageConsumerClient {
                 }
             }
         } else {
-            buffer =
-                    currentConsumerAgentAndSegmentId.f0.getNextBuffer(
-                            partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
+            buffer = currentConsumerAgentAndSegmentId.f0.getNextBuffer(partitionId, subpartitionId);
         }
         if (!buffer.isPresent()) {
             return Optional.empty();
         }
         Buffer bufferData = buffer.get();
         if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
+            EndOfSegmentEvent event =
+                    (EndOfSegmentEvent)
+                            EventSerializer.fromSerializedEvent(
+                                    bufferData.getNioBufferReadable(), getClass().getClassLoader());
+            Preconditions.checkState(
+                    subpartitionId.equals(
+                            new TieredStorageSubpartitionId(event.getSubpartitionId())));
             currentConsumerAgentAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(null, currentConsumerAgentAndSegmentId.f1 + 1));
             bufferData.recycleBuffer();
+
+            for (TierConsumerAgent agent : tierConsumerAgents) {
+                agent.notifyRequiredSegmentId(
+                        partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1 + 1);
+            }
+
             return getNextBuffer(partitionId, subpartitionId);
         }
         return Optional.of(bufferData);

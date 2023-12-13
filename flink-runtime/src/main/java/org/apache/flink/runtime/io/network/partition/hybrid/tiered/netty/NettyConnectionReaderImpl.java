@@ -20,9 +20,12 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -33,22 +36,30 @@ public class NettyConnectionReaderImpl implements NettyConnectionReader {
     private final Supplier<InputChannel> inputChannelProvider;
 
     /** The last required segment id. */
-    private int lastRequiredSegmentId = 0;
+    private final Map<TieredStorageSubpartitionId, Integer> lastRequiredSegmentIds =
+            new HashMap<>();
 
     public NettyConnectionReaderImpl(Supplier<InputChannel> inputChannelProvider) {
         this.inputChannelProvider = inputChannelProvider;
     }
 
     @Override
-    public Optional<Buffer> readBuffer(int segmentId) {
+    public void notifyRequiredSegmentId(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+        int lastRequiredSegmentId = lastRequiredSegmentIds.getOrDefault(subpartitionId, 0);
         if (segmentId > 0L && (segmentId != lastRequiredSegmentId)) {
-            lastRequiredSegmentId = segmentId;
+            lastRequiredSegmentIds.put(subpartitionId, segmentId);
             try {
-                inputChannelProvider.get().notifyRequiredSegmentId(segmentId);
+                inputChannelProvider
+                        .get()
+                        .notifyRequiredSegmentId(subpartitionId.getSubpartitionId(), segmentId);
             } catch (IOException e) {
                 ExceptionUtils.rethrow(e, "Failed to notify required segment id");
             }
         }
+    }
+
+    @Override
+    public Optional<Buffer> readBuffer() {
         Optional<InputChannel.BufferAndAvailability> bufferAndAvailability = Optional.empty();
         try {
             bufferAndAvailability = inputChannelProvider.get().getNextBuffer();

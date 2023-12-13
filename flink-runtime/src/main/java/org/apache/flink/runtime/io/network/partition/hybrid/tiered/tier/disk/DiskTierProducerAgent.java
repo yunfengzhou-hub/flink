@@ -204,7 +204,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     private void emitEndOfSegmentEvent(int subpartitionId) {
         try {
             diskCacheManager.appendEndOfSegmentEvent(
-                    EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), subpartitionId);
+                    EventSerializer.toSerializedEvent(new EndOfSegmentEvent(subpartitionId)),
+                    subpartitionId);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to emit end of segment event.");
         }

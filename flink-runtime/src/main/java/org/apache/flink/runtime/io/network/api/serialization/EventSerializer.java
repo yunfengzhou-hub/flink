@@ -143,7 +143,12 @@ public class EventSerializer {
             buf.flip();
             return buf;
         } else if (eventClass == EndOfSegmentEvent.class) {
-            return ByteBuffer.wrap(new byte[] {0, 0, 0, END_OF_SEGMENT});
+            EndOfSegmentEvent endOfSegmentEvent = (EndOfSegmentEvent) event;
+
+            ByteBuffer buf = ByteBuffer.allocate(8);
+            buf.putInt(0, END_OF_SEGMENT);
+            buf.putInt(4, endOfSegmentEvent.getSubpartitionId());
+            return buf;
         } else {
             try {
                 final DataOutputSerializer serializer = new DataOutputSerializer(128);
@@ -189,7 +194,8 @@ public class EventSerializer {
             } else if (type == VIRTUAL_CHANNEL_SELECTOR_EVENT) {
                 return new SubtaskConnectionDescriptor(buffer.getInt(), buffer.getInt());
             } else if (type == END_OF_SEGMENT) {
-                return EndOfSegmentEvent.INSTANCE;
+                int subpartitionId = buffer.getInt();
+                return new EndOfSegmentEvent(subpartitionId);
             } else if (type == OTHER_EVENT) {
                 try {
                     final DataInputDeserializer deserializer = new DataInputDeserializer(buffer);

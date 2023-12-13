@@ -19,32 +19,38 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 /** Test implementation for {@link NettyConnectionReader}. */
 public class TestingNettyConnectionReader implements NettyConnectionReader {
 
-    private final Function<Integer, Buffer> readBufferFunction;
+    private final Supplier<Buffer> readBufferFunction;
 
-    private TestingNettyConnectionReader(Function<Integer, Buffer> readBufferFunction) {
+    private TestingNettyConnectionReader(Supplier<Buffer> readBufferFunction) {
         this.readBufferFunction = readBufferFunction;
     }
 
     @Override
-    public Optional<Buffer> readBuffer(int segmentId) {
-        return Optional.of(readBufferFunction.apply(segmentId));
+    public void notifyRequiredSegmentId(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<Buffer> readBuffer() {
+        return Optional.of(readBufferFunction.get());
     }
 
     /** Builder for {@link TestingNettyConnectionReader}. */
     public static class Builder {
 
-        private Function<Integer, Buffer> readBufferFunction = segmentId -> null;
+        private Supplier<Buffer> readBufferFunction = () -> null;
 
         public Builder() {}
 
-        public Builder setReadBufferFunction(Function<Integer, Buffer> readBufferFunction) {
+        public Builder setReadBufferFunction(Supplier<Buffer> readBufferFunction) {
             this.readBufferFunction = readBufferFunction;
             return this;
         }

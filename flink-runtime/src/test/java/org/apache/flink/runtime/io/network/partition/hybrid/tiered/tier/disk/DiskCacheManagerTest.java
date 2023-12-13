@@ -115,7 +115,7 @@ class DiskCacheManagerTest {
                         memoryManager,
                         partitionFileWriter);
         diskCacheManager.appendEndOfSegmentEvent(
-                EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), 0);
+                EventSerializer.toSerializedEvent(new EndOfSegmentEvent(0)), 0);
 
         diskCacheManager.close();
         assertThat(receivedBuffers).hasSize(1);
@@ -163,7 +163,7 @@ class DiskCacheManagerTest {
         diskCacheManager.append(BufferBuilderTestUtils.buildSomeBuffer(1024), 0);
         assertThat(numWriteTimes).hasValue(1);
         diskCacheManager.appendEndOfSegmentEvent(
-                EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), 0);
+                EventSerializer.toSerializedEvent(new EndOfSegmentEvent(0)), 0);
         assertThat(numWriteTimes).hasValue(2);
     }
 

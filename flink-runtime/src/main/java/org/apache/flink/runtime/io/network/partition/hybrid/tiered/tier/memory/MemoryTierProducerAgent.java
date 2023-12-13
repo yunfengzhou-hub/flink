@@ -171,7 +171,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
         try {
             MemorySegment memorySegment =
                     MemorySegmentFactory.wrap(
-                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE).array());
+                            EventSerializer.toSerializedEvent(new EndOfSegmentEvent(subpartitionId))
+                                    .array());
             addFinishedBuffer(
                     new NetworkBuffer(
                             memorySegment,

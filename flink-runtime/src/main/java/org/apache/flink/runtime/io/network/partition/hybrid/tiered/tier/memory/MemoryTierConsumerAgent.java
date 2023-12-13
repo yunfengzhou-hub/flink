@@ -70,17 +70,27 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<Buffer> getNextBuffer(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+        try {
+            return nettyConnectionReaders.get(partitionId).get(subpartitionId).get().readBuffer();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("Failed to get next buffer.", e);
+        }
+    }
+
+    @Override
+    public void notifyRequiredSegmentId(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
         try {
-            return nettyConnectionReaders
+            nettyConnectionReaders
                     .get(partitionId)
                     .get(subpartitionId)
                     .get()
-                    .readBuffer(segmentId);
+                    .notifyRequiredSegmentId(subpartitionId, segmentId);
         } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException("Failed to get next buffer.", e);
+            throw new RuntimeException("Failed to notify required segment id.", e);
         }
     }
 

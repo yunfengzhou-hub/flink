@@ -73,10 +73,28 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public Optional<Buffer> getNextBuffer(
+    public void notifyRequiredSegmentId(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
+        Tuple2<Integer, Integer> bufferIndexAndSegmentId =
+                currentBufferIndexAndSegmentIds
+                        .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                        .getOrDefault(subpartitionId, Tuple2.of(0, -1));
+        int currentBufferIndex = bufferIndexAndSegmentId.f0;
+        int currentSegmentId = bufferIndexAndSegmentId.f1;
+
+        if (segmentId != currentSegmentId) {
+            remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
+            currentBufferIndexAndSegmentIds
+                    .get(partitionId)
+                    .put(subpartitionId, Tuple2.of(currentBufferIndex, segmentId));
+        }
+    }
+
+    @Override
+    public Optional<Buffer> getNextBuffer(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
         // Get current segment id and buffer index.
         Tuple2<Integer, Integer> bufferIndexAndSegmentId =
                 currentBufferIndexAndSegmentIds
@@ -84,9 +102,6 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                         .getOrDefault(subpartitionId, Tuple2.of(0, -1));
         int currentBufferIndex = bufferIndexAndSegmentId.f0;
         int currentSegmentId = bufferIndexAndSegmentId.f1;
-        if (segmentId != currentSegmentId) {
-            remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
-        }
 
         // Read buffer from the partition file in remote storage.
         MemorySegment memorySegment = MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
@@ -96,7 +111,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                     partitionFileReader.readBuffer(
                             partitionId,
                             subpartitionId,
-                            segmentId,
+                            currentSegmentId,
                             currentBufferIndex,
                             memorySegment,
                             FreeingBufferRecycler.INSTANCE,
@@ -112,7 +127,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             Buffer buffer = readBuffers.get(0);
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
-                    .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
+                    .put(subpartitionId, Tuple2.of(++currentBufferIndex, currentSegmentId));
             return Optional.of(buffer);
         } else {
             memorySegment.free();

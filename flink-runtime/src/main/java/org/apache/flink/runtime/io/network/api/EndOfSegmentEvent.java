@@ -24,6 +24,7 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.event.RuntimeEvent;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * {@link EndOfSegmentEvent} is used to notify the downstream switch tiers in tiered storage shuffle
@@ -31,11 +32,15 @@ import java.io.IOException;
  */
 @Internal
 public class EndOfSegmentEvent extends RuntimeEvent {
+    private final int subpartitionId;
 
-    /** The singleton instance of this event. */
-    public static final EndOfSegmentEvent INSTANCE = new EndOfSegmentEvent();
+    public EndOfSegmentEvent(int subpartitionId) {
+        this.subpartitionId = subpartitionId;
+    }
 
-    private EndOfSegmentEvent() {}
+    public int getSubpartitionId() {
+        return subpartitionId;
+    }
 
     @Override
     public void write(DataOutputView out) throws IOException {
@@ -51,16 +56,18 @@ public class EndOfSegmentEvent extends RuntimeEvent {
 
     @Override
     public int hashCode() {
-        return 1965146672;
+        return Objects.hashCode(this.subpartitionId);
     }
 
     @Override
     public boolean equals(Object obj) {
-        return obj != null && obj.getClass() == EndOfSegmentEvent.class;
+        return obj != null
+                && obj.getClass() == EndOfSegmentEvent.class
+                && ((EndOfSegmentEvent) obj).subpartitionId == this.subpartitionId;
     }
 
     @Override
     public String toString() {
-        return getClass().getSimpleName();
+        return "EndOfSegmentEvent{subpartitionId=" + subpartitionId + "}";
     }
 }

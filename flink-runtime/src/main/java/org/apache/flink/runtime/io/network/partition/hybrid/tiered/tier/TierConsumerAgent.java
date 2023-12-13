@@ -36,17 +36,26 @@ public interface TierConsumerAgent {
     void start();
 
     /**
+     * Notify the upstream the id of required segment that should be sent to netty connection.
+     *
+     * @param partitionId The id of the partition.
+     * @param subpartitionId The id of the corresponding subpartition.
+     * @param segmentId The id of required segment.
+     */
+    void notifyRequiredSegmentId(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId);
+
+    /**
      * Get buffer from the consumer agent.
      *
      * @param partitionId the id of partition.
      * @param subpartitionId the id of subpartition.
-     * @param segmentId the id of segment.
      * @return buffer.
      */
     Optional<Buffer> getNextBuffer(
-            TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId,
-            int segmentId);
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId);
 
     /**
      * Register the notifier to notify the availability of a subpartition.

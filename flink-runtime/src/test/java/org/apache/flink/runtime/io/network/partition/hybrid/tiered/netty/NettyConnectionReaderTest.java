@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
@@ -58,7 +58,8 @@ class NettyConnectionReaderTest {
         Supplier<InputChannel> inputChannelSupplier =
                 createInputChannelSupplier(bufferNumber, requiredSegmentIdFuture);
         NettyConnectionReader reader = createNettyConnectionReader(inputChannelSupplier);
-        Optional<Buffer> buffer = reader.readBuffer(0);
+        reader.notifyRequiredSegmentId(new TieredStorageSubpartitionId(0), 0);
+        Optional<Buffer> buffer = reader.readBuffer();
         assertThat(buffer).isPresent();
         assertThat(buffer.get().isBuffer()).isTrue();
         assertThat(requiredSegmentIdFuture).isNotDone();
@@ -70,20 +71,23 @@ class NettyConnectionReaderTest {
         Supplier<InputChannel> inputChannelSupplier =
                 createInputChannelSupplier(bufferNumber, requiredSegmentIdFuture);
         NettyConnectionReader reader = createNettyConnectionReader(inputChannelSupplier);
-        Optional<Buffer> buffer = reader.readBuffer(0);
+        reader.notifyRequiredSegmentId(new TieredStorageSubpartitionId(0), 0);
+        Optional<Buffer> buffer = reader.readBuffer();
         assertThat(buffer).isNotPresent();
         assertThat(requiredSegmentIdFuture).isNotDone();
     }
 
     @Test
-    void testReadDifferentSegments() throws ExecutionException, InterruptedException {
+    void testReadDifferentSegments() throws Exception {
         int bufferNumber = 0;
         Supplier<InputChannel> inputChannelSupplier =
                 createInputChannelSupplier(bufferNumber, requiredSegmentIdFuture);
         NettyConnectionReader reader = createNettyConnectionReader(inputChannelSupplier);
-        reader.readBuffer(0);
+        reader.notifyRequiredSegmentId(new TieredStorageSubpartitionId(0), 0);
+        reader.readBuffer();
         assertThat(requiredSegmentIdFuture).isNotDone();
-        reader.readBuffer(1);
+        reader.notifyRequiredSegmentId(new TieredStorageSubpartitionId(0), 1);
+        reader.readBuffer();
         assertThat(requiredSegmentIdFuture.get()).isEqualTo(1);
     }
 

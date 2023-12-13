@@ -56,10 +56,14 @@ public class TestingTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public Optional<Buffer> getNextBuffer(
+    public void notifyRequiredSegmentId(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
-            int segmentId) {
+            int segmentId) {}
+
+    @Override
+    public Optional<Buffer> getNextBuffer(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
         Buffer buffer = bufferSupplier.get();
         return buffer == null ? Optional.empty() : Optional.of(buffer);
     }

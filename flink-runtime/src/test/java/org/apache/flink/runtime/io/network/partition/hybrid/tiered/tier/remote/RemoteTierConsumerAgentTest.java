@@ -59,8 +59,7 @@ class RemoteTierConsumerAgentTest {
         assertThat(
                         remoteTierConsumerAgent.getNextBuffer(
                                 new TieredStoragePartitionId(new ResultPartitionID()),
-                                new TieredStorageSubpartitionId(0),
-                                0))
+                                new TieredStorageSubpartitionId(0)))
                 .isEmpty();
     }
 
@@ -84,8 +83,7 @@ class RemoteTierConsumerAgentTest {
         Optional<Buffer> optionalBuffer =
                 remoteTierConsumerAgent.getNextBuffer(
                         new TieredStoragePartitionId(new ResultPartitionID()),
-                        new TieredStorageSubpartitionId(0),
-                        0);
+                        new TieredStorageSubpartitionId(0));
         assertThat(optionalBuffer)
                 .hasValueSatisfying(
                         buffer -> assertThat(buffer.readableBytes()).isEqualTo(bufferSize));

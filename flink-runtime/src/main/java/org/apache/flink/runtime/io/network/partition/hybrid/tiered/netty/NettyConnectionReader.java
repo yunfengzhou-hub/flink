@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.util.Optional;
@@ -26,11 +27,18 @@ import java.util.Optional;
 /** {@link NettyConnectionReader} is used by {@link TierConsumerAgent} to read buffer from netty. */
 public interface NettyConnectionReader {
     /**
+     * Notify the upstream the id of required segment that should be sent to netty connection.
+     *
+     * @param subpartitionId The id of the corresponding subpartition.
+     * @param segmentId The id of required segment.
+     */
+    void notifyRequiredSegmentId(TieredStorageSubpartitionId subpartitionId, int segmentId);
+
+    /**
      * Read a buffer from netty connection.
      *
-     * @param segmentId segment id indicates the id of segment.
      * @return {@link Optional#empty()} will be returned if there is no buffer sent from netty
      *     connection otherwise a buffer will be returned.
      */
-    Optional<Buffer> readBuffer(int segmentId);
+    Optional<Buffer> readBuffer();
 }

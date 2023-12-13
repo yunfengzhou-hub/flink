@@ -112,7 +112,7 @@ class EventSerializerTest {
                                 10)),
                 44),
         new SubtaskConnectionDescriptor(23, 42),
-        EndOfSegmentEvent.INSTANCE
+        new EndOfSegmentEvent(0)
     };
 
     @Test

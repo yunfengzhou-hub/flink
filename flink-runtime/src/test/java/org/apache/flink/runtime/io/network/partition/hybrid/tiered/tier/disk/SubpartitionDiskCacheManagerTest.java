@@ -56,7 +56,7 @@ class SubpartitionDiskCacheManagerTest {
         SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 new SubpartitionDiskCacheManager();
         subpartitionDiskCacheManager.appendEndOfSegmentEvent(
-                EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE));
+                EventSerializer.toSerializedEvent(new EndOfSegmentEvent(0)));
         List<Tuple2<Buffer, Integer>> bufferAndIndexes =
                 subpartitionDiskCacheManager.removeAllBuffers();
 
