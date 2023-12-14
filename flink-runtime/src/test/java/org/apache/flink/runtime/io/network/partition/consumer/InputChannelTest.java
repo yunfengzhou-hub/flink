@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexRange;
 
 import org.junit.jupiter.api.Test;
 
@@ -124,7 +125,7 @@ class InputChannelTest {
                     inputGate,
                     channelIndex,
                     partitionId,
-                    0,
+                    new ResultSubpartitionIndexRange(0),
                     initialBackoff,
                     maxBackoff,
                     new SimpleCounter(),

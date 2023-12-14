@@ -50,6 +50,8 @@ import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ProducerFailedException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexRange;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.util.TestBufferFactory;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -1662,7 +1664,8 @@ class RemoteInputChannelTest {
     private RemoteInputChannel createRemoteInputChannel(
             SingleInputGate inputGate, int consumedSubpartitionIndex, int initialCredits) {
         return InputChannelBuilder.newBuilder()
-                .setConsumedSubpartitionIndex(consumedSubpartitionIndex)
+                .setSubpartitionIndexSet(
+                        new ResultSubpartitionIndexRange(consumedSubpartitionIndex))
                 .setNetworkBuffersPerChannel(initialCredits)
                 .buildRemoteChannel(inputGate);
     }
@@ -1673,7 +1676,8 @@ class RemoteInputChannelTest {
             int partitionRequestTimeout,
             int maxBackoff) {
         return InputChannelBuilder.newBuilder()
-                .setConsumedSubpartitionIndex(consumedSubpartitionIndex)
+                .setSubpartitionIndexSet(
+                        new ResultSubpartitionIndexRange(consumedSubpartitionIndex))
                 .setPartitionRequestListenerTimeout(partitionRequestTimeout)
                 .setMaxBackoff(maxBackoff)
                 .buildRemoteChannel(inputGate);
@@ -2046,24 +2050,25 @@ class RemoteInputChannelTest {
     private static final class TestVerifyPartitionRequestClient
             extends TestingPartitionRequestClient {
         private ResultPartitionID partitionId;
-        private int subpartitionIndex;
+        private ResultSubpartitionIndexSet subpartitionIndexSet;
         private int delayMs;
 
         @Override
         public void requestSubpartition(
                 ResultPartitionID partitionId,
-                int subpartitionIndex,
+                ResultSubpartitionIndexSet subpartitionIndexSet,
                 RemoteInputChannel channel,
                 int delayMs) {
             this.partitionId = partitionId;
-            this.subpartitionIndex = subpartitionIndex;
+            this.subpartitionIndexSet = subpartitionIndexSet;
             this.delayMs = delayMs;
         }
 
         void verifyResult(
                 ResultPartitionID expectedId, int expectedSubpartitionIndex, int expectedDelayMs) {
             assertThat(partitionId).isEqualTo(expectedId);
-            assertThat(subpartitionIndex).isEqualTo(expectedSubpartitionIndex);
+            assertThat(new ResultSubpartitionIndexRange(expectedSubpartitionIndex))
+                    .isEqualTo(subpartitionIndexSet);
             assertThat(delayMs).isEqualTo(expectedDelayMs);
         }
     }

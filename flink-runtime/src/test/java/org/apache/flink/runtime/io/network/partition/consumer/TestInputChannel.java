@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.api.StopMode;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexRange;
 
 import javax.annotation.Nullable;
 
@@ -89,7 +90,7 @@ public class TestInputChannel extends InputChannel {
                 inputGate,
                 channelIndex,
                 new ResultPartitionID(),
-                0,
+                new ResultSubpartitionIndexRange(0),
                 0,
                 0,
                 new SimpleCounter(),

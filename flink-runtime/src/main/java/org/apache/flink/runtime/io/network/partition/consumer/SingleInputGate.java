@@ -27,7 +27,6 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.execution.CancelTaskException;
-import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
@@ -40,6 +39,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -69,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -147,7 +148,7 @@ public class SingleInputGate extends IndexedInputGate {
      * depends on the {@link DistributionPattern} and the subtask indices of the producing and
      * consuming task. The range is inclusive.
      */
-    private final IndexRange subpartitionIndexRange;
+    private final ResultSubpartitionIndexSet subpartitionIndexSet;
 
     /** The number of input channels (equivalent to the number of consumed partitions). */
     private final int numberOfInputChannels;
@@ -235,7 +236,7 @@ public class SingleInputGate extends IndexedInputGate {
             int gateIndex,
             IntermediateDataSetID consumedResultId,
             final ResultPartitionType consumedPartitionType,
-            IndexRange subpartitionIndexRange,
+            ResultSubpartitionIndexSet subpartitionIndexSet,
             int numberOfInputChannels,
             PartitionProducerStateProvider partitionProducerStateProvider,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
@@ -256,7 +257,7 @@ public class SingleInputGate extends IndexedInputGate {
         this.consumedPartitionType = checkNotNull(consumedPartitionType);
         this.bufferPoolFactory = checkNotNull(bufferPoolFactory);
 
-        this.subpartitionIndexRange = checkNotNull(subpartitionIndexRange);
+        this.subpartitionIndexSet = checkNotNull(subpartitionIndexSet);
 
         checkArgument(numberOfInputChannels > 0);
         this.numberOfInputChannels = numberOfInputChannels;
@@ -575,7 +576,11 @@ public class SingleInputGate extends IndexedInputGate {
             for (InputChannel inputChannel : channels) {
                 IntermediateResultPartitionID partitionId =
                         inputChannel.getPartitionId().getPartitionId();
-                int subpartitionIndex = inputChannel.getConsumedSubpartitionIndex();
+                ResultSubpartitionIndexSet subpartitionIndexSet =
+                        inputChannel.getConsumedSubpartitionIndexSet();
+                Iterator<Integer> iterator = subpartitionIndexSet.values().iterator();
+                int subpartitionIndex = iterator.next();
+                Preconditions.checkState(!iterator.hasNext());
                 if (inputChannels.put(
                                         new SubpartitionInfo(partitionId, subpartitionIndex),
                                         inputChannel)
@@ -600,9 +605,7 @@ public class SingleInputGate extends IndexedInputGate {
             IntermediateResultPartitionID partitionId =
                     shuffleDescriptor.getResultPartitionID().getPartitionId();
 
-            for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
-                    subpartitionIndex <= subpartitionIndexRange.getEndIndex();
-                    ++subpartitionIndex) {
+            for (int subpartitionIndex : subpartitionIndexSet.values()) {
                 SubpartitionInfo subpartitionInfo =
                         new SubpartitionInfo(partitionId, subpartitionIndex);
                 InputChannel current = inputChannels.get(subpartitionInfo);
@@ -646,9 +649,14 @@ public class SingleInputGate extends IndexedInputGate {
 
     /** Retriggers a partition request. */
     public void retriggerPartitionRequest(
-            IntermediateResultPartitionID partitionId, int subpartitionIndex) throws IOException {
+            IntermediateResultPartitionID partitionId,
+            ResultSubpartitionIndexSet subpartitionIndexSet)
+            throws IOException {
         synchronized (requestLock) {
             if (!closeFuture.isDone()) {
+                Iterator<Integer> iterator = subpartitionIndexSet.values().iterator();
+                int subpartitionIndex = iterator.next();
+                Preconditions.checkState(!iterator.hasNext());
                 final InputChannel ch =
                         inputChannels.get(new SubpartitionInfo(partitionId, subpartitionIndex));
 
@@ -658,7 +666,7 @@ public class SingleInputGate extends IndexedInputGate {
                         "{}: Retriggering partition request {}:{}.",
                         owningTaskName,
                         ch.partitionId,
-                        ch.getConsumedSubpartitionIndex());
+                        ch.getConsumedSubpartitionIndexSet());
 
                 if (ch.getClass() == RemoteInputChannel.class) {
                     final RemoteInputChannel rch = (RemoteInputChannel) ch;
@@ -860,7 +868,8 @@ public class SingleInputGate extends IndexedInputGate {
         return Optional.of(bufferAndAvailability.buffer());
     }
 
-    private Optional<Buffer> readBufferFromTieredStore(InputChannel inputChannel) {
+    private Optional<Buffer> readBufferFromTieredStore(InputChannel inputChannel)
+            throws IOException {
         TieredStorageConsumerSpec tieredStorageConsumerSpec =
                 checkNotNull(tieredStorageConsumerSpecs).get(inputChannel.getChannelIndex());
         // If the data is available in the specific partition and subpartition, read buffer through
@@ -1054,7 +1063,8 @@ public class SingleInputGate extends IndexedInputGate {
         queueChannel(checkNotNull(inputChannel), null, true);
     }
 
-    void triggerPartitionStateCheck(ResultPartitionID partitionId, int subpartitionIndex) {
+    void triggerPartitionStateCheck(
+            ResultPartitionID partitionId, ResultSubpartitionIndexSet subpartitionIndexSet) {
         partitionProducerStateProvider.requestPartitionProducerState(
                 consumedResultId,
                 partitionId,
@@ -1065,7 +1075,7 @@ public class SingleInputGate extends IndexedInputGate {
                     if (isProducingState) {
                         try {
                             retriggerPartitionRequest(
-                                    partitionId.getPartitionId(), subpartitionIndex);
+                                    partitionId.getPartitionId(), subpartitionIndexSet);
                         } catch (IOException t) {
                             responseHandle.failConsumption(t);
                         }

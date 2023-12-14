@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.PartitionException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 
 import java.io.IOException;
@@ -55,8 +56,8 @@ public abstract class InputChannel {
     /** The parent partition of the subpartition consumed by this channel. */
     protected final ResultPartitionID partitionId;
 
-    /** The index of the subpartition consumed by this channel. */
-    protected final int consumedSubpartitionIndex;
+    /** The indexes of the subpartition consumed by this channel. */
+    protected final ResultSubpartitionIndexSet consumedSubpartitionIndexSet;
 
     protected final SingleInputGate inputGate;
 
@@ -83,7 +84,7 @@ public abstract class InputChannel {
             SingleInputGate inputGate,
             int channelIndex,
             ResultPartitionID partitionId,
-            int consumedSubpartitionIndex,
+            ResultSubpartitionIndexSet consumedSubpartitionIndexSet,
             int initialBackoff,
             int maxBackoff,
             Counter numBytesIn,
@@ -100,8 +101,7 @@ public abstract class InputChannel {
         this.channelInfo = new InputChannelInfo(inputGate.getGateIndex(), channelIndex);
         this.partitionId = checkNotNull(partitionId);
 
-        checkArgument(consumedSubpartitionIndex >= 0);
-        this.consumedSubpartitionIndex = consumedSubpartitionIndex;
+        this.consumedSubpartitionIndexSet = consumedSubpartitionIndexSet;
 
         this.initialBackoff = initial;
         this.maxBackoff = max;
@@ -132,8 +132,8 @@ public abstract class InputChannel {
         return partitionId;
     }
 
-    public int getConsumedSubpartitionIndex() {
-        return consumedSubpartitionIndex;
+    public ResultSubpartitionIndexSet getConsumedSubpartitionIndexSet() {
+        return consumedSubpartitionIndexSet;
     }
 
     /**
@@ -176,7 +176,7 @@ public abstract class InputChannel {
 
     /**
      * Requests the subpartition specified by {@link #partitionId} and {@link
-     * #consumedSubpartitionIndex}.
+     * #consumedSubpartitionIndexSet}.
      */
     abstract void requestSubpartition() throws IOException, InterruptedException;
 

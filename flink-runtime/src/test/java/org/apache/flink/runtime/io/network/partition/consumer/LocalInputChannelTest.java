@@ -43,6 +43,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexRange;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.util.TestBufferFactory;
 import org.apache.flink.runtime.io.network.util.TestPartitionProducer;
@@ -79,7 +81,6 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -242,7 +243,9 @@ class LocalInputChannelTest {
                 createLocalInputChannel(inputGate, partitionManager, initialBackoff, maxBackoff);
 
         when(partitionManager.createSubpartitionView(
-                        eq(ch.partitionId), eq(0), any(BufferAvailabilityListener.class)))
+                        eq(ch.partitionId),
+                        any(ResultSubpartitionIndexSet.class),
+                        any(BufferAvailabilityListener.class)))
                 .thenThrow(new PartitionNotFoundException(ch.partitionId));
 
         Timer timer = mock(Timer.class);
@@ -259,7 +262,9 @@ class LocalInputChannelTest {
         ch.requestSubpartition();
         verify(partitionManager)
                 .createSubpartitionView(
-                        eq(ch.partitionId), eq(0), any(BufferAvailabilityListener.class));
+                        eq(ch.partitionId),
+                        any(ResultSubpartitionIndexSet.class),
+                        any(BufferAvailabilityListener.class));
 
         // Request subpartition and verify that the actual requests are delayed.
         for (long expected : expectedDelays) {
@@ -282,7 +287,7 @@ class LocalInputChannelTest {
         ResultPartitionManager partitionManager = mock(ResultPartitionManager.class);
         when(partitionManager.createSubpartitionView(
                         any(ResultPartitionID.class),
-                        anyInt(),
+                        any(ResultSubpartitionIndexSet.class),
                         any(BufferAvailabilityListener.class)))
                 .thenReturn(view);
 
@@ -394,7 +399,7 @@ class LocalInputChannelTest {
         ResultPartitionManager partitionManager = mock(ResultPartitionManager.class);
         when(partitionManager.createSubpartitionView(
                         any(ResultPartitionID.class),
-                        anyInt(),
+                        any(ResultSubpartitionIndexSet.class),
                         any(BufferAvailabilityListener.class)))
                 .thenAnswer(
                         (Answer<ResultSubpartitionView>)
@@ -731,7 +736,8 @@ class LocalInputChannelTest {
                 inputChannels[i] =
                         InputChannelBuilder.newBuilder()
                                 .setChannelIndex(i)
-                                .setConsumedSubpartitionIndex(subpartitionIndex)
+                                .setSubpartitionIndexSet(
+                                        new ResultSubpartitionIndexRange(subpartitionIndex))
                                 .setPartitionManager(partitionManager)
                                 .setPartitionId(consumedPartitionIds[i])
                                 .setTaskEventPublisher(taskEventDispatcher)

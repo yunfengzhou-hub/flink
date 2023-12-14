@@ -60,6 +60,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionBuilder;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexRange;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate.SubpartitionInfo;
 import org.apache.flink.runtime.io.network.util.TestTaskEvent;
@@ -946,12 +948,18 @@ class SingleInputGateTest extends InputGateTestBase {
         SubpartitionInfo info6 = createSubpartitionInfo(partitionIds[2], 1);
 
         assertThat(gate.getInputChannels().size()).isEqualTo(6);
-        assertThat(gate.getInputChannels().get(info1).getConsumedSubpartitionIndex()).isEqualTo(0);
-        assertThat(gate.getInputChannels().get(info2).getConsumedSubpartitionIndex()).isEqualTo(1);
-        assertThat(gate.getInputChannels().get(info3).getConsumedSubpartitionIndex()).isEqualTo(0);
-        assertThat(gate.getInputChannels().get(info4).getConsumedSubpartitionIndex()).isEqualTo(1);
-        assertThat(gate.getInputChannels().get(info5).getConsumedSubpartitionIndex()).isEqualTo(0);
-        assertThat(gate.getInputChannels().get(info6).getConsumedSubpartitionIndex()).isEqualTo(1);
+        assertThat(gate.getInputChannels().get(info1).getConsumedSubpartitionIndexSet())
+                .isEqualTo(new ResultSubpartitionIndexRange(0));
+        assertThat(gate.getInputChannels().get(info2).getConsumedSubpartitionIndexSet())
+                .isEqualTo(new ResultSubpartitionIndexRange(1));
+        assertThat(gate.getInputChannels().get(info3).getConsumedSubpartitionIndexSet())
+                .isEqualTo(new ResultSubpartitionIndexRange(0));
+        assertThat(gate.getInputChannels().get(info4).getConsumedSubpartitionIndexSet())
+                .isEqualTo(new ResultSubpartitionIndexRange(1));
+        assertThat(gate.getInputChannels().get(info5).getConsumedSubpartitionIndexSet())
+                .isEqualTo(new ResultSubpartitionIndexRange(0));
+        assertThat(gate.getInputChannels().get(info6).getConsumedSubpartitionIndexSet())
+                .isEqualTo(new ResultSubpartitionIndexRange(1));
 
         assertChannelsType(gate, LocalRecoveredInputChannel.class, Arrays.asList(info1, info2));
         assertChannelsType(gate, RemoteRecoveredInputChannel.class, Arrays.asList(info3, info4));
@@ -1466,7 +1474,7 @@ class SingleInputGateTest extends InputGateTestBase {
         @Override
         public ResultSubpartitionView createSubpartitionView(
                 ResultPartitionID partitionId,
-                int subpartitionIndex,
+                ResultSubpartitionIndexSet subpartitionIndexSet,
                 BufferAvailabilityListener availabilityListener)
                 throws IOException {
             ++counter;
