@@ -32,10 +32,10 @@ import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -46,7 +46,6 @@ import java.util.concurrent.TimeoutException;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDirPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The {@link RemoteStorageScanner} is introduced to notify asynchronously for file reading on
@@ -92,7 +91,7 @@ public class RemoteStorageScanner implements Runnable {
 
     private final FileSystem remoteFileSystem;
 
-    @Nullable private AvailabilityNotifier notifier;
+    private final List<AvailabilityNotifier> notifiers;
 
     private int lastInterval = INITIAL_SCAN_INTERVAL_MS;
 
@@ -104,6 +103,7 @@ public class RemoteStorageScanner implements Runnable {
         this.scannedMaxSegmentIds = new ConcurrentHashMap<>();
         this.scanStrategy = new ScanStrategy(MAX_SCAN_INTERVAL_MS);
         this.remoteFileSystem = createFileSystem();
+        this.notifiers = new ArrayList<>();
     }
 
     private FileSystem createFileSystem() {
@@ -191,7 +191,7 @@ public class RemoteStorageScanner implements Runnable {
                         && checkSegmentExist(partitionId, subpartitionId, requiredSegmentId)) {
                     scanned = true;
                     iterator.remove();
-                    checkNotNull(notifier).notifyAvailable(partitionId, subpartitionId);
+                    notifiers.forEach(x -> x.notifyAvailable(partitionId, subpartitionId));
                 } else {
                     // The segment should be watched again because it's not found.
                     // If the segment belongs to other tiers and has been consumed, the segment will
@@ -211,7 +211,7 @@ public class RemoteStorageScanner implements Runnable {
     }
 
     public void registerAvailabilityAndPriorityNotifier(AvailabilityNotifier retriever) {
-        this.notifier = retriever;
+        notifiers.add(retriever);
     }
 
     // ------------------------------------------------------------------------

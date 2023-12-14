@@ -191,7 +191,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
     }
 
     @Override
-    public Optional<BufferAndAvailability> getNextBuffer() throws IOException {
+    protected Optional<BufferAndAvailability> getNextBufferInternal() throws IOException {
         checkError();
         return Optional.ofNullable(getNextRecoveredStateBuffer());
     }

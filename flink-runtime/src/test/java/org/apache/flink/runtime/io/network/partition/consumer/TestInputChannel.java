@@ -182,7 +182,7 @@ public class TestInputChannel extends InputChannel {
     void requestSubpartition() throws IOException, InterruptedException {}
 
     @Override
-    public Optional<BufferAndAvailability> getNextBuffer()
+    protected Optional<BufferAndAvailability> getNextBufferInternal()
             throws IOException, InterruptedException {
         checkState(!isReleased);
 

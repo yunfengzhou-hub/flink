@@ -142,7 +142,7 @@ class InputChannelTest {
         void requestSubpartition() throws IOException, InterruptedException {}
 
         @Override
-        public Optional<BufferAndAvailability> getNextBuffer()
+        protected Optional<BufferAndAvailability> getNextBufferInternal()
                 throws IOException, InterruptedException {
             return Optional.empty();
         }

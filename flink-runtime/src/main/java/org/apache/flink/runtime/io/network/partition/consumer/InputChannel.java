@@ -77,6 +77,10 @@ public abstract class InputChannel {
 
     protected final Counter numBuffersIn;
 
+    private int numEndOfDataReceived;
+
+    private int numEndOfPartitionReceived;
+
     /** The current backoff (in ms). */
     protected int currentBackoff;
 
@@ -184,7 +188,46 @@ public abstract class InputChannel {
      * Returns the next buffer from the consumed subpartition or {@code Optional.empty()} if there
      * is no data to return.
      */
-    public abstract Optional<BufferAndAvailability> getNextBuffer()
+    public final Optional<BufferAndAvailability> getNextBuffer()
+            throws IOException, InterruptedException {
+        if (consumedSubpartitionIndexSet.size() == 1) {
+            return getNextBufferInternal();
+        }
+
+        while (true) {
+            Optional<BufferAndAvailability> bufferAndAvailability = getNextBufferInternal();
+            if (!bufferAndAvailability.isPresent()) {
+                return Optional.empty();
+            }
+
+            switch (bufferAndAvailability.get().buffer().getDataType()) {
+                case NONE:
+                case DATA_BUFFER:
+                case END_OF_SEGMENT:
+                    break;
+                case END_OF_DATA:
+                    numEndOfDataReceived++;
+                    if (numEndOfDataReceived < consumedSubpartitionIndexSet.size()) {
+                        continue;
+                    }
+                    break;
+                case END_OF_PARTITION:
+                    numEndOfPartitionReceived++;
+                    if (numEndOfPartitionReceived < consumedSubpartitionIndexSet.size()) {
+                        continue;
+                    }
+                    break;
+                default:
+                    throw new UnsupportedOperationException(
+                            "Unsupported buffer type "
+                                    + bufferAndAvailability.get().buffer().getDataType());
+            }
+
+            return bufferAndAvailability;
+        }
+    }
+
+    protected abstract Optional<BufferAndAvailability> getNextBufferInternal()
             throws IOException, InterruptedException;
 
     /**

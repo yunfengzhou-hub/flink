@@ -194,7 +194,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
     }
 
     @Override
-    public Optional<BufferAndAvailability> getNextBuffer() throws IOException {
+    protected Optional<BufferAndAvailability> getNextBufferInternal() throws IOException {
         checkError();
 
         ResultSubpartitionView subpartitionView = this.subpartitionView;

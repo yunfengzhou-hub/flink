@@ -1645,7 +1645,8 @@ class RemoteInputChannelTest {
     }
 
     private void assertGetNextBufferSequenceNumbers(
-            RemoteInputChannel channel, Integer... sequenceNumbers) throws IOException {
+            RemoteInputChannel channel, Integer... sequenceNumbers)
+            throws IOException, InterruptedException {
         List<Integer> actualSequenceNumbers = new ArrayList<>();
         for (int i = 0; i < sequenceNumbers.length; i++) {
             channel.getNextBuffer()

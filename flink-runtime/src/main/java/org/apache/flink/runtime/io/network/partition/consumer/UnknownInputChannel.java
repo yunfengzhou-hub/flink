@@ -116,7 +116,7 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
     }
 
     @Override
-    public Optional<BufferAndAvailability> getNextBuffer() throws IOException {
+    protected Optional<BufferAndAvailability> getNextBufferInternal() throws IOException {
         // Nothing to do here
         throw new UnsupportedOperationException(
                 "Cannot retrieve a buffer from an UnknownInputChannel");
