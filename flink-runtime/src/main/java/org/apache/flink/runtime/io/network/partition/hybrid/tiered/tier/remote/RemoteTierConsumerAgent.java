@@ -39,7 +39,7 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The data client is used to fetch data from remote tier. */
-public class RemoteTierConsumerAgent implements TierConsumerAgent {
+public class RemoteTierConsumerAgent implements TierConsumerAgent, AvailabilityNotifier {
 
     private final RemoteStorageScanner remoteStorageScanner;
 
@@ -56,6 +56,8 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             currentBufferIndexAndSegmentIds;
 
     private final int bufferSizeBytes;
+
+    private AvailabilityNotifier notifier;
 
     public RemoteTierConsumerAgent(
             RemoteStorageScanner remoteStorageScanner,
@@ -84,6 +86,12 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                         .getOrDefault(subpartitionId, Tuple2.of(0, -1));
         int currentBufferIndex = bufferIndexAndSegmentId.f0;
         int currentSegmentId = bufferIndexAndSegmentId.f1;
+        System.out.println(
+                "getNextBuffer " + partitionId
+                        + " " + subpartitionId
+                        + " " + segmentId
+                        + " " + currentSegmentId
+        );
         if (segmentId != currentSegmentId) {
             remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
         }
@@ -122,11 +130,20 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public void registerAvailabilityNotifier(AvailabilityNotifier notifier) {
-        remoteStorageScanner.registerAvailabilityAndPriorityNotifier(notifier);
+        this.notifier = notifier;
+        remoteStorageScanner.registerAvailabilityAndPriorityNotifier(this);
     }
 
     @Override
     public void close() throws IOException {
         remoteStorageScanner.close();
+    }
+
+    @Override
+    public void notifyAvailable(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId) {
+        System.out.println("notifyAvailable " + partitionId + " " + subpartitionId);
+        this.notifier.notifyAvailable(partitionId, subpartitionId);
     }
 }

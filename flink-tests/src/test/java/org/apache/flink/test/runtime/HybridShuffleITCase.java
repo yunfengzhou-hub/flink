@@ -86,6 +86,10 @@ class HybridShuffleITCase extends BatchShuffleITCaseBase {
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_NEW_MODE,
                 enableNewHybridMode);
+        configuration.set(
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH,
+                tmpDirForShuffle.toString()
+        );
 
         if (enableNewHybridMode && isSelective) {
             // Note that the memory tier of the new mode need more buffers for the selective mode

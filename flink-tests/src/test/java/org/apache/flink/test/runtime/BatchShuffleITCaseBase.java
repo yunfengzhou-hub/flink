@@ -66,9 +66,12 @@ class BatchShuffleITCaseBase {
 
     private static Path tmpDir;
 
+    protected static Path tmpDirForShuffle;
+
     @BeforeAll
     static void setup(@TempDir Path path) throws Exception {
         tmpDir = TempDirUtils.newFolder(path, UUID.randomUUID().toString()).toPath();
+        tmpDirForShuffle = TempDirUtils.newFolder(path, UUID.randomUUID().toString()).toPath();
     }
 
     protected JobGraph createJobGraph(

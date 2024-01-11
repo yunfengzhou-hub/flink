@@ -426,21 +426,21 @@ public class TieredStorageConfiguration {
         private void setupTierFactoriesAndExclusiveBuffers() {
             tierFactories = new ArrayList<>();
             tierExclusiveBuffers = new ArrayList<>();
-            tierFactories.add(
-                    new MemoryTierFactory(
-                            memoryTierNumBytesPerSegment,
-                            tieredStorageBufferSize,
-                            memoryTierSubpartitionMaxQueuedBuffers));
-            tierExclusiveBuffers.add(memoryTierExclusiveBuffers);
-            tierFactories.add(
-                    new DiskTierFactory(
-                            diskTierNumBytesPerSegment,
-                            tieredStorageBufferSize,
-                            minReserveDiskSpaceFraction,
-                            regionGroupSizeInBytes,
-                            maxCachedBytesBeforeFlush,
-                            numRetainedInMemoryRegionsMax));
-            tierExclusiveBuffers.add(diskTierExclusiveBuffers);
+//            tierFactories.add(
+//                    new MemoryTierFactory(
+//                            memoryTierNumBytesPerSegment,
+//                            tieredStorageBufferSize,
+//                            memoryTierSubpartitionMaxQueuedBuffers));
+//            tierExclusiveBuffers.add(memoryTierExclusiveBuffers);
+//            tierFactories.add(
+//                    new DiskTierFactory(
+//                            diskTierNumBytesPerSegment,
+//                            tieredStorageBufferSize,
+//                            minReserveDiskSpaceFraction,
+//                            regionGroupSizeInBytes,
+//                            maxCachedBytesBeforeFlush,
+//                            numRetainedInMemoryRegionsMax));
+//            tierExclusiveBuffers.add(diskTierExclusiveBuffers);
             if (remoteStorageBasePath != null) {
                 tierFactories.add(
                         new RemoteTierFactory(
