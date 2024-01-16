@@ -81,7 +81,7 @@ class NettyMessageClientSideSerializationTest {
         inputGate = createSingleInputGate(1, networkBufferPool);
         RemoteInputChannel inputChannel =
                 createRemoteInputChannel(inputGate, new TestingPartitionRequestClient());
-        inputChannel.requestSubpartition();
+        inputChannel.requestSubpartitions();
         inputGate.setInputChannels(inputChannel);
         inputGate.setup();
 
@@ -186,6 +186,7 @@ class NettyMessageClientSideSerializationTest {
                         testBuffer,
                         random.nextInt(Integer.MAX_VALUE),
                         inputChannelId,
+                        random.nextInt(Integer.MAX_VALUE),
                         random.nextInt(Integer.MAX_VALUE));
         BufferResponse actual = encodeAndDecode(expected, channel);
 

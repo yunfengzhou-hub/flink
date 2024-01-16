@@ -20,6 +20,9 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
+import javax.activation.UnsupportedDataTypeException;
+
+import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -33,7 +36,12 @@ public class TestingNettyConnectionReader implements NettyConnectionReader {
     }
 
     @Override
-    public Optional<Buffer> readBuffer(int segmentId) {
+    public int peekNextBufferSubpartitionId() throws IOException {
+        throw new UnsupportedDataTypeException();
+    }
+
+    @Override
+    public Optional<Buffer> readBuffer(int subpartitionId, int segmentId) {
         return Optional.of(readBufferFunction.apply(segmentId));
     }
 

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.runtime.io.network.partition.NoOpResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionIndexSet;
 import org.apache.flink.runtime.io.network.partition.TestingResultPartition;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 
@@ -73,6 +74,13 @@ class CreditBasedSequenceNumberingViewReaderTest {
         assertThat(reader2.needAnnounceBacklog()).isTrue();
     }
 
+    @Test
+    void testPeekNextBufferSubpartitionId() throws Exception {
+        int numCredits = 2;
+        CreditBasedSequenceNumberingViewReader reader = createNetworkSequenceViewReader(numCredits);
+        assertThat(reader.peekNextBufferSubpartitionId()).isZero();
+    }
+
     private static CreditBasedSequenceNumberingViewReader createNetworkSequenceViewReader(
             int initialCredit) throws Exception {
         PartitionRequestQueue queue = new PartitionRequestQueue();
@@ -81,12 +89,12 @@ class CreditBasedSequenceNumberingViewReaderTest {
         CreditBasedSequenceNumberingViewReader reader =
                 new CreditBasedSequenceNumberingViewReader(
                         new InputChannelID(), initialCredit, queue);
-        reader.notifySubpartitionCreated(
+        reader.notifySubpartitionsCreated(
                 TestingResultPartition.newBuilder()
                         .setCreateSubpartitionViewFunction(
                                 (index, listener) -> new NoOpResultSubpartitionView())
                         .build(),
-                0);
+                new ResultSubpartitionIndexSet(0));
         return reader;
     }
 }

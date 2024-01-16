@@ -191,7 +191,8 @@ class NettyShuffleUtilsTest {
                         numSubpartitions,
                         0,
                         false,
-                        true);
+                        true,
+                        false);
         ResultPartitionDeploymentDescriptor resultPartitionDeploymentDescriptor =
                 new ResultPartitionDeploymentDescriptor(partitionDescriptor, shuffleDescriptor, 1);
 
@@ -214,7 +215,7 @@ class NettyShuffleUtilsTest {
         inputGate.convertRecoveredInputChannels();
 
         int ret = 0;
-        for (InputChannel ch : inputGate.getInputChannels().values()) {
+        for (InputChannel ch : inputGate.inputChannels()) {
             RemoteInputChannel rChannel = (RemoteInputChannel) ch;
             ret += rChannel.getNumberOfAvailableBuffers();
         }

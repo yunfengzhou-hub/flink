@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
-import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
@@ -218,12 +217,13 @@ public class InputGateFairnessTest {
             channels[i] = channel;
 
             for (int p = 0; p < buffersPerChannel; p++) {
-                channel.onBuffer(mockBuffer, p, -1);
+                channel.onBuffer(mockBuffer, p, -1, 0);
             }
             channel.onBuffer(
                     EventSerializer.toBuffer(EndOfPartitionEvent.INSTANCE, false),
                     buffersPerChannel,
-                    -1);
+                    -1,
+                    0);
         }
 
         gate.setInputChannels(channels);
@@ -270,7 +270,7 @@ public class InputGateFairnessTest {
             channels[i] = channel;
         }
 
-        channels[11].onBuffer(mockBuffer, 0, -1);
+        channels[11].onBuffer(mockBuffer, 0, -1, 0);
         channelSequenceNums[11]++;
 
         setupInputGate(gate, channels);
@@ -303,10 +303,7 @@ public class InputGateFairnessTest {
 
     private SingleInputGate createFairnessVerifyingInputGate(int numberOfChannels) {
         return new FairnessVerifyingInputGate(
-                "Test Task Name",
-                new IntermediateDataSetID(),
-                new IndexRange(0, 0),
-                numberOfChannels);
+                "Test Task Name", new IntermediateDataSetID(), numberOfChannels);
     }
 
     private void fillRandom(
@@ -345,7 +342,7 @@ public class InputGateFairnessTest {
         Collections.shuffle(poss);
 
         for (int i : poss) {
-            partitions[i].onBuffer(buffer, sequenceNumbers[i]++, -1);
+            partitions[i].onBuffer(buffer, sequenceNumbers[i]++, -1, 0);
         }
     }
 
@@ -364,7 +361,6 @@ public class InputGateFairnessTest {
         public FairnessVerifyingInputGate(
                 String owningTaskName,
                 IntermediateDataSetID consumedResultId,
-                IndexRange subpartitionIndexRange,
                 int numberOfInputChannels) {
 
             super(
@@ -372,7 +368,6 @@ public class InputGateFairnessTest {
                     0,
                     consumedResultId,
                     ResultPartitionType.PIPELINED,
-                    subpartitionIndexRange,
                     numberOfInputChannels,
                     SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                     STUB_BUFFER_POOL_FACTORY,
@@ -380,9 +375,6 @@ public class InputGateFairnessTest {
                     new UnpooledMemorySegmentProvider(BUFFER_SIZE),
                     BUFFER_SIZE,
                     new ThroughputCalculator(SystemClock.getInstance()),
-                    null,
-                    null,
-                    null,
                     null);
 
             channelsWithData = getInputChannelsWithData();
