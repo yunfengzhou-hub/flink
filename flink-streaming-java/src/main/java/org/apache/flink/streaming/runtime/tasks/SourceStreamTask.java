@@ -352,6 +352,7 @@ public class SourceStreamTask<
         }
 
         private void completeProcessing() throws InterruptedException, ExecutionException {
+            System.out.println("SourceStreamTask.completeProcessing");
             if (!isCanceled() && !isFailing()) {
                 mainMailboxExecutor
                         .submit(

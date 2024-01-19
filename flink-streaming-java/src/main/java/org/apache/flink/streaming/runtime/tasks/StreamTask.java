@@ -315,6 +315,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
     @Nullable private final AvailabilityProvider changelogWriterAvailabilityProvider;
 
+    private final long startTimeMillis;
+
     // ------------------------------------------------------------------------
 
     /**
@@ -383,6 +385,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
             StreamTaskActionExecutor actionExecutor,
             TaskMailbox mailbox)
             throws Exception {
+        this.startTimeMillis = System.currentTimeMillis();
         // The registration of all closeable resources. The order of registration is important.
         resourceCloser = new AutoCloseableRegistry();
         try {
@@ -587,6 +590,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
      */
     protected void processInput(MailboxDefaultAction.Controller controller) throws Exception {
         DataInputStatus status = inputProcessor.processInput();
+        if (System.currentTimeMillis() - startTimeMillis > 60 * 1000) {
+            status = inputProcessor.processInput();
+        }
+//        System.out.println("StreamTask.processInput " + this.hashCode() + " " + status);
         switch (status) {
             case MORE_AVAILABLE:
                 if (taskIsAvailable()) {
@@ -598,9 +605,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
             case END_OF_RECOVERY:
                 throw new IllegalStateException("We should not receive this event here.");
             case STOPPED:
+                System.out.println("StreamTask.endData nodrain " + this.hashCode());
                 endData(StopMode.NO_DRAIN);
                 return;
             case END_OF_DATA:
+                System.out.println("StreamTask.endData drain " + this.hashCode());
                 endData(StopMode.DRAIN);
                 notifyEndOfData();
                 return;

@@ -20,8 +20,11 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
@@ -82,6 +85,7 @@ public class TieredStorageProducerClient {
         Arrays.fill(currentSubpartitionSegmentId, -1);
 
         bufferAccumulator.setup(this::writeAccumulatedBuffers);
+//        System.out.println(this.hashCode() + " TieredStorageProducerClient.new " + getPartitionId());
     }
 
     /**
@@ -128,8 +132,16 @@ public class TieredStorageProducerClient {
     }
 
     public void close() {
+//        System.out.println(this.hashCode() + " TieredStorageProducerClient.close " + getPartitionId());
         bufferAccumulator.close();
         tierProducerAgents.forEach(TierProducerAgent::close);
+    }
+
+    private TieredStoragePartitionId getPartitionId() {
+        if (tierProducerAgents.size() != 1 || !(tierProducerAgents.get(0) instanceof RemoteTierProducerAgent)) {
+            throw new RuntimeException();
+        }
+        return ((RemoteTierProducerAgent) tierProducerAgents.get(0)).partitionId;
     }
 
     /**

@@ -117,6 +117,7 @@ public class SegmentPartitionFile {
             int subpartitionId,
             int segmentId)
             throws IOException {
+        System.out.println("writeSegmentFinishFile " + partitionId + " " + subpartitionId + " " + segmentId);
         Path segmentFinishDir = getSegmentFinishDirPath(basePath, partitionId, subpartitionId);
         FileSystem fs = segmentFinishDir.getFileSystem();
         Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));

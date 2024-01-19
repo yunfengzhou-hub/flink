@@ -179,6 +179,7 @@ public class TieredResultPartition extends ResultPartition {
 
     @Override
     public void finish() throws IOException {
+        System.out.println("TieredResultPartition.finish " + tieredStorageProducerClient.hashCode());
         broadcastEvent(EndOfPartitionEvent.INSTANCE, false);
         tieredStorageProducerClient.close();
         checkState(!isReleased(), "Result partition is already released.");
@@ -197,6 +198,7 @@ public class TieredResultPartition extends ResultPartition {
 
     @Override
     public void notifyEndOfData(StopMode mode) throws IOException {
+//        System.out.println("TieredResultPartition.notifyEndOfData " + tieredStorageProducerClient.hashCode());
         if (!hasNotifiedEndOfUserRecords) {
             broadcastEvent(new EndOfData(mode), false);
             hasNotifiedEndOfUserRecords = true;

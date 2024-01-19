@@ -158,6 +158,7 @@ public class RemoteStorageScanner implements Runnable {
 
     /** Close the executor. */
     public void close() {
+        System.out.println("RemoteStorageScanner.close");
         synchronized (scannerExecutor) {
             scannerExecutor.shutdownNow();
         }
@@ -187,6 +188,7 @@ public class RemoteStorageScanner implements Runnable {
                 TieredStorageSubpartitionId subpartitionId = ids.getKey().f1;
                 int requiredSegmentId = ids.getValue();
                 int maxSegmentId = scannedMaxSegmentIds.getOrDefault(ids.getKey(), -1);
+                System.out.println("scanMaxSegmentId " + partitionId + " " + subpartitionId + " " + maxSegmentId + " " + requiredSegmentId);
                 if (maxSegmentId >= requiredSegmentId
                         && checkSegmentExist(partitionId, subpartitionId, requiredSegmentId)) {
                     scanned = true;
@@ -233,23 +235,27 @@ public class RemoteStorageScanner implements Runnable {
         FileStatus[] fileStatuses = new FileStatus[0];
         try {
             if (!remoteFileSystem.exists(segmentFinishDir)) {
+//                System.out.println("scanMaxSegmentId1 " + partitionId + " " + subpartitionId);
                 return;
             }
             fileStatuses = remoteFileSystem.listStatus(segmentFinishDir);
             currentRetryTime = 0;
         } catch (Throwable t) {
             if (t instanceof java.io.FileNotFoundException) {
+//                System.out.println("scanMaxSegmentId2 " + partitionId + " " + subpartitionId);
                 return;
             }
             currentRetryTime++;
             tryThrowException(t, "Failed to list the segment finish file.");
         }
         if (fileStatuses.length != 1) {
+//            System.out.println("scanMaxSegmentId3 " + partitionId + " " + subpartitionId);
             return;
         }
         scannedMaxSegmentIds.put(
                 Tuple2.of(partitionId, subpartitionId),
                 Integer.parseInt(fileStatuses[0].getPath().getName()));
+//        System.out.println("scanMaxSegmentId4 " + partitionId + " " + subpartitionId);
     }
 
     private boolean checkSegmentExist(

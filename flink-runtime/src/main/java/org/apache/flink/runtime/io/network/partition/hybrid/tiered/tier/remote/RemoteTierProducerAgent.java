@@ -43,6 +43,8 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final int[] currentSubpartitionSegmentWriteBuffers;
 
+    public final TieredStoragePartitionId partitionId;
+
     RemoteTierProducerAgent(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
@@ -55,6 +57,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         checkArgument(
                 numBytesPerSegment >= bufferSizeBytes,
                 "One segment should contain at least one buffer.");
+        this.partitionId = partitionId;
 
         this.numSubpartitions = numSubpartitions;
         this.numBuffersPerSegment = numBytesPerSegment / bufferSizeBytes;
@@ -96,6 +99,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     @Override
     public void close() {
+//        System.out.println("RemoteTierConsumerAgent.close " + partitionId);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
             cacheDataManager.finishSegment(subpartitionId);
         }

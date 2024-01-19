@@ -373,9 +373,9 @@ public class SingleInputGate extends IndexedInputGate {
                     inputChannel.releaseAllResources();
                     entry.setValue(realInputChannel);
                     channels[inputChannel.getChannelIndex()] = realInputChannel;
-                    if (enabledTieredStorage()) {
-                        queueChannel(realInputChannel, null, false);
-                    }
+//                    if (enabledTieredStorage()) {
+//                        queueChannel(realInputChannel, null, false);
+//                    }
                 } catch (Throwable t) {
                     inputChannel.setError(t);
                     return;
@@ -825,7 +825,12 @@ public class SingleInputGate extends IndexedInputGate {
                 }
 
                 final InputChannel inputChannel = inputChannelOpt.get();
-                Optional<Buffer> buffer = readRecoveredOrNormalBuffer(inputChannel);
+                Optional<Buffer> buffer;
+                if (enabledTieredStorage()) {
+                    buffer = readBufferFromTieredStore(inputChannel);
+                } else {
+                    buffer = readBufferFromInputChannel(inputChannel);
+                }
                 if (!buffer.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -849,27 +854,27 @@ public class SingleInputGate extends IndexedInputGate {
         }
     }
 
-    private Optional<Buffer> readRecoveredOrNormalBuffer(InputChannel inputChannel)
-            throws IOException, InterruptedException {
-        // Firstly, read the buffers from the recovered channel
-        if (inputChannel instanceof RecoveredInputChannel) {
-            Optional<Buffer> buffer = readBufferFromInputChannel(inputChannel);
-            if (!((RecoveredInputChannel) inputChannel).getStateConsumedFuture().isDone()) {
-                return buffer;
-            }
-        }
-
-        //  After the recovered buffers are read, read the normal buffers
-        Optional<Buffer> buffer = enabledTieredStorage()
-                ? readBufferFromTieredStore(inputChannel)
-                : readBufferFromInputChannel(inputChannel);
-        System.out.println(
-                this.hashCode() + " " +
-                        inputChannel.getChannelIndex() + " readNormalBuffer " + buffer.isPresent()
-        );
-
-        return buffer;
-    }
+//    private Optional<Buffer> readRecoveredOrNormalBuffer(InputChannel inputChannel)
+//            throws IOException, InterruptedException {
+//        // Firstly, read the buffers from the recovered channel
+//        if (inputChannel instanceof RecoveredInputChannel) {
+//            Optional<Buffer> buffer = readBufferFromInputChannel(inputChannel);
+//            if (!((RecoveredInputChannel) inputChannel).getStateConsumedFuture().isDone()) {
+//                return buffer;
+//            }
+//        }
+//
+//        //  After the recovered buffers are read, read the normal buffers
+//        Optional<Buffer> buffer = enabledTieredStorage()
+//                ? readBufferFromTieredStore(inputChannel)
+//                : readBufferFromInputChannel(inputChannel);
+//        System.out.println(
+//                this.hashCode() + " " +
+//                        inputChannel.getChannelIndex() + " readNormalBuffer " + buffer.isPresent()
+//        );
+//
+//        return buffer;
+//    }
 
     private Optional<Buffer> readBufferFromInputChannel(InputChannel inputChannel)
             throws IOException, InterruptedException {
@@ -902,9 +907,9 @@ public class SingleInputGate extends IndexedInputGate {
         // Continue to read buffer from consumer client until the specific partition and
         // subpartition is unavailable because an empty buffer is read.
         buffer.ifPresent(result -> {
-            if (!(inputChannel instanceof RecoveredInputChannel)) {
+//            if (!(inputChannel instanceof RecoveredInputChannel)) {
                 queueChannel(checkNotNull(inputChannel), null, false);
-            }
+//            }
         });
         return buffer;
     }
