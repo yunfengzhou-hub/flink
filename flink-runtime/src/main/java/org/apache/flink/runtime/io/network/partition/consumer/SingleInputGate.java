@@ -851,6 +851,7 @@ public class SingleInputGate extends IndexedInputGate {
                         case END_OF_DATA:
                             endOfDatas[inputChannel.getChannelIndex()]++;
                             if (endOfDatas[inputChannel.getChannelIndex()] < numSubpartitions) {
+                                buffer.get().recycleBuffer();
                                 continue;
                             }
                             break;
@@ -858,6 +859,7 @@ public class SingleInputGate extends IndexedInputGate {
                             endOfPartitions[inputChannel.getChannelIndex()]++;
                             if (endOfPartitions[inputChannel.getChannelIndex()]
                                     < numSubpartitions) {
+                                buffer.get().recycleBuffer();
                                 continue;
                             }
                             break;
