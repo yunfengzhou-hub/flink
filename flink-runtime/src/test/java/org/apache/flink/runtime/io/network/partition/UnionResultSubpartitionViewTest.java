@@ -47,7 +47,7 @@ class UnionResultSubpartitionViewTest {
 
     @BeforeEach
     void before() {
-        view = new UnionResultSubpartitionView((ResultSubpartitionView x) -> {});
+        view = new UnionResultSubpartitionView((ResultSubpartitionView x) -> {}, 2);
 
         buffers0 =
                 Arrays.asList(

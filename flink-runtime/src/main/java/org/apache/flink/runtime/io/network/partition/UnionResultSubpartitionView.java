@@ -81,14 +81,18 @@ public class UnionResultSubpartitionView
      */
     private final Set<ResultSubpartitionView> unregisteredAvailableViews = new HashSet<>();
 
+    private final int totalNumViews;
+
     private boolean isReleased;
 
     private int sequenceNumber;
 
-    public UnionResultSubpartitionView(BufferAvailabilityListener availabilityListener) {
+    public UnionResultSubpartitionView(
+            BufferAvailabilityListener availabilityListener, int totalNumViews) {
         this.availabilityListener = availabilityListener;
         this.isReleased = false;
         this.sequenceNumber = 0;
+        this.totalNumViews = totalNumViews;
     }
 
     public void notifyViewCreated(int subpartitionId, ResultSubpartitionView view) {
@@ -170,6 +174,11 @@ public class UnionResultSubpartitionView
 
             if (!availableViews.notifyDataAvailable(view) || !cachedBuffers.isEmpty()) {
                 // The availabilityListener has already been notified.
+                return;
+            }
+
+            if (allViews.size() < totalNumViews) {
+                // Only notify availability after all views have been successfully created.
                 return;
             }
 
