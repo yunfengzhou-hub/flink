@@ -2133,14 +2133,15 @@ public class CheckpointCoordinator {
     //  job status listener that schedules / cancels periodic checkpoints
     // ------------------------------------------------------------------------
 
-    public JobStatusListener createActivatorDeactivator() {
+    public JobStatusListener createActivatorDeactivator(
+            Map<JobVertexID, ExecutionJobVertex> tasks) {
         synchronized (lock) {
             if (shutdown) {
                 throw new IllegalArgumentException("Checkpoint coordinator is shut down");
             }
 
             if (jobStatusListener == null) {
-                jobStatusListener = new CheckpointCoordinatorDeActivator(this);
+                jobStatusListener = new CheckpointCoordinatorDeActivator(this, tasks);
             }
 
             return jobStatusListener;

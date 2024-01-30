@@ -777,9 +777,12 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
             return;
         }
 
-        // only notifies FINISHED and FAILED states which are needed at the moment.
+        // only notifies RUNNING, FINISHED and FAILED states which are needed at the moment.
         // can be refined in FLINK-14233 after the actions are factored out from ExecutionGraph.
         switch (taskExecutionState.getExecutionState()) {
+            case RUNNING:
+                onTaskRunning(execution);
+                break;
             case FINISHED:
                 onTaskFinished(execution, taskExecutionState.getIOMetrics());
                 break;
@@ -788,6 +791,8 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
                 break;
         }
     }
+
+    protected abstract void onTaskRunning(Execution execution);
 
     protected abstract void onTaskFinished(final Execution execution, final IOMetrics ioMetrics);
 
