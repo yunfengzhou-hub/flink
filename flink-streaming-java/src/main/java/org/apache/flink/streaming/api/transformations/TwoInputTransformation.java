@@ -229,4 +229,9 @@ public class TwoInputTransformation<IN1, IN2, OUT> extends PhysicalTransformatio
     public final void setChainingStrategy(ChainingStrategy strategy) {
         operatorFactory.setChainingStrategy(strategy);
     }
+
+    @Override
+    public boolean isOutputOnlyAfterEndOfStream() {
+        return operatorFactory.getOperatorAttributes().isOutputOnlyAfterEndOfStream();
+    }
 }

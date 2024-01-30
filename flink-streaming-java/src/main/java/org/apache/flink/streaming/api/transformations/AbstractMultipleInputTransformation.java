@@ -86,4 +86,9 @@ public abstract class AbstractMultipleInputTransformation<OUT> extends PhysicalT
     public final void setChainingStrategy(ChainingStrategy strategy) {
         operatorFactory.setChainingStrategy(strategy);
     }
+
+    @Override
+    public boolean isOutputOnlyAfterEndOfStream() {
+        return operatorFactory.getOperatorAttributes().isOutputOnlyAfterEndOfStream();
+    }
 }
