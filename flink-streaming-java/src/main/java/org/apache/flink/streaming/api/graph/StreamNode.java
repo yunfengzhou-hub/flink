@@ -75,7 +75,7 @@ public class StreamNode {
     private KeySelector<?, ?>[] statePartitioners = new KeySelector[0];
     private TypeSerializer<?> stateKeySerializer;
 
-    private StreamOperatorFactory<?> operatorFactory;
+    private @Nullable StreamOperatorFactory<?> operatorFactory;
     private TypeSerializer<?>[] typeSerializersIn = new TypeSerializer[0];
     private TypeSerializer<?> typeSerializerOut;
 
@@ -103,7 +103,7 @@ public class StreamNode {
             Integer id,
             @Nullable String slotSharingGroup,
             @Nullable String coLocationGroup,
-            StreamOperator<?> operator,
+            @Nullable StreamOperator<?> operator,
             String operatorName,
             Class<? extends TaskInvokable> jobVertexClass) {
         this(
@@ -119,7 +119,7 @@ public class StreamNode {
             Integer id,
             @Nullable String slotSharingGroup,
             @Nullable String coLocationGroup,
-            StreamOperatorFactory<?> operatorFactory,
+            @Nullable StreamOperatorFactory<?> operatorFactory,
             String operatorName,
             Class<? extends TaskInvokable> jobVertexClass) {
         this.id = id;
@@ -441,5 +441,12 @@ public class StreamNode {
     public void setSupportsConcurrentExecutionAttempts(
             boolean supportsConcurrentExecutionAttempts) {
         this.supportsConcurrentExecutionAttempts = supportsConcurrentExecutionAttempts;
+    }
+
+    public boolean isOutputOnlyAfterEndOfStream() {
+        if (operatorFactory == null) {
+            return false;
+        }
+        return operatorFactory.getOperatorAttributes().isOutputOnlyAfterEndOfStream();
     }
 }
