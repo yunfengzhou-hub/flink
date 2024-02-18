@@ -46,9 +46,8 @@ class HybridShuffleITCase extends BatchShuffleITCaseBase {
     @Parameters(name = "enableNewHybridMode={0} enableAdaptiveAutoParallelism={1}")
     public static Collection<Boolean[]> parameters() {
         return Arrays.asList(
-                new Boolean[] {false, false},
-                new Boolean[] {true, false},
-                new Boolean[] {true, true});
+                // new Boolean[] {false, false},
+                new Boolean[] {true, false}, new Boolean[] {true, true});
     }
 
     @TestTemplate

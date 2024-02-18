@@ -50,7 +50,6 @@ import org.apache.flink.runtime.taskmanager.NettyShuffleEnvironmentConfiguration
 import org.apache.flink.runtime.throughput.BufferDebloatConfiguration;
 import org.apache.flink.runtime.throughput.BufferDebloater;
 import org.apache.flink.runtime.throughput.ThroughputCalculator;
-import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.clock.SystemClock;
 import org.apache.flink.util.function.SupplierWithException;
 
@@ -153,6 +152,16 @@ public class SingleInputGateFactory {
         boolean isSharedInputChannelSupported =
                 igdd.getConsumedPartitionType().isHybridResultPartition()
                         && tieredStorageConfiguration != null;
+        String maxNumSubpartitionPerInputChannelStr = System.getenv("SHUFFLE_SP_PER_CHANNEL");
+        if (maxNumSubpartitionPerInputChannelStr == null) {
+            maxNumSubpartitionPerInputChannelStr = "10000";
+        }
+        int maxNumSubpartitionPerInputChannel =
+                isSharedInputChannelSupported
+                        ? Integer.parseInt(maxNumSubpartitionPerInputChannelStr)
+                        : 1;
+        LOG.info("isSharedInputChannelSupported " + isSharedInputChannelSupported);
+        LOG.info("maxNumSubpartitionPerInputChannel " + maxNumSubpartitionPerInputChannel);
 
         GateBuffersSpec gateBuffersSpec =
                 createGateBuffersSpec(
@@ -163,7 +172,7 @@ public class SingleInputGateFactory {
                         calculateNumChannels(
                                 igdd.getShuffleDescriptors().length,
                                 igdd.getConsumedSubpartitionIndexRange().size(),
-                                isSharedInputChannelSupported),
+                                maxNumSubpartitionPerInputChannel),
                         tieredStorageConfiguration != null);
         SupplierWithException<BufferPool, IOException> bufferPoolFactory =
                 createBufferPoolFactory(
@@ -191,7 +200,7 @@ public class SingleInputGateFactory {
                         calculateNumChannels(
                                 igdd.getShuffleDescriptors().length,
                                 subpartitionIndexSet.size(),
-                                isSharedInputChannelSupported),
+                                maxNumSubpartitionPerInputChannel),
                         partitionProducerStateProvider,
                         bufferPoolFactory,
                         bufferDecompressor,
@@ -208,7 +217,7 @@ public class SingleInputGateFactory {
                 subpartitionIndexSet,
                 gateBuffersSpec,
                 metrics,
-                isSharedInputChannelSupported);
+                maxNumSubpartitionPerInputChannel);
         return inputGate;
     }
 
@@ -241,7 +250,7 @@ public class SingleInputGateFactory {
             ResultSubpartitionIndexSet subpartitionIndexSet,
             GateBuffersSpec gateBuffersSpec,
             InputChannelMetrics metrics,
-            boolean isSharedInputChannelSupported) {
+            int maxNumSubpartitionPerInputChannel) {
         ShuffleDescriptor[] shuffleDescriptors =
                 inputGateDeploymentDescriptor.getShuffleDescriptors();
 
@@ -251,7 +260,7 @@ public class SingleInputGateFactory {
                         [calculateNumChannels(
                                 shuffleDescriptors.length,
                                 subpartitionIndexSet.size(),
-                                isSharedInputChannelSupported)];
+                                maxNumSubpartitionPerInputChannel)];
 
         ChannelStatistics channelStatistics = new ChannelStatistics();
 
@@ -260,14 +269,23 @@ public class SingleInputGateFactory {
         for (ShuffleDescriptor descriptor : shuffleDescriptors) {
             TieredStoragePartitionId partitionId =
                     TieredStorageIdMappingUtils.convertId(descriptor.getResultPartitionID());
-            if (isSharedInputChannelSupported) {
+
+            for (int i = subpartitionIndexSet.getStartIndex();
+                    i <= subpartitionIndexSet.getEndIndex();
+                    i += maxNumSubpartitionPerInputChannel) {
+                ResultSubpartitionIndexSet indexSet =
+                        new ResultSubpartitionIndexSet(
+                                i,
+                                Math.min(
+                                        i + maxNumSubpartitionPerInputChannel - 1,
+                                        subpartitionIndexSet.getEndIndex()));
                 inputChannels[channelIdx] =
                         createInputChannel(
                                 inputGate,
                                 channelIdx,
                                 gateBuffersSpec.getEffectiveExclusiveBuffersPerChannel(),
                                 descriptor,
-                                subpartitionIndexSet,
+                                indexSet,
                                 channelStatistics,
                                 metrics);
                 if (tieredStorageConfiguration != null) {
@@ -275,29 +293,9 @@ public class SingleInputGateFactory {
                             new TieredStorageConsumerSpec(
                                     partitionId,
                                     new TieredStorageInputChannelId(channelIdx),
-                                    subpartitionIndexSet));
+                                    indexSet));
                 }
                 channelIdx++;
-            } else {
-                for (int subpartitionIndex : subpartitionIndexSet.values()) {
-                    inputChannels[channelIdx] =
-                            createInputChannel(
-                                    inputGate,
-                                    channelIdx,
-                                    gateBuffersSpec.getEffectiveExclusiveBuffersPerChannel(),
-                                    descriptor,
-                                    new ResultSubpartitionIndexSet(subpartitionIndex),
-                                    channelStatistics,
-                                    metrics);
-                    if (tieredStorageConfiguration != null) {
-                        tieredStorageConsumerSpecs.add(
-                                new TieredStorageConsumerSpec(
-                                        partitionId,
-                                        new TieredStorageInputChannelId(channelIdx),
-                                        new ResultSubpartitionIndexSet(subpartitionIndex)));
-                    }
-                    channelIdx++;
-                }
             }
         }
 
@@ -362,13 +360,14 @@ public class SingleInputGateFactory {
 
     private static int calculateNumChannels(
             int numShuffleDescriptors,
-            int numSubpartitions,
-            boolean isSharedInputChannelSupported) {
-        if (isSharedInputChannelSupported) {
-            return numShuffleDescriptors;
-        } else {
-            return MathUtils.checkedDownCast(((long) numShuffleDescriptors) * numSubpartitions);
+            long numSubpartitions,
+            long maxNumSubpartitionPerInputChannel) {
+        int count = 0;
+        for (int i = 0; i < numSubpartitions; i += maxNumSubpartitionPerInputChannel) {
+            count++;
         }
+
+        return numShuffleDescriptors * count;
     }
 
     @VisibleForTesting
