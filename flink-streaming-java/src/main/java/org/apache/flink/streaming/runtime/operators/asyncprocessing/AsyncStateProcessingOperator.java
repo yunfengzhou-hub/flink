@@ -20,6 +20,7 @@ package org.apache.flink.streaming.runtime.operators.asyncprocessing;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -53,4 +54,12 @@ public interface AsyncStateProcessingOperator extends AsyncStateProcessing {
      * @param processing the record processing logic.
      */
     void preserveRecordOrderAndProcess(ThrowingRunnable<Exception> processing);
+
+    default StreamElementSerializer<?> getSerialier() {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean isObjectReuseEnabled() {
+        return true;
+    }
 }

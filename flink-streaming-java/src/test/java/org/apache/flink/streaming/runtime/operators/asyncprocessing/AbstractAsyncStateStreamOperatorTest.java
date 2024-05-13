@@ -18,9 +18,15 @@
 
 package org.apache.flink.streaming.runtime.operators.asyncprocessing;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.tuple.Tuple1;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.asyncprocessing.AsyncExecutionController;
 import org.apache.flink.runtime.asyncprocessing.StateRequestType;
@@ -43,6 +49,11 @@ import org.apache.flink.util.function.ThrowingConsumer;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -207,6 +218,49 @@ class AbstractAsyncStateStreamOperatorTest {
         }
     }
 
+    @SuppressWarnings("rawtypes")
+    @Test
+    void testObjectReused() throws Exception {
+        TestOperatorForObjectReuse testOperator = new TestOperatorForObjectReuse();
+        try (KeyedOneInputStreamOperatorTestHarness<Integer, Tuple2<Integer, String>, String>
+                     testHarness = new KeyedOneInputStreamOperatorTestHarness<>(
+                             testOperator,
+                             new TestKeySelector(),
+                            BasicTypeInfo.INT_TYPE_INFO,
+                128, 1, 0)) {
+            testHarness.setStateBackend(buildAsyncStateBackend(new HashMapStateBackend()));
+            testHarness.getExecutionConfig().enableObjectReuse();
+
+            final long initialTime = 0L;
+            Tuple2<Integer, String> reusedTuple = new Tuple2<>();
+            StreamRecord<Tuple2<Integer, String>> reusedRecord = new StreamRecord<>(reusedTuple, -1L);
+
+            testHarness.setup();
+            testHarness.open();
+
+            synchronized (testHarness.getCheckpointLock()) {
+                reusedTuple.setFields(1, "a");
+                reusedRecord.setTimestamp(initialTime + 1);
+                testHarness.processElement(reusedRecord);
+
+                reusedTuple.setFields(2, "b");
+                reusedRecord.setTimestamp(initialTime + 2);
+                testHarness.processElement(reusedRecord);
+
+                reusedTuple.setFields(3, "c");
+                reusedRecord.setTimestamp(initialTime + 3);
+                testHarness.processElement(reusedRecord);
+
+                reusedTuple.setFields(4, "d");
+                reusedRecord.setTimestamp(initialTime + 4);
+                testHarness.processElement(reusedRecord);
+
+                testHarness.endInput();
+                testHarness.close();
+            }
+        }
+    }
+
     /** A simple testing operator. */
     private static class TestOperator extends AbstractAsyncStateStreamOperator<String>
             implements OneInputStreamOperator<Tuple2<Integer, String>, String>,
@@ -257,6 +311,17 @@ class AbstractAsyncStateStreamOperatorTest {
             synchronized (objectToWait) {
                 objectToWait.notify();
             }
+        }
+    }
+
+    private static class TestOperatorForObjectReuse extends AbstractAsyncStateStreamOperator<String>
+            implements OneInputStreamOperator<Tuple2<Integer, String>, String> {
+        private final List<StreamRecord<Tuple2<Integer, String>>> receivedRecords = new ArrayList<>();
+
+        @Override
+        public void processElement(StreamRecord<Tuple2<Integer, String>> element) {
+            assertThat(receivedRecords).doesNotContain(element);
+            receivedRecords.add(element);
         }
     }
 

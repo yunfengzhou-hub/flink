@@ -31,14 +31,17 @@ import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.state.AsyncKeyedStateBackend;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.KeyedStateBackend;
+import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.Input;
 import org.apache.flink.streaming.api.operators.InternalTimeServiceManager;
 import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
+import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
 import org.apache.flink.streaming.api.operators.Triggerable;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
+import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.util.function.ThrowingConsumer;
@@ -62,6 +65,34 @@ public abstract class AbstractAsyncStateStreamOperator<OUT> extends AbstractStre
     private RecordContext currentProcessingContext;
 
     private Environment environment;
+
+    /** Whether object reuse has been enabled or disabled. */
+    private transient boolean isObjectReuseEnabled;
+
+    /** {@link TypeSerializer} for inputs while making snapshots. */
+    private transient StreamElementSerializer<?> inStreamElementSerializer;
+
+    @Override
+    public void open() throws Exception {
+        super.open();
+        this.isObjectReuseEnabled = getExecutionConfig().isObjectReuseEnabled();
+    }
+
+    @Override
+    public void setup(
+            StreamTask<?, ?> containingTask,
+            StreamConfig config,
+            Output<StreamRecord<OUT>> output) {
+        super.setup(containingTask, config, output);
+        this.inStreamElementSerializer =
+                new StreamElementSerializer<>(
+                        getOperatorConfig().getTypeSerializerIn(0, getUserCodeClassloader()));
+    }
+
+    @Override
+    public StreamElementSerializer<?> getSerialier() {
+        return inStreamElementSerializer;
+    }
 
     /** Initialize necessary state components for {@link AbstractStreamOperator}. */
     @Override

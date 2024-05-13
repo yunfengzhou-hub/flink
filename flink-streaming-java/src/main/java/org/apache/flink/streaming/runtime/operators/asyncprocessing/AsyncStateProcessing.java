@@ -59,8 +59,16 @@ public interface AsyncStateProcessing {
         switch (asyncOperator.getElementOrder()) {
             case RECORD_ORDER:
                 return (record) -> {
-                    asyncOperator.setAsyncKeyedContextElement(record, keySelector);
-                    asyncOperator.preserveRecordOrderAndProcess(() -> processor.accept(record));
+                    StreamRecord<T> element;
+                    // copy the element avoid the element is reused
+                    if (asyncOperator.isObjectReuseEnabled()) {
+                        //noinspection unchecked
+                        element = (StreamRecord<T>) asyncOperator.getSerialier().copy(record);
+                    } else {
+                        element = record;
+                    }
+                    asyncOperator.setAsyncKeyedContextElement(element, keySelector);
+                    asyncOperator.preserveRecordOrderAndProcess(() -> processor.accept(element));
                     asyncOperator.postProcessElement();
                 };
             case FIRST_STATE_ORDER:
