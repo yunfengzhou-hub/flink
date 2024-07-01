@@ -50,6 +50,7 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
 
     @Override
     public void processElement(StreamRecord<IN> element) throws Exception {
+        output.collect(new StreamRecord<>(new Object()));
         sinkContext.element = element;
         userFunction.invoke(element.getValue(), sinkContext);
     }
