@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.functions;
 
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.operators.util.WatermarkStrategyWithPeriodicWatermarks;
 
 /**
  * A timestamp assigner that assigns timestamps based on the machine's wall clock.
@@ -28,7 +29,7 @@ import org.apache.flink.streaming.api.watermark.Watermark;
  * @param <T> The elements that get timestamps assigned.
  */
 @Deprecated
-public class IngestionTimeExtractor<T> implements AssignerWithPeriodicWatermarks<T> {
+public class IngestionTimeExtractor<T> implements WatermarkStrategyWithPeriodicWatermarks<T> {
     private static final long serialVersionUID = -4072216356049069301L;
 
     private long maxTimestamp;

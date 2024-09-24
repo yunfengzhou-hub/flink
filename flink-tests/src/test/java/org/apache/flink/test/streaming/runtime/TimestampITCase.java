@@ -37,8 +37,6 @@ import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
-import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.co.CoMapFunction;
 import org.apache.flink.streaming.api.functions.sink.v2.DiscardingSink;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
@@ -48,6 +46,8 @@ import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.runtime.operators.util.WatermarkStrategyWithPeriodicWatermarks;
+import org.apache.flink.streaming.runtime.operators.util.WatermarkStrategyWithPunctuatedWatermarks;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.ExceptionUtils;
@@ -445,7 +445,7 @@ public class TimestampITCase extends TestLogger {
                         });
 
         source1.assignTimestampsAndWatermarks(
-                        new AssignerWithPunctuatedWatermarks<Integer>() {
+                        new WatermarkStrategyWithPunctuatedWatermarks<Integer>() {
 
                             @Override
                             public long extractTimestamp(Integer element, long currentTimestamp) {
@@ -510,7 +510,7 @@ public class TimestampITCase extends TestLogger {
                         });
 
         source1.assignTimestampsAndWatermarks(
-                        new AssignerWithPunctuatedWatermarks<Integer>() {
+                        new WatermarkStrategyWithPunctuatedWatermarks<Integer>() {
 
                             @Override
                             public long extractTimestamp(Integer element, long previousTimestamp) {
@@ -579,7 +579,7 @@ public class TimestampITCase extends TestLogger {
                         });
 
         source1.assignTimestampsAndWatermarks(
-                        new AssignerWithPunctuatedWatermarks<Integer>() {
+                        new WatermarkStrategyWithPunctuatedWatermarks<Integer>() {
 
                             @Override
                             public long extractTimestamp(Integer element, long currentTimestamp) {
@@ -641,7 +641,7 @@ public class TimestampITCase extends TestLogger {
                         });
 
         source1.assignTimestampsAndWatermarks(
-                        new AssignerWithPeriodicWatermarks<Integer>() {
+                        new WatermarkStrategyWithPeriodicWatermarks<Integer>() {
 
                             @Override
                             public long extractTimestamp(Integer element, long currentTimestamp) {

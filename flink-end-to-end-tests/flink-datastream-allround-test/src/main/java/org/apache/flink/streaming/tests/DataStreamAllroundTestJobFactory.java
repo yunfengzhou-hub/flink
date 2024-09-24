@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.tests;
 
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -43,7 +44,6 @@ import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
-import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
@@ -422,22 +422,13 @@ public class DataStreamAllroundTestJobFactory {
                         SEQUENCE_GENERATOR_SRC_SLEEP_AFTER_ELEMENTS.defaultValue()));
     }
 
-    static BoundedOutOfOrdernessTimestampExtractor<Event> createTimestampExtractor(
-            ParameterTool pt) {
-        return new BoundedOutOfOrdernessTimestampExtractor<Event>(
+    static WatermarkStrategy<Event> createWatermarkStrategy(ParameterTool pt) {
+        return WatermarkStrategy.forBoundedOutOfOrderness(
                 Duration.ofMillis(
                         pt.getLong(
                                 SEQUENCE_GENERATOR_SRC_EVENT_TIME_MAX_OUT_OF_ORDERNESS.key(),
                                 SEQUENCE_GENERATOR_SRC_EVENT_TIME_MAX_OUT_OF_ORDERNESS
-                                        .defaultValue()))) {
-
-            private static final long serialVersionUID = -3154419724891779938L;
-
-            @Override
-            public long extractTimestamp(Event element) {
-                return element.getEventTime();
-            }
-        };
+                                        .defaultValue())));
     }
 
     static WindowedStream<Event, Integer, TimeWindow> applyTumblingWindows(

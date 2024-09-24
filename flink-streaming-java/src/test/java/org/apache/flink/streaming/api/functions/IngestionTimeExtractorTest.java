@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.functions;
 
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.operators.util.WatermarkStrategyWithPeriodicWatermarks;
 
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +30,7 @@ class IngestionTimeExtractorTest {
 
     @Test
     void testMonotonousTimestamps() {
-        AssignerWithPeriodicWatermarks<String> assigner = new IngestionTimeExtractor<>();
+        WatermarkStrategyWithPeriodicWatermarks<String> assigner = new IngestionTimeExtractor<>();
 
         long maxRecordSoFar = 0L;
         long maxWatermarkSoFar = 0L;
