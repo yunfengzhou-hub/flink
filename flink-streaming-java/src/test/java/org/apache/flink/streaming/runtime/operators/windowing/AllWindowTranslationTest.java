@@ -565,7 +565,7 @@ class AllWindowTranslationTest {
 
         DataStream<Tuple3<String, String, Integer>> window =
                 source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
-                        .apply(
+                        .reduce(
                                 reducer,
                                 new AllWindowFunction<
                                         Tuple2<String, Integer>,

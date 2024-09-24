@@ -642,27 +642,6 @@ public class WindowedStream<T, K, W extends Window> {
      *
      * @param reduceFunction The reduce function that is used for incremental aggregation.
      * @param function The window function.
-     * @return The data stream that is the result of applying the window function to the window.
-     * @deprecated Use {@link #reduce(ReduceFunction, WindowFunction)} instead.
-     */
-    @Deprecated
-    public <R> SingleOutputStreamOperator<R> apply(
-            ReduceFunction<T> reduceFunction, WindowFunction<T, R, K, W> function) {
-        TypeInformation<T> inType = input.getType();
-        TypeInformation<R> resultType = getWindowFunctionReturnType(function, inType);
-
-        return apply(reduceFunction, function, resultType);
-    }
-
-    /**
-     * Applies the given window function to each window. The window function is called for each
-     * evaluation of the window for each key individually. The output of the window function is
-     * interpreted as a regular non-windowed stream.
-     *
-     * <p>Arriving data is incrementally aggregated using the given reducer.
-     *
-     * @param reduceFunction The reduce function that is used for incremental aggregation.
-     * @param function The window function.
      * @param resultType Type information for the result type of the window function
      * @return The data stream that is the result of applying the window function to the window.
      * @deprecated Use {@link #reduce(ReduceFunction, WindowFunction, TypeInformation)} instead.
