@@ -361,8 +361,9 @@ class DataStreamTest {
     }
 
     /**
-     * Tests that {@link DataStream#keyBy} and {@link DataStream#partitionCustom(Partitioner, int)}
-     * result in different and correct topologies. Does the some for the {@link ConnectedStreams}.
+     * Tests that {@link DataStream#keyBy} and {@link DataStream#partitionCustom(Partitioner,
+     * KeySelector)} result in different and correct topologies. Does the some for the {@link
+     * ConnectedStreams}.
      */
     @Test
     void testPartitioning() {
@@ -431,9 +432,10 @@ class DataStreamTest {
                     }
                 };
 
-        DataStream<Tuple2<Long, Long>> customPartition1 = src1.partitionCustom(longPartitioner, 0);
+        DataStream<Tuple2<Long, Long>> customPartition1 =
+                src1.partitionCustom(longPartitioner, x -> x.f0);
         DataStream<Tuple2<Long, Long>> customPartition3 =
-                src1.partitionCustom(longPartitioner, "f0");
+                src1.partitionCustom(longPartitioner, x -> x.f0);
         DataStream<Tuple2<Long, Long>> customPartition4 =
                 src1.partitionCustom(longPartitioner, new FirstSelector());
 
