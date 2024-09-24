@@ -126,14 +126,4 @@ public final class Time {
     public static Time minutes(long minutes) {
         return of(minutes, TimeUnit.MINUTES);
     }
-
-    /** Creates a new {@link Time} that represents the given number of hours. */
-    public static Time hours(long hours) {
-        return of(hours, TimeUnit.HOURS);
-    }
-
-    /** Creates a new {@link Time} that represents the given number of days. */
-    public static Time days(long days) {
-        return of(days, TimeUnit.DAYS);
-    }
 }

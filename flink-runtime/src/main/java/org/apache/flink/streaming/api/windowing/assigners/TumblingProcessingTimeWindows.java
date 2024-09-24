@@ -181,24 +181,6 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
      * @param offset The offset which window start would be shifted by.
      * @param windowStagger The utility that produces staggering offset in runtime.
      * @return The time policy.
-     * @deprecated Use {@link #of(Duration, Duration, WindowStagger)}
-     */
-    @Deprecated
-    @PublicEvolving
-    public static TumblingProcessingTimeWindows of(
-            Time size, Time offset, WindowStagger windowStagger) {
-        return of(size.toDuration(), offset.toDuration(), windowStagger);
-    }
-
-    /**
-     * Creates a new {@code TumblingProcessingTimeWindows} {@link WindowAssigner} that assigns
-     * elements to time windows based on the element timestamp, offset and a staggering offset,
-     * depending on the staggering policy.
-     *
-     * @param size The size of the generated windows.
-     * @param offset The offset which window start would be shifted by.
-     * @param windowStagger The utility that produces staggering offset in runtime.
-     * @return The time policy.
      */
     @PublicEvolving
     public static TumblingProcessingTimeWindows of(

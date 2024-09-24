@@ -32,14 +32,13 @@ import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.transformations.OneInputTransformation;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.EventTimeTrigger;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,9 +64,9 @@ class TimeWindowTranslationTest {
 
         DataStream<Tuple2<String, Integer>> window1 =
                 source.keyBy(0)
-                        .timeWindow(
-                                Time.of(1000, TimeUnit.MILLISECONDS),
-                                Time.of(100, TimeUnit.MILLISECONDS))
+                        .window(
+                                SlidingEventTimeWindows.of(
+                                        Duration.ofMillis(1000), Duration.ofMillis(100)))
                         .reduce(reducer);
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple2<String, Integer>> transform1 =
@@ -79,7 +78,7 @@ class TimeWindowTranslationTest {
 
         DataStream<Tuple2<String, Integer>> window2 =
                 source.keyBy(0)
-                        .timeWindow(Time.of(1000, TimeUnit.MILLISECONDS))
+                        .window(TumblingEventTimeWindows.of(Duration.ofMillis(1000)))
                         .apply(
                                 new WindowFunction<
                                         Tuple2<String, Integer>,
@@ -116,9 +115,9 @@ class TimeWindowTranslationTest {
 
         DataStream<Tuple2<String, Integer>> window1 =
                 source.keyBy(0)
-                        .timeWindow(
-                                Time.of(1000, TimeUnit.MILLISECONDS),
-                                Time.of(100, TimeUnit.MILLISECONDS))
+                        .window(
+                                SlidingEventTimeWindows.of(
+                                        Duration.ofMillis(1000), Duration.ofMillis(100)))
                         .reduce(new DummyReducer());
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple2<String, Integer>> transform1 =
@@ -144,7 +143,7 @@ class TimeWindowTranslationTest {
 
         DataStream<Tuple2<String, Integer>> window1 =
                 source.keyBy(0)
-                        .timeWindow(Time.of(1000, TimeUnit.MILLISECONDS))
+                        .window(TumblingEventTimeWindows.of(Duration.ofMillis(1000)))
                         .apply(
                                 new WindowFunction<
                                         Tuple2<String, Integer>,

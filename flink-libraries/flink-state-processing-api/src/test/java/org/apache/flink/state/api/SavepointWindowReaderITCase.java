@@ -37,7 +37,6 @@ import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.evictors.Evictor;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.CountTrigger;
 import org.apache.flink.streaming.api.windowing.triggers.PurgingTrigger;
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
@@ -50,6 +49,7 @@ import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.time.Duration;
 import java.util.List;
 
 /** IT Case for reading window operator state. */
@@ -73,7 +73,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .reduce(new ReduceSum())
                 .uid(uid)
                 .sinkTo(new DiscardingSink<>());
@@ -85,7 +85,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                                 .reduce(uid, new ReduceSum(), Types.INT, Types.INT));
 
         Assert.assertThat(
@@ -106,7 +106,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .evictor(new NoOpEvictor<>())
                 .reduce(new ReduceSum())
                 .uid(uid)
@@ -119,7 +119,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                                 .evictor()
                                 .reduce(uid, new ReduceSum(), Types.INT, Types.INT));
 
@@ -141,7 +141,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .aggregate(new AggregateSum())
                 .uid(uid)
                 .sinkTo(new DiscardingSink<>());
@@ -153,7 +153,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                                 .aggregate(
                                         uid, new AggregateSum(), Types.INT, Types.INT, Types.INT));
 
@@ -175,7 +175,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .evictor(new NoOpEvictor<>())
                 .aggregate(new AggregateSum())
                 .uid(uid)
@@ -188,7 +188,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                                 .evictor()
                                 .aggregate(
                                         uid, new AggregateSum(), Types.INT, Types.INT, Types.INT));
@@ -211,7 +211,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .process(new NoOpProcessWindowFunction())
                 .uid(uid)
                 .sinkTo(new DiscardingSink<>());
@@ -223,7 +223,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                                 .process(
                                         uid,
                                         new BasicReaderFunction(),
@@ -249,7 +249,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .evictor(new NoOpEvictor<>())
                 .process(new NoOpProcessWindowFunction())
                 .uid(uid)
@@ -262,7 +262,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                                 .evictor()
                                 .process(
                                         uid,
@@ -289,7 +289,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .apply(new NoOpWindowFunction())
                 .uid(uid)
                 .sinkTo(new DiscardingSink<>());
@@ -301,7 +301,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                                 .process(
                                         uid,
                                         new BasicReaderFunction(),
@@ -327,7 +327,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
                         WatermarkStrategy.<Integer>noWatermarks()
                                 .withTimestampAssigner((event, timestamp) -> 0))
                 .keyBy(id -> id)
-                .window(TumblingEventTimeWindows.of(Time.milliseconds(10)))
+                .window(TumblingEventTimeWindows.of(Duration.ofMillis(10)))
                 .evictor(new NoOpEvictor<>())
                 .apply(new NoOpWindowFunction())
                 .uid(uid)
@@ -340,7 +340,7 @@ public abstract class SavepointWindowReaderITCase<B extends StateBackend>
         List<Integer> results =
                 JobResultRetriever.collect(
                         savepoint
-                                .window(TumblingEventTimeWindows.of(Time.milliseconds(1)))
+                                .window(TumblingEventTimeWindows.of(Duration.ofMillis(1)))
                                 .evictor()
                                 .process(
                                         uid,

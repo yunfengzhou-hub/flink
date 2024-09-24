@@ -181,22 +181,6 @@ public class TumblingEventTimeWindows extends WindowAssigner<Object, TimeWindow>
      * @param size The size of the generated windows.
      * @param offset The globalOffset which window start would be shifted by.
      * @param windowStagger The utility that produces staggering offset in runtime.
-     * @deprecated Use {@link #of(Duration, Duration, WindowStagger)}
-     */
-    @Deprecated
-    @PublicEvolving
-    public static TumblingEventTimeWindows of(Time size, Time offset, WindowStagger windowStagger) {
-        return of(size.toDuration(), offset.toDuration(), windowStagger);
-    }
-
-    /**
-     * Creates a new {@code TumblingEventTimeWindows} {@link WindowAssigner} that assigns elements
-     * to time windows based on the element timestamp, offset and a staggering offset, depending on
-     * the staggering policy.
-     *
-     * @param size The size of the generated windows.
-     * @param offset The globalOffset which window start would be shifted by.
-     * @param windowStagger The utility that produces staggering offset in runtime.
      */
     @PublicEvolving
     public static TumblingEventTimeWindows of(

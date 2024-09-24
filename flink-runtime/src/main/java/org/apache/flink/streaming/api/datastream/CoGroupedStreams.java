@@ -206,7 +206,7 @@ public class CoGroupedStreams<T1, T2> {
                         assigner,
                         null,
                         null,
-                        (Duration) null);
+                        null);
             }
         }
     }
@@ -241,33 +241,6 @@ public class CoGroupedStreams<T1, T2> {
         @Nullable private final Duration allowedLateness;
 
         private WindowedStream<TaggedUnion<T1, T2>, KEY, W> windowedStream;
-
-        /**
-         * @deprecated Use {@link WithWindow#WithWindow(DataStream, DataStream, KeySelector,
-         *     KeySelector, TypeInformation, WindowAssigner, Trigger, Evictor, Duration)}
-         */
-        @Deprecated
-        protected WithWindow(
-                DataStream<T1> input1,
-                DataStream<T2> input2,
-                KeySelector<T1, KEY> keySelector1,
-                KeySelector<T2, KEY> keySelector2,
-                TypeInformation<KEY> keyType,
-                WindowAssigner<? super TaggedUnion<T1, T2>, W> windowAssigner,
-                Trigger<? super TaggedUnion<T1, T2>, ? super W> trigger,
-                Evictor<? super TaggedUnion<T1, T2>, ? super W> evictor,
-                @Nullable Time allowedLateness) {
-            this(
-                    input1,
-                    input2,
-                    keySelector1,
-                    keySelector2,
-                    keyType,
-                    windowAssigner,
-                    trigger,
-                    evictor,
-                    Time.toDuration(allowedLateness));
-        }
 
         protected WithWindow(
                 DataStream<T1> input1,
@@ -463,14 +436,6 @@ public class CoGroupedStreams<T1, T2> {
         public <T> SingleOutputStreamOperator<T> with(
                 CoGroupFunction<T1, T2, T> function, TypeInformation<T> resultType) {
             return (SingleOutputStreamOperator<T>) apply(function, resultType);
-        }
-
-        /** @deprecated Use {@link #getAllowedLatenessDuration()} */
-        @Deprecated
-        @VisibleForTesting
-        @Nullable
-        Time getAllowedLateness() {
-            return getAllowedLatenessDuration().map(Time::of).orElse(null);
         }
 
         @VisibleForTesting

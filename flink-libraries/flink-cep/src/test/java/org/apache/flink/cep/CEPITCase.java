@@ -43,7 +43,6 @@ import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.watermark.Watermark;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.test.util.AbstractTestBaseJUnit4;
 import org.apache.flink.types.Either;
 import org.apache.flink.util.CloseableIterator;
@@ -424,7 +423,7 @@ public class CEPITCase extends AbstractTestBaseJUnit4 {
         Pattern<Integer, ?> pattern =
                 Pattern.<Integer>begin("start")
                         .followedByAny("end")
-                        .within(Time.days(1), withinType);
+                        .within(Duration.ofDays(1), withinType);
 
         DataStream<Integer> result =
                 CEP.pattern(input, pattern)
@@ -491,7 +490,7 @@ public class CEPITCase extends AbstractTestBaseJUnit4 {
                         .where(SimpleCondition.of(value -> value.getName().equals("middle")))
                         .followedByAny("end")
                         .where(SimpleCondition.of(value -> value.getName().equals("end")))
-                        .within(Time.milliseconds(3));
+                        .within(Duration.ofMillis(3));
 
         DataStream<Either<String, String>> result =
                 CEP.pattern(input, pattern)
@@ -581,7 +580,7 @@ public class CEPITCase extends AbstractTestBaseJUnit4 {
                         .where(SimpleCondition.of(value -> value.getName().equals("middle")))
                         .followedByAny("end")
                         .where(SimpleCondition.of(value -> value.getName().equals("end")))
-                        .within(Time.milliseconds(3), WithinType.PREVIOUS_AND_CURRENT);
+                        .within(Duration.ofMillis(3), WithinType.PREVIOUS_AND_CURRENT);
 
         DataStream<Either<String, String>> result =
                 CEP.pattern(input, pattern)
@@ -1082,7 +1081,7 @@ public class CEPITCase extends AbstractTestBaseJUnit4 {
                                         }
                                     }
                                 })
-                        .within(Time.milliseconds(100L));
+                        .within(Duration.ofMillis(100L));
 
         DataStream<String> result =
                 CEP.pattern(input, pattern)

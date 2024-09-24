@@ -44,7 +44,6 @@ import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindo
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.evictors.CountEvictor;
 import org.apache.flink.streaming.api.windowing.evictors.TimeEvictor;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.CountTrigger;
 import org.apache.flink.streaming.api.windowing.triggers.EventTimeTrigger;
 import org.apache.flink.streaming.api.windowing.triggers.ProcessingTimeTrigger;
@@ -57,7 +56,7 @@ import org.apache.flink.util.Collector;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -91,8 +90,8 @@ class AllWindowTranslationTest {
                         () ->
                                 source.windowAll(
                                                 SlidingEventTimeWindows.of(
-                                                        Time.of(1, TimeUnit.SECONDS),
-                                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                                        Duration.ofSeconds(1),
+                                                        Duration.ofMillis(100)))
                                         .reduce(
                                                 new RichReduceFunction<Tuple2<String, Integer>>() {
                                                     private static final long serialVersionUID =
@@ -123,8 +122,8 @@ class AllWindowTranslationTest {
                         () ->
                                 source.windowAll(
                                                 SlidingEventTimeWindows.of(
-                                                        Time.of(1, TimeUnit.SECONDS),
-                                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                                        Duration.ofSeconds(1),
+                                                        Duration.ofMillis(100)))
                                         .aggregate(new DummyRichAggregationFunction<>()))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
@@ -141,7 +140,9 @@ class AllWindowTranslationTest {
         assertThatThrownBy(
                         () ->
                                 env.fromData("Hello", "Ciao")
-                                        .windowAll(EventTimeSessionWindows.withGap(Time.seconds(5)))
+                                        .windowAll(
+                                                EventTimeSessionWindows.withGap(
+                                                        Duration.ofSeconds(5)))
                                         .trigger(
                                                 new Trigger<String, TimeWindow>() {
                                                     private static final long serialVersionUID =
@@ -200,7 +201,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple3<String, String, Integer>> window1 =
-                source.windowAll(EventTimeSessionWindows.withGap(Time.seconds(5)))
+                source.windowAll(EventTimeSessionWindows.withGap(Duration.ofSeconds(5)))
                         .evictor(CountEvictor.of(5))
                         .process(new TestProcessAllWindowFunction());
 
@@ -238,8 +239,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingEventTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .reduce(new DummyReducer());
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple2<String, Integer>> transform =
@@ -272,8 +272,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingProcessingTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .reduce(new DummyReducer());
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple2<String, Integer>> transform =
@@ -307,7 +306,7 @@ class AllWindowTranslationTest {
         DummyReducer reducer = new DummyReducer();
 
         DataStream<Tuple3<String, String, Integer>> window =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .reduce(
                                 reducer,
                                 new AllWindowFunction<
@@ -356,7 +355,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple3<String, String, Integer>> window =
-                source.windowAll(TumblingProcessingTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingProcessingTimeWindows.of(Duration.ofSeconds(1)))
                         .reduce(
                                 new DummyReducer(),
                                 new AllWindowFunction<
@@ -408,7 +407,7 @@ class AllWindowTranslationTest {
         DummyReducer reducer = new DummyReducer();
 
         DataStream<Tuple3<String, String, Integer>> window =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .reduce(
                                 reducer,
                                 new ProcessAllWindowFunction<
@@ -457,7 +456,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple3<String, String, Integer>> window =
-                source.windowAll(TumblingProcessingTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingProcessingTimeWindows.of(Duration.ofSeconds(1)))
                         .reduce(
                                 new DummyReducer(),
                                 new ProcessAllWindowFunction<
@@ -511,8 +510,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingEventTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .evictor(CountEvictor.of(100))
                         .reduce(
                                 reducer,
@@ -564,7 +562,7 @@ class AllWindowTranslationTest {
         DummyReducer reducer = new DummyReducer();
 
         DataStream<Tuple3<String, String, Integer>> window =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .reduce(
                                 reducer,
                                 new AllWindowFunction<
@@ -618,8 +616,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingEventTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .aggregate(new DummyAggregationFunction());
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple2<String, Integer>> transform =
@@ -654,8 +651,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingProcessingTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .aggregate(new DummyAggregationFunction());
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple2<String, Integer>> transform =
@@ -689,7 +685,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple3<String, String, Integer>> window =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .aggregate(new DummyAggregationFunction(), new TestAllWindowFunction());
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple3<String, String, Integer>> transform =
@@ -722,7 +718,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple3<String, String, Integer>> window =
-                source.windowAll(TumblingProcessingTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingProcessingTimeWindows.of(Duration.ofSeconds(1)))
                         .aggregate(new DummyAggregationFunction(), new TestAllWindowFunction());
 
         OneInputTransformation<Tuple2<String, Integer>, Tuple3<String, String, Integer>> transform =
@@ -758,8 +754,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingEventTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .evictor(CountEvictor.of(100))
                         .aggregate(new DummyAggregationFunction());
 
@@ -795,8 +790,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingEventTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .evictor(CountEvictor.of(100))
                         .aggregate(
                                 new DummyAggregationFunction(),
@@ -851,7 +845,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .process(
                                 new ProcessAllWindowFunction<
                                         Tuple2<String, Integer>,
@@ -899,7 +893,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingProcessingTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingProcessingTimeWindows.of(Duration.ofSeconds(1)))
                         .process(
                                 new ProcessAllWindowFunction<
                                         Tuple2<String, Integer>,
@@ -948,9 +942,9 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .trigger(CountTrigger.of(1))
-                        .evictor(TimeEvictor.of(Time.of(100, TimeUnit.MILLISECONDS)))
+                        .evictor(TimeEvictor.of(Duration.ofMillis(100)))
                         .process(
                                 new ProcessAllWindowFunction<
                                         Tuple2<String, Integer>,
@@ -999,7 +993,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .trigger(CountTrigger.of(1))
                         .process(
                                 new ProcessAllWindowFunction<
@@ -1052,7 +1046,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .apply(
                                 new AllWindowFunction<
                                         Tuple2<String, Integer>,
@@ -1100,7 +1094,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingProcessingTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingProcessingTimeWindows.of(Duration.ofSeconds(1)))
                         .apply(
                                 new AllWindowFunction<
                                         Tuple2<String, Integer>,
@@ -1153,8 +1147,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingEventTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .trigger(CountTrigger.of(1))
                         .reduce(reducer);
 
@@ -1186,7 +1179,7 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .trigger(CountTrigger.of(1))
                         .apply(
                                 new AllWindowFunction<
@@ -1239,8 +1232,7 @@ class AllWindowTranslationTest {
         DataStream<Tuple2<String, Integer>> window1 =
                 source.windowAll(
                                 SlidingEventTimeWindows.of(
-                                        Time.of(1, TimeUnit.SECONDS),
-                                        Time.of(100, TimeUnit.MILLISECONDS)))
+                                        Duration.ofSeconds(1), Duration.ofMillis(100)))
                         .evictor(CountEvictor.of(100))
                         .reduce(reducer);
 
@@ -1273,9 +1265,9 @@ class AllWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.windowAll(TumblingEventTimeWindows.of(Time.of(1, TimeUnit.SECONDS)))
+                source.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(1)))
                         .trigger(CountTrigger.of(1))
-                        .evictor(TimeEvictor.of(Time.of(100, TimeUnit.MILLISECONDS)))
+                        .evictor(TimeEvictor.of(Duration.ofMillis(100)))
                         .apply(
                                 new AllWindowFunction<
                                         Tuple2<String, Integer>,
