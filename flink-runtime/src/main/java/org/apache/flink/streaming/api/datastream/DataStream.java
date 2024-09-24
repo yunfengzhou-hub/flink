@@ -340,7 +340,7 @@ public class DataStream<T> {
         return keyBy(new Keys.ExpressionKeys<>(fields, getType()));
     }
 
-    private KeyedStream<T, Tuple> keyBy(Keys<T> keys) {
+    protected KeyedStream<T, Tuple> keyBy(Keys<T> keys) {
         return new KeyedStream<>(
                 this,
                 clean(KeySelectorUtil.getSelectorForKeys(keys, getType(), getExecutionConfig())));

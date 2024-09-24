@@ -373,9 +373,9 @@ class DataStreamTest {
         ConnectedStreams<Tuple2<Long, Long>, Tuple2<Long, Long>> connected = src1.connect(src2);
 
         // Testing DataStream grouping
-        DataStream<Tuple2<Long, Long>> group1 = src1.keyBy(0);
-        DataStream<Tuple2<Long, Long>> group2 = src1.keyBy(1, 0);
-        DataStream<Tuple2<Long, Long>> group3 = src1.keyBy("f0");
+        DataStream<Tuple2<Long, Long>> group1 = src1.keyBy(x -> x.f0);
+        DataStream<Tuple2<Long, Long>> group2 = src1.keyBy(x -> Tuple2.of(x.f1, x.f0));
+        DataStream<Tuple2<Long, Long>> group3 = src1.keyBy(x -> x.f0);
         DataStream<Tuple2<Long, Long>> group4 = src1.keyBy(new FirstSelector());
 
         int id1 = createDownStreamId(group1);
@@ -398,9 +398,9 @@ class DataStreamTest {
         assertThat(isKeyed(group4)).isTrue();
 
         // Testing DataStream partitioning
-        DataStream<Tuple2<Long, Long>> partition1 = src1.keyBy(0);
-        DataStream<Tuple2<Long, Long>> partition2 = src1.keyBy(1, 0);
-        DataStream<Tuple2<Long, Long>> partition3 = src1.keyBy("f0");
+        DataStream<Tuple2<Long, Long>> partition1 = src1.keyBy(x -> x.f0);
+        DataStream<Tuple2<Long, Long>> partition2 = src1.keyBy(x -> Tuple2.of(x.f1, x.f0));
+        DataStream<Tuple2<Long, Long>> partition3 = src1.keyBy(x -> x.f0);
         DataStream<Tuple2<Long, Long>> partition4 = src1.keyBy(new FirstSelector());
 
         int pid1 = createDownStreamId(partition1);
@@ -1608,7 +1608,7 @@ class DataStreamTest {
                         PrimitiveArrayTypeInfo.INT_PRIMITIVE_ARRAY_TYPE_INFO);
 
         // adjust the rule
-        assertThatThrownBy(() -> input.keyBy("id"))
+        assertThatThrownBy(() -> input.keyBy(POJOWithoutHashCode::getId))
                 .isInstanceOf(InvalidProgramException.class)
                 .hasMessageStartingWith("Type " + expectedTypeInfo + " cannot be used as key.");
     }

@@ -22,7 +22,6 @@ import org.apache.flink.api.common.functions.OpenContext;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
-import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.CheckpointingOptions;
@@ -94,7 +93,7 @@ public class KeyedJob {
 
     public static SingleOutputStreamOperator<Integer> createWindowFunction(
             ExecutionMode mode, DataStream<Tuple2<Integer, Integer>> input) {
-        return input.keyBy(0)
+        return input.keyBy(x -> x.f0)
                 .countWindow(1)
                 .apply(new StatefulWindowFunction(mode))
                 .setParallelism(4)
@@ -160,7 +159,7 @@ public class KeyedJob {
     }
 
     private static final class StatefulWindowFunction
-            extends RichWindowFunction<Tuple2<Integer, Integer>, Integer, Tuple, GlobalWindow> {
+            extends RichWindowFunction<Tuple2<Integer, Integer>, Integer, Integer, GlobalWindow> {
 
         private static final long serialVersionUID = -7236313076792964055L;
 
@@ -182,7 +181,7 @@ public class KeyedJob {
 
         @Override
         public void apply(
-                Tuple key,
+                Integer key,
                 GlobalWindow window,
                 Iterable<Tuple2<Integer, Integer>> values,
                 Collector<Integer> out)

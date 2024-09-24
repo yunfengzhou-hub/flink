@@ -220,11 +220,11 @@ public class StatefulJobSnapshotMigrationITCase extends SnapshotMigrationTestBas
 
         env.addSource(nonParallelSource)
                 .uid("CheckpointingSource1")
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .flatMap(flatMap)
                 .startNewChain()
                 .uid("CheckpointingKeyedStateFlatMap1")
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .transform(
                         "timely_stateful_operator",
                         new TypeHint<Tuple2<Long, Long>>() {}.getTypeInfo(),
@@ -234,11 +234,11 @@ public class StatefulJobSnapshotMigrationITCase extends SnapshotMigrationTestBas
 
         env.addSource(parallelSource)
                 .uid("CheckpointingSource2")
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .flatMap(flatMap)
                 .startNewChain()
                 .uid("CheckpointingKeyedStateFlatMap2")
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .transform(
                         "timely_stateful_operator",
                         new TypeHint<Tuple2<Long, Long>>() {}.getTypeInfo(),

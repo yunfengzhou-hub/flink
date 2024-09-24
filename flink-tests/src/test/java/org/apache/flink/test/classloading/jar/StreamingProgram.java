@@ -36,7 +36,7 @@ public class StreamingProgram {
 
         DataStream<String> text = env.fromData(WordCountData.TEXT).rebalance();
 
-        DataStream<Word> counts = text.flatMap(new Tokenizer()).keyBy("word").sum("frequency");
+        DataStream<Word> counts = text.flatMap(new Tokenizer()).keyBy(x -> x.word).sum("frequency");
 
         counts.sinkTo(new DiscardingSink<>());
 

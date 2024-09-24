@@ -21,7 +21,6 @@ package org.apache.flink.streaming.runtime.operators.windowing;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.ReducingStateDescriptor;
-import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -63,7 +62,7 @@ class TimeWindowTranslationTest {
         DummyReducer reducer = new DummyReducer();
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.keyBy(0)
+                source.keyBy(x -> x.f0)
                         .window(
                                 SlidingEventTimeWindows.of(
                                         Duration.ofMillis(1000), Duration.ofMillis(100)))
@@ -77,19 +76,19 @@ class TimeWindowTranslationTest {
         assertThat(operator1).isInstanceOf(WindowOperator.class);
 
         DataStream<Tuple2<String, Integer>> window2 =
-                source.keyBy(0)
+                source.keyBy(x -> x.f0)
                         .window(TumblingEventTimeWindows.of(Duration.ofMillis(1000)))
                         .apply(
                                 new WindowFunction<
                                         Tuple2<String, Integer>,
                                         Tuple2<String, Integer>,
-                                        Tuple,
+                                        String,
                                         TimeWindow>() {
                                     private static final long serialVersionUID = 1L;
 
                                     @Override
                                     public void apply(
-                                            Tuple tuple,
+                                            String str,
                                             TimeWindow window,
                                             Iterable<Tuple2<String, Integer>> values,
                                             Collector<Tuple2<String, Integer>> out)
@@ -114,7 +113,7 @@ class TimeWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.keyBy(0)
+                source.keyBy(x -> x.f0)
                         .window(
                                 SlidingEventTimeWindows.of(
                                         Duration.ofMillis(1000), Duration.ofMillis(100)))
@@ -142,19 +141,19 @@ class TimeWindowTranslationTest {
                 env.fromData(Tuple2.of("hello", 1), Tuple2.of("hello", 2));
 
         DataStream<Tuple2<String, Integer>> window1 =
-                source.keyBy(0)
+                source.keyBy(x -> x.f0)
                         .window(TumblingEventTimeWindows.of(Duration.ofMillis(1000)))
                         .apply(
                                 new WindowFunction<
                                         Tuple2<String, Integer>,
                                         Tuple2<String, Integer>,
-                                        Tuple,
+                                        String,
                                         TimeWindow>() {
                                     private static final long serialVersionUID = 1L;
 
                                     @Override
                                     public void apply(
-                                            Tuple tuple,
+                                            String str,
                                             TimeWindow window,
                                             Iterable<Tuple2<String, Integer>> values,
                                             Collector<Tuple2<String, Integer>> out)

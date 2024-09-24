@@ -70,7 +70,7 @@ public class ManualWindowSpeedITCase extends AbstractTestBaseJUnit4 {
 
         env.addSource(new InfiniteTupleSource(1_000))
                 .assignTimestampsAndWatermarks(IngestionTimeWatermarkStrategy.create())
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .window(TumblingEventTimeWindows.of(Duration.ofSeconds(3)))
                 .reduce(
                         new ReduceFunction<Tuple2<String, Integer>>() {
@@ -108,7 +108,7 @@ public class ManualWindowSpeedITCase extends AbstractTestBaseJUnit4 {
 
         env.addSource(new InfiniteTupleSource(10_000))
                 .assignTimestampsAndWatermarks(IngestionTimeWatermarkStrategy.create())
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .window(TumblingEventTimeWindows.of(Duration.ofSeconds(3)))
                 .allowedLateness(Duration.ofSeconds(1))
                 .reduce(
@@ -146,7 +146,7 @@ public class ManualWindowSpeedITCase extends AbstractTestBaseJUnit4 {
 
         env.addSource(new InfiniteTupleSource(10_000))
                 .assignTimestampsAndWatermarks(IngestionTimeWatermarkStrategy.create())
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .window(TumblingEventTimeWindows.of(Duration.ofSeconds(3)))
                 .reduce(
                         new ReduceFunction<Tuple2<String, Integer>>() {
@@ -183,7 +183,7 @@ public class ManualWindowSpeedITCase extends AbstractTestBaseJUnit4 {
 
         env.addSource(new InfiniteTupleSource(10_000))
                 .assignTimestampsAndWatermarks(IngestionTimeWatermarkStrategy.create())
-                .keyBy(0)
+                .keyBy(x -> x.f0)
                 .window(TumblingEventTimeWindows.of(Duration.ofSeconds(3)))
                 .allowedLateness(Duration.ofSeconds(1))
                 .reduce(

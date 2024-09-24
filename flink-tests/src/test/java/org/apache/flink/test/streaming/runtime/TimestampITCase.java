@@ -699,7 +699,7 @@ public class TimestampITCase extends TestLogger {
         DataStream<Tuple2<String, Integer>> source1 =
                 env.fromData(new Tuple2<>("a", 1), new Tuple2<>("b", 2));
 
-        source1.keyBy(0)
+        source1.keyBy(x -> x.f0)
                 .window(TumblingEventTimeWindows.of(Duration.ofSeconds(5)))
                 .reduce(
                         new ReduceFunction<Tuple2<String, Integer>>() {
@@ -729,7 +729,7 @@ public class TimestampITCase extends TestLogger {
         DataStream<Tuple2<String, Integer>> source1 =
                 env.fromData(new Tuple2<>("a", 1), new Tuple2<>("b", 2));
 
-        source1.keyBy(0)
+        source1.keyBy(x -> x.f0)
                 .window(TumblingEventTimeWindows.of(Duration.ofSeconds(5)))
                 .reduce(
                         new ReduceFunction<Tuple2<String, Integer>>() {

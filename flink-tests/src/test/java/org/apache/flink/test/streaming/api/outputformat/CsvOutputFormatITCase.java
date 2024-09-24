@@ -39,7 +39,8 @@ public class CsvOutputFormatITCase extends AbstractTestBaseJUnit4 {
 
         DataStream<String> text = env.fromData(WordCountData.TEXT);
 
-        DataStream<Tuple2<String, Integer>> counts = text.flatMap(new Tokenizer()).keyBy(0).sum(1);
+        DataStream<Tuple2<String, Integer>> counts =
+                text.flatMap(new Tokenizer()).keyBy(x -> x.f0).sum(1);
 
         counts.writeAsCsv(resultPath);
 
